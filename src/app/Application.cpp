@@ -1,0 +1,67 @@
+#include "app/Application.h"
+
+#include "app/ApplicationController.h"
+#include "app/QmlPresenter.h"
+#include "dictionary/DictionaryService.h"
+#include "infrastructure/UnixSignalHandler.h"
+#include "infrastructure/database/SqliteDictionaryRepository.h"
+#include "infrastructure/logging/Logging.h"
+#include "kde/selection/KdeSelectionProvider.h"
+#include "kde/session/KdeSession.h"
+#include "kde/shortcuts/KGlobalAccelShortcutService.h"
+#include "kde/tray/KStatusNotifierTrayService.h"
+
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QTimer>
+
+namespace Lexicon {
+
+Application::Application(Config config) : m_config(std::move(config)) {
+    m_engine = std::make_unique<QQmlApplicationEngine>();
+    m_engine->rootContext()->setContextProperty(QStringLiteral("config"), m_config.toVariantMap());
+    m_engine->rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
+
+    m_engine->load(QUrl(QStringLiteral("qrc:/ui/Main.qml")));
+    if (m_engine->rootObjects().isEmpty()) {
+        qCCritical(lexiconUi) << "event=qml_load_failed path=qrc:/ui/Main.qml";
+    } else {
+        m_qmlReady = true;
+    }
+
+    m_presenter = std::make_unique<QmlPresenter>(*m_engine, m_config);
+
+    auto dictionary = std::make_unique<DictionaryService>(
+        std::make_unique<SqliteDictionaryRepository>(m_config.resolvedDatabasePath()));
+
+    m_session = std::make_unique<KdeSession>();
+    m_signals = std::make_unique<UnixSignalHandler>();
+
+    m_controller = std::make_unique<ApplicationController>(
+        m_config, std::move(dictionary), std::make_unique<KdeSelectionProvider>(),
+        std::make_unique<KGlobalAccelShortcutService>(), std::make_unique<KStatusNotifierTrayService>(), *m_presenter);
+
+    QObject::connect(m_signals.get(), &UnixSignalHandler::terminationRequested, m_controller.get(),
+                     &ApplicationController::quit);
+    QObject::connect(m_session.get(), &KdeSession::activationRequested, m_controller.get(),
+                     &ApplicationController::showSettings);
+}
+
+Application::~Application() = default;
+
+int Application::run(const QString& initialLookup) {
+    if (!m_qmlReady) {
+        return 1;
+    }
+
+    m_controller->start();
+    if (!initialLookup.isEmpty()) {
+        QTimer::singleShot(0, m_controller.get(),
+                           [controller = m_controller.get(), initialLookup] { controller->lookupWord(initialLookup); });
+    }
+
+    return QGuiApplication::exec();
+}
+
+} // namespace Lexicon

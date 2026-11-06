@@ -1,0 +1,42 @@
+# Lexicon configuration
+# Copy to $XDG_CONFIG_HOME/lexicon/config.toml (usually ~/.config/lexicon/config.toml).
+# Unknown keys and invalid values are reported in the log; invalid values keep their defaults.
+
+[general]
+start_on_login = false
+offline_first = true
+
+[interaction]
+# Stage 1 supports only "global_shortcut".
+activation = "global_shortcut"
+# Clipboard fallback is reserved for a later release and is currently unused.
+clipboard_fallback = false
+dismiss_on_escape = true
+dismiss_on_outside_click = true
+
+[hotkeys]
+# KGlobalAccel shortcut. SUPER is normalized to Meta.
+lookup = "SUPER+SHIFT+D"
+
+[appearance]
+# "dark", "light", or "system". System is a supported value but currently behaves like dark; desktop theme probing is not implemented yet.
+theme = "dark"
+# Popup width in logical pixels, clamped to 240..1200.
+popup_width = 360
+# "none" or "subtle".
+animation = "subtle"
+# "near_selection", "center", or "cursor". Selection coordinates are not available yet,
+# so near_selection currently behaves like cursor placement.
+position = "near_selection"
+
+[dictionary]
+# Empty means $XDG_DATA_HOME/lexicon/dictionaries/en.sqlite.
+# Relative paths are resolved against this file's directory.
+database_path = ""
+show_pronunciation = true
+# Stage 1 supports only "respelling".
+pronunciation_style = "respelling"
+
+[performance]
+cache_enabled = true
+lazy_initialize = true

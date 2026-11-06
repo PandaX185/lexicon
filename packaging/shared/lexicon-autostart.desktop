@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Lexicon
+Comment=Start the Lexicon dictionary background service
+Exec=lexicon
+Icon=lexicon
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

@@ -1,0 +1,6 @@
+add_subdirectory(core)
+add_subdirectory(dictionary)
+add_subdirectory(infrastructure)
+add_subdirectory(config)
+add_subdirectory(kde)
+add_subdirectory(app)
