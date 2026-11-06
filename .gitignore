@@ -1,0 +1,31 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+
+# IDE / editor
+.idea/
+.vscode/
+*.user
+*.kdev4/
+compile_commands.json
+
+# Local runtime data
+*.sqlite
+*.sqlite3
+*.db
+!data/dictionaries/*.sql
+
+# Packaging artifacts
+packaging/arch/src/
+packaging/arch/pkg/
+*.tar.gz
+*.tar.xz
+*.tar.zst
+
+# Tooling
+.cache/
+.direnv/
+result
+result-*
+.freebuff/

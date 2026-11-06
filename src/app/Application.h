@@ -1,0 +1,35 @@
+#pragma once
+
+#include "config/Config.h"
+
+#include <QString>
+
+#include <memory>
+
+class QQmlApplicationEngine;
+
+namespace Lexicon {
+
+class ApplicationController;
+class KdeSession;
+class QmlPresenter;
+class UnixSignalHandler;
+
+class Application final {
+  public:
+    explicit Application(Config config);
+    ~Application();
+
+    int run(const QString& initialLookup = {});
+
+  private:
+    Config m_config;
+    std::unique_ptr<QQmlApplicationEngine> m_engine;
+    std::unique_ptr<QmlPresenter> m_presenter;
+    std::unique_ptr<ApplicationController> m_controller;
+    std::unique_ptr<KdeSession> m_session;
+    std::unique_ptr<UnixSignalHandler> m_signals;
+    bool m_qmlReady = false;
+};
+
+} // namespace Lexicon

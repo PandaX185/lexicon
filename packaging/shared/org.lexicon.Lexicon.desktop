@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Lexicon
+GenericName=Dictionary
+Comment=Look up English words in an offline dictionary
+Exec=lexicon
+Icon=lexicon
+Terminal=false
+Categories=Utility;Dictionary;Education;
+Keywords=dictionary;dictionary lookup;english;offline;definition;
+StartupNotify=false
+X-KDE-StartupNotify=false
+X-KDE-FormFactor=desktop;tablet;
