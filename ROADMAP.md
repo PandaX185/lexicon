@@ -25,6 +25,7 @@
 - [ ] Redistributable dictionary packaging and attribution
 - [ ] Installer/first-run flow for dictionary content
 - [ ] Editable settings backed by `config.toml`
+- [ ] Opt-in per-user autostart management for `start_on_login`
 - [ ] Lookup cache with bounded size
 - [ ] Packaging for Arch, Flatpak, and a release artifact
 
@@ -35,3 +36,19 @@
 - [ ] Theming integration with Plasma
 - [ ] Localization
 - [ ] Crash reporting and privacy review
+
+## Stage 5: testing and continuous integration
+
+Implemented ahead of Stage 2 so later work lands on a reliable baseline.
+
+- [x] Unit, integration, and QML smoke tests registered with CTest labels
+- [x] Header-only fakes, SQLite fixture, and scoped environment helpers
+- [x] GCC and Clang builds with warnings as errors
+- [x] clang-format and clang-tidy gates
+- [x] Qt 6 `qmllint` integration through a CMake target
+- [x] Coverage-instrumented builds with gcovr XML and HTML reports
+- [x] AddressSanitizer and UndefinedBehaviorSanitizer test runs
+- [x] Install-tree verification, including the autostart template location
+- [x] GitHub Actions pipeline for all of the above
+- [ ] KDE-labelled tests against a live Plasma session (tracked in Stage 2)
+- [ ] Enforced coverage thresholds in CI

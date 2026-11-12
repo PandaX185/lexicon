@@ -49,6 +49,45 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_COMPILER": "clang++"
       }
+    },
+    {
+      "name": "ci-gcc",
+      "displayName": "CI GCC Debug (warnings as errors)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "g++",
+        "LEXICON_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "ci-clang",
+      "displayName": "CI Clang Debug (warnings as errors)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "LEXICON_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "ci-asan",
+      "displayName": "CI AddressSanitizer and UndefinedBehaviorSanitizer",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LEXICON_ENABLE_SANITIZERS": "ON",
+        "LEXICON_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Coverage (GCC)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LEXICON_ENABLE_COVERAGE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -63,6 +102,26 @@
     {
       "name": "dev-debug-asan",
       "configurePreset": "dev-debug-asan"
+    },
+    {
+      "name": "lint",
+      "configurePreset": "lint"
+    },
+    {
+      "name": "ci-gcc",
+      "configurePreset": "ci-gcc"
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang"
+    },
+    {
+      "name": "ci-asan",
+      "configurePreset": "ci-asan"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     }
   ],
   "testPresets": [
@@ -105,6 +164,82 @@
     {
       "name": "dev-debug-asan",
       "configurePreset": "dev-debug-asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "timeout": 180
+      },
+      "filter": {
+        "exclude": {
+          "labels": [
+            "kde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "configurePreset": "ci-gcc",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "timeout": 180
+      },
+      "filter": {
+        "exclude": {
+          "labels": [
+            "kde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "timeout": 180
+      },
+      "filter": {
+        "exclude": {
+          "labels": [
+            "kde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ci-asan",
+      "configurePreset": "ci-asan",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      },
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "timeout": 180
+      },
+      "filter": {
+        "exclude": {
+          "labels": [
+            "kde"
+          ]
+        }
+      }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
       "output": {
         "outputOnFailure": true
       },

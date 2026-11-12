@@ -18,7 +18,7 @@ but do not fail startup.
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `start_on_login` | boolean | `false` | When `true`, the installed autostart entry is used. The application installs the autostart entry to an XDG autostart directory; see packaging. |
+| `start_on_login` | boolean | `false` | Accepted but not implemented in Stage 1. Stage 3 will install or remove a per-user XDG autostart entry on opt-in. The installed template is never activated system-wide. |
 | `offline_first` | boolean | `true` | Reserved for future online providers. |
 
 ## `[interaction]`
@@ -27,8 +27,8 @@ but do not fail startup.
 | --- | --- | --- | --- |
 | `activation` | string | `"global_shortcut"` | Only `global_shortcut` is supported. |
 | `clipboard_fallback` | boolean | `false` | Reserved; must remain off for correct selection behavior. |
-| `dismiss_on_escape` | boolean | `true` | Controls the Escape shortcut in the popup. |
-| `dismiss_on_outside_click` | boolean | `true` | Outside-click dismissal is wired in the popup, but window policy is still Stage 2. |
+| `dismiss_on_escape` | boolean | `true` | Controls Escape while the lookup popup has focus. |
+| `dismiss_on_outside_click` | boolean | `true` | Dismisses on clicks inside the popup window, including its margin. Clicks outside the popup window are not detected yet. |
 
 ## `[hotkeys]`
 
@@ -40,7 +40,7 @@ but do not fail startup.
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `theme` | string | `"dark"` | `dark`, `light`, or `system`. `system` is a supported value but currently behaves like `dark`; desktop theme probing is not implemented yet. |
+| `theme` | string | `"dark"` | `dark`, `light`, or `system`. `system` follows the platform color scheme and falls back to dark when the platform does not report one. |
 | `popup_width` | integer | `360` | Clamped to 240–1200. |
 | `animation` | string | `"subtle"` | `none` or `subtle`. |
 | `position` | string | `"near_selection"` | `near_selection`, `center`, or `cursor`. Selection coordinates are not available yet, so near-selection uses cursor placement. |

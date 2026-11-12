@@ -31,6 +31,9 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.FunctionCase
     value: camelBack
+  # QTest data providers must be named <test>_data(), which is not camelBack.
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '.*_data'
   - key: readability-identifier-naming.PrivateMemberPrefix
     value: m_
   - key: readability-identifier-naming.ConstexprVariableCase

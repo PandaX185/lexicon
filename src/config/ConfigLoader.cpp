@@ -62,9 +62,12 @@ bool readBool(const toml::table* table, const char* key, bool& target, ConfigLoa
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<bool>()) {
-        target = *value;
-        return true;
+    // toml++'s value<bool>() also converts integers, so check the node type explicitly.
+    if (node->is_boolean()) {
+        if (const auto value = node->value<bool>()) {
+            target = *value;
+            return true;
+        }
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected a boolean; keeping default."));
@@ -80,9 +83,11 @@ bool readString(const toml::table* table, const char* key, QString& target, Conf
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<std::string>()) {
-        target = QString::fromStdString(*value);
-        return true;
+    if (node->is_string()) {
+        if (const auto value = node->value<std::string>()) {
+            target = QString::fromStdString(*value);
+            return true;
+        }
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected a string; keeping default."));
@@ -97,14 +102,17 @@ bool readInt(const toml::table* table, const char* key, int& target, ConfigLoadR
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<std::int64_t>()) {
-        if (*value < std::numeric_limits<int>::min() || *value > std::numeric_limits<int>::max()) {
-            addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
-                       QStringLiteral("Integer is out of range; keeping default."));
-            return false;
+    // toml++'s value<int64_t>() also converts booleans, so check the node type explicitly.
+    if (node->is_integer()) {
+        if (const auto value = node->value<std::int64_t>()) {
+            if (*value < std::numeric_limits<int>::min() || *value > std::numeric_limits<int>::max()) {
+                addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
+                           QStringLiteral("Integer is out of range; keeping default."));
+                return false;
+            }
+            target = static_cast<int>(*value);
+            return true;
         }
-        target = static_cast<int>(*value);
-        return true;
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected an integer; keeping default."));
