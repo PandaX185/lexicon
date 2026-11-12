@@ -239,6 +239,18 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
 
     result.found = true;
 
+    // toml::parse_file() opens with std::ifstream; whether that fails for a
+    // directory is platform- and filesystem-dependent. Some environments let
+    // the open succeed and then parse zero bytes as a valid empty document, so
+    // reject non-regular files explicitly before parsing.
+    if (!configFile.isFile()) {
+        addError(result, QStringLiteral("<file>"), QStringLiteral("Configuration path is not a regular file."));
+        result.config = Config{};
+        result.usedDefaults = true;
+        qCWarning(lexiconConfig) << "event=config_not_a_file path=" << path;
+        return result;
+    }
+
     const toml::parse_result parsed = toml::parse_file(path.toStdString());
     if (!parsed) {
         const toml::parse_error& error = parsed.error();

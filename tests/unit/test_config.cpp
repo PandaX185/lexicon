@@ -27,7 +27,7 @@ class ConfigLoaderTest : public QObject {
     void resolvesUnicodeRelativeDatabasePath();
     void rejectsInvalidToml();
     void rejectsDuplicateKeys();
-    void reportsDirectoryAsParseError();
+    void rejectsDirectoryPath();
     void normalizesSuperShortcut();
     void keepsDefaultForEmptyShortcut();
     void keepsDefaultForInvalidShortcut();
@@ -273,7 +273,7 @@ popup_width = 400
     QCOMPARE(result.config.appearance.popupWidth, 360);
 }
 
-void ConfigLoaderTest::reportsDirectoryAsParseError() {
+void ConfigLoaderTest::rejectsDirectoryPath() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
 
@@ -281,7 +281,12 @@ void ConfigLoaderTest::reportsDirectoryAsParseError() {
     const ConfigLoadResult result = loader.load(directory.path());
 
     QVERIFY(result.found);
+    QVERIFY(result.usedDefaults);
     QVERIFY(hasError(result));
+    QVERIFY(std::ranges::any_of(result.issues, [](const ConfigIssue& issue) {
+        return issue.isError() && issue.key == QStringLiteral("<file>") &&
+               issue.message.contains(QStringLiteral("not a regular file"));
+    }));
 }
 
 void ConfigLoaderTest::normalizesSuperShortcut() {
