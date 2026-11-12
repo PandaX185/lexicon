@@ -11,7 +11,12 @@ configure:
 build: configure
     cmake --build --preset {{ preset }}
 
-run: build
+# The bundled dictionary is installed to the XDG data directory, so a development
+# run finds it the same way an installed package finds /usr/share/lexicon.
+install-dictionary:
+    install -Dm644 data/dictionaries/en.sqlite "${XDG_DATA_HOME:-$HOME/.local/share}/lexicon/dictionaries/en.sqlite"
+
+run: build install-dictionary
     ./build/{{ preset }}/lexicon
 
 test: build

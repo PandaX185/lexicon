@@ -209,7 +209,8 @@ Item {
 
                                 Label {
                                     Layout.fillWidth: true
-                                    text: root.entry && root.entry.metadata ? root.entry.metadata.translation : ""
+                                    text: root.entry && root.entry.metadata && root.entry.metadata.translation
+                                          ? root.entry.metadata.translation : ""
                                     color: theme.textPrimary
                                     font.pixelSize: 14
                                     wrapMode: Text.WordWrap
