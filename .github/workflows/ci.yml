@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format-and-qml-lint:
+    name: Formatting and QML lint
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Check C++ formatting
+        run: just format-check
+      - name: Lint QML
+        run: just qml-lint
+
+  build-and-test:
+    name: Build and test (${{ matrix.preset }})
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset:
+          - ci-gcc
+          - ci-clang
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
+  sanitizers:
+    name: AddressSanitizer and UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Configure
+        run: cmake --preset ci-asan
+      - name: Build
+        run: cmake --build --preset ci-asan
+      - name: Test
+        run: ctest --preset ci-asan
+
+  clang-tidy:
+    name: Clang-Tidy
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Lint C++
+        run: just lint
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Measure coverage
+        run: just coverage
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage-report
+          if-no-files-found: error
+
+  install-check:
+    name: Install tree
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Build release and verify installed files
+        run: PRESET=dev-release just install-check

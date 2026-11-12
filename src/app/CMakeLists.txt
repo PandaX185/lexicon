@@ -1,16 +1,26 @@
-add_executable(lexicon
-    main.cpp
-    Application.cpp
+add_library(lexicon_controller STATIC
     ApplicationController.cpp
+)
+
+target_include_directories(lexicon_controller PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(lexicon_controller PUBLIC
+    lexicon_config
+    lexicon_dictionary
+    lexicon_core
+    Qt6::Core
+    Qt6::Concurrent
+)
+target_compile_features(lexicon_controller PUBLIC cxx_std_20)
+lexicon_enable_warnings(lexicon_controller)
+
+add_library(lexicon_app STATIC
+    Application.cpp
     QmlPresenter.cpp
 )
 
-target_include_directories(lexicon PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(lexicon PRIVATE
-    lexicon_core
-    lexicon_config
-    lexicon_dictionary
-    lexicon_infrastructure
+target_include_directories(lexicon_app PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(lexicon_app PUBLIC
+    lexicon_controller
     lexicon_kde
     Qt6::Core
     Qt6::Gui
@@ -18,7 +28,17 @@ target_link_libraries(lexicon PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
-    Qt6::Concurrent
+)
+target_compile_features(lexicon_app PUBLIC cxx_std_20)
+lexicon_enable_warnings(lexicon_app)
+
+add_executable(lexicon main.cpp)
+
+target_link_libraries(lexicon PRIVATE
+    lexicon_app
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
 )
 target_compile_features(lexicon PRIVATE cxx_std_20)
 lexicon_enable_warnings(lexicon)

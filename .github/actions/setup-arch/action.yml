@@ -1,0 +1,14 @@
+name: Set up Arch build environment
+description: Install the Qt 6, KDE Frameworks 6, and analysis tools used by Lexicon CI.
+
+runs:
+  using: composite
+  steps:
+    - name: Install packages
+      shell: bash
+      run: |
+        pacman -S --needed --noconfirm \
+          cmake ninja gcc clang just sqlite gcovr \
+          qt6-base qt6-declarative qt6-svg \
+          kglobalaccel kstatusnotifieritem kdbusaddons \
+          extra-cmake-modules

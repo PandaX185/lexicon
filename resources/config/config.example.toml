@@ -3,6 +3,7 @@
 # Unknown keys and invalid values are reported in the log; invalid values keep their defaults.
 
 [general]
+# Accepted but not implemented yet. Stage 3 will manage a per-user autostart entry.
 start_on_login = false
 offline_first = true
 
@@ -11,7 +12,10 @@ offline_first = true
 activation = "global_shortcut"
 # Clipboard fallback is reserved for a later release and is currently unused.
 clipboard_fallback = false
+# Escape works while the popup has focus.
 dismiss_on_escape = true
+# Clicks inside the popup window (including its margin) dismiss it.
+# Clicks elsewhere on the desktop are not detected yet.
 dismiss_on_outside_click = true
 
 [hotkeys]
@@ -19,7 +23,8 @@ dismiss_on_outside_click = true
 lookup = "SUPER+SHIFT+D"
 
 [appearance]
-# "dark", "light", or "system". System is a supported value but currently behaves like dark; desktop theme probing is not implemented yet.
+# "dark", "light", or "system". System follows the desktop color scheme and falls
+# back to dark when the platform does not report one.
 theme = "dark"
 # Popup width in logical pixels, clamped to 240..1200.
 popup_width = 360

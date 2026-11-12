@@ -62,9 +62,12 @@ bool readBool(const toml::table* table, const char* key, bool& target, ConfigLoa
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<bool>()) {
-        target = *value;
-        return true;
+    // toml++'s value<bool>() also converts integers, so check the node type explicitly.
+    if (node->is_boolean()) {
+        if (const auto value = node->value<bool>()) {
+            target = *value;
+            return true;
+        }
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected a boolean; keeping default."));
@@ -80,9 +83,11 @@ bool readString(const toml::table* table, const char* key, QString& target, Conf
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<std::string>()) {
-        target = QString::fromStdString(*value);
-        return true;
+    if (node->is_string()) {
+        if (const auto value = node->value<std::string>()) {
+            target = QString::fromStdString(*value);
+            return true;
+        }
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected a string; keeping default."));
@@ -97,14 +102,17 @@ bool readInt(const toml::table* table, const char* key, int& target, ConfigLoadR
     if (!node) {
         return false;
     }
-    if (const auto value = node->value<std::int64_t>()) {
-        if (*value < std::numeric_limits<int>::min() || *value > std::numeric_limits<int>::max()) {
-            addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
-                       QStringLiteral("Integer is out of range; keeping default."));
-            return false;
+    // toml++'s value<int64_t>() also converts booleans, so check the node type explicitly.
+    if (node->is_integer()) {
+        if (const auto value = node->value<std::int64_t>()) {
+            if (*value < std::numeric_limits<int>::min() || *value > std::numeric_limits<int>::max()) {
+                addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
+                           QStringLiteral("Integer is out of range; keeping default."));
+                return false;
+            }
+            target = static_cast<int>(*value);
+            return true;
         }
-        target = static_cast<int>(*value);
-        return true;
     }
     addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
                QStringLiteral("Expected an integer; keeping default."));
@@ -230,6 +238,18 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
     }
 
     result.found = true;
+
+    // toml::parse_file() opens with std::ifstream; whether that fails for a
+    // directory is platform- and filesystem-dependent. Some environments let
+    // the open succeed and then parse zero bytes as a valid empty document, so
+    // reject non-regular files explicitly before parsing.
+    if (!configFile.isFile()) {
+        addError(result, QStringLiteral("<file>"), QStringLiteral("Configuration path is not a regular file."));
+        result.config = Config{};
+        result.usedDefaults = true;
+        qCWarning(lexiconConfig) << "event=config_not_a_file path=" << path;
+        return result;
+    }
 
     const toml::parse_result parsed = toml::parse_file(path.toStdString());
     if (!parsed) {
