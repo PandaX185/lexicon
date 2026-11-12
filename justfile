@@ -59,6 +59,11 @@ seed-db:
     sqlite3 build/dev/lexicon.sqlite < data/dictionaries/schema.sql
     sqlite3 build/dev/lexicon.sqlite < data/dictionaries/dev-seed.sql
 
+# Rebuild the bundled English dictionary. Needs the WordNet 3.0 `dict/` directory
+# (from WNdb-3.0.tar.gz) and a CMUdict file; both are build-time inputs only.
+build-wordnet *args:
+    python3 scripts/lexicon_importer/import_wordnet.py {{ args }}
+
 demo: build seed-db
     QT_QPA_PLATFORM=offscreen ./build/{{ preset }}/lexicon --lookup serendipity --database build/dev/lexicon.sqlite
 

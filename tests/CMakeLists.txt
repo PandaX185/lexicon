@@ -32,6 +32,11 @@ lexicon_add_test(test_sqlite_repository integration/test_sqlite_repository.cpp i
     Qt6::Sql
     Qt6::Concurrent
 )
+lexicon_add_test(test_wordnet_sqlite integration/test_wordnet_sqlite.cpp integration
+    lexicon_infrastructure
+    Qt6::Sql
+    Qt6::Concurrent
+)
 lexicon_add_test(test_qml_views integration/test_qml_views.cpp qml
     lexicon_config
     Qt6::Gui

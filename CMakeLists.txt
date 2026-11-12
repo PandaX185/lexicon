@@ -135,10 +135,12 @@ install(FILES packaging/shared/${LEXICON_APP_ID}.desktop DESTINATION ${KDE_INSTA
 install(FILES resources/icons/lexicon.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 install(FILES packaging/shared/${LEXICON_APP_ID}.metainfo.xml DESTINATION ${KDE_INSTALL_METAINFODIR})
 install(FILES resources/config/config.example.toml DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
-install(FILES data/dictionaries/schema.sql DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
+install(FILES data/dictionaries/schema.sql data/dictionaries/en.sqlite
+        DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
 install(FILES packaging/shared/lexicon-autostart.desktop
         DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
 install(FILES README.md LICENSE CHANGELOG.md ROADMAP.md CONTRIBUTING.md SECURITY.md SUPPORT.md
+        licenses/WORDNET.txt licenses/CMUDICT.txt
     DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon
 )
 install(DIRECTORY docs/ DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon/docs)
