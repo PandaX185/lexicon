@@ -67,6 +67,12 @@ struct DictionaryConfig {
     PronunciationStyle pronunciationStyle = PronunciationStyle::Respelling;
 };
 
+// Translation is optional: with no catalog configured the settings window can
+// still list what is installed, but nothing can be downloaded.
+struct TranslationConfig {
+    QString catalogUrl;
+};
+
 struct PerformanceConfig {
     bool cacheEnabled = true;
     bool lazyInitialize = true;
@@ -78,6 +84,7 @@ struct Config {
     HotkeysConfig hotkeys;
     AppearanceConfig appearance;
     DictionaryConfig dictionary;
+    TranslationConfig translation;
     PerformanceConfig performance;
 
     [[nodiscard]] QString resolvedDatabasePath() const;

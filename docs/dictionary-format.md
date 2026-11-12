@@ -35,6 +35,15 @@ directory, and the configured `dictionary.source_language` / `dictionary.target_
 select it. See [configuration](configuration.md#choosing-a-dictionary) for the resolution
 order.
 
+## Bundled dictionary
+
+`data/dictionaries/en.sqlite` is the shipped English dictionary, generated from Princeton
+WordNet 3.0 with CMUdict pronunciations. It follows the schema above, stores IPA in
+`pronunciation_ipa` and leaves `pronunciation_respelling` empty. Provenance, the
+reproduction command, and the license notes are in
+[wordnet-dictionary.md](wordnet-dictionary.md). Do not edit it by hand; regenerate it
+from the importer instead.
+
 ## Transliteration
 
 `entries.transliteration` holds a Latin-script romanization of a headword written in

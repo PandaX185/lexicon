@@ -289,6 +289,7 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
                             QStringLiteral("hotkeys"),
                             QStringLiteral("appearance"),
                             QStringLiteral("dictionary"),
+                            QStringLiteral("translation"),
                             QStringLiteral("performance"),
                         },
                         result);
@@ -345,6 +346,15 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
                     addWarning(result, QStringLiteral("dictionary.pronunciation_style"),
                                QStringLiteral("Unsupported pronunciation style; keeping respelling."));
                 }
+            }
+        }
+
+        const toml::table* translation = readSection(root, "translation", QStringLiteral("translation"), result);
+        if (translation) {
+            warnUnknownKeys(*translation, QStringLiteral("translation"), {QStringLiteral("catalog_url")}, result);
+            QString catalogUrl;
+            if (readString(translation, "catalog_url", catalogUrl, result, QStringLiteral("translation"))) {
+                result.config.translation.catalogUrl = catalogUrl.trimmed();
             }
         }
 

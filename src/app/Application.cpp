@@ -1,6 +1,7 @@
 #include "app/Application.h"
 
 #include "app/ApplicationController.h"
+#include "app/LanguagePackController.h"
 #include "app/QmlPresenter.h"
 #include "app/SelectionProviderFactory.h"
 #include "core/interfaces/SelectionProvider.h"
@@ -10,6 +11,7 @@
 #include "infrastructure/UnixSignalHandler.h"
 #include "infrastructure/database/SqliteDictionaryRepository.h"
 #include "infrastructure/logging/Logging.h"
+#include "infrastructure/translation/ArgosTranslationService.h"
 #include "kde/session/KdeSession.h"
 #include "kde/shortcuts/KGlobalAccelShortcutService.h"
 #include "kde/tray/KStatusNotifierTrayService.h"
@@ -56,6 +58,12 @@ Application::Application(Config config) : m_config(std::move(config)) {
         m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config));
     });
 
+    // The settings window drives language packs through this object; it only
+    // downloads when the user presses install. It has to exist before the QML
+    // is loaded, because the settings view binds to it.
+    m_languagePacks = std::make_unique<LanguagePackController>(m_config);
+    m_engine->rootContext()->setContextProperty(QStringLiteral("languagePacks"), m_languagePacks.get());
+
     m_engine->load(QUrl(QStringLiteral("qrc:/ui/Main.qml")));
     if (m_engine->rootObjects().isEmpty()) {
         qCCritical(lexiconUi) << "event=qml_load_failed path=qrc:/ui/Main.qml";
@@ -70,9 +78,11 @@ Application::Application(Config config) : m_config(std::move(config)) {
     m_session = std::make_unique<KdeSession>();
     m_signals = std::make_unique<UnixSignalHandler>();
 
+    // Translation is optional and only reachable when a language pair is
+    // configured; the worker process starts on the first translated lookup.
     m_controller = std::make_unique<ApplicationController>(
-        m_config, std::move(dictionary), createSelectionProvider(), std::make_unique<KGlobalAccelShortcutService>(),
-        std::make_unique<KStatusNotifierTrayService>(), *m_presenter);
+        m_config, std::move(dictionary), std::make_unique<ArgosTranslationService>(), createSelectionProvider(),
+        std::make_unique<KGlobalAccelShortcutService>(), std::make_unique<KStatusNotifierTrayService>(), *m_presenter);
 
     QObject::connect(m_signals.get(), &UnixSignalHandler::terminationRequested, m_controller.get(),
                      &ApplicationController::quit);

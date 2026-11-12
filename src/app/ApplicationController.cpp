@@ -3,6 +3,7 @@
 #include "core/interfaces/PopupPresenter.h"
 #include "core/interfaces/SelectionProvider.h"
 #include "core/interfaces/ShortcutService.h"
+#include "core/interfaces/TranslationService.h"
 #include "core/interfaces/TrayService.h"
 #include "dictionary/DictionaryService.h"
 #include "infrastructure/logging/Logging.h"
@@ -37,6 +38,8 @@ QString selectionErrorTitle(ErrorCode code) {
     case ErrorCode::DatabaseOpenFailed:
     case ErrorCode::DatabaseQueryFailed:
     case ErrorCode::WordNotFound:
+    case ErrorCode::TranslationUnavailable:
+    case ErrorCode::ProtocolViolation:
     case ErrorCode::ShortcutRegistrationFailed:
     case ErrorCode::TrayUnavailable:
     case ErrorCode::Unknown:
@@ -48,13 +51,14 @@ QString selectionErrorTitle(ErrorCode code) {
 } // namespace
 
 ApplicationController::ApplicationController(Config config, std::unique_ptr<DictionaryService> dictionary,
+                                             std::unique_ptr<TranslationService> translation,
                                              std::unique_ptr<SelectionProvider> selection,
                                              std::unique_ptr<ShortcutService> shortcuts,
                                              std::unique_ptr<TrayService> tray, PopupPresenter& presenter,
                                              QObject* parent)
     : QObject(parent), m_config(std::move(config)), m_dictionary(std::move(dictionary)),
-      m_selection(std::move(selection)), m_shortcuts(std::move(shortcuts)), m_tray(std::move(tray)),
-      m_presenter(presenter) {
+      m_translation(std::move(translation)), m_selection(std::move(selection)), m_shortcuts(std::move(shortcuts)),
+      m_tray(std::move(tray)), m_presenter(presenter) {
     connect(&m_watcher, &QFutureWatcherBase::finished, this, &ApplicationController::handleLookupFinished);
 }
 
@@ -136,8 +140,27 @@ void ApplicationController::lookupWord(const QString& word) {
     }
 
     m_presenter.showLoading(trimmed);
+
     DictionaryService* service = m_dictionary.get();
-    m_watcher.setFuture(QtConcurrent::run([service, trimmed] { return service->lookup(trimmed); }));
+    TranslationService* translation = m_translation.get();
+    const QString sourceLanguage = m_config.dictionary.sourceLanguage;
+    const QString targetLanguage = m_config.dictionary.targetLanguage;
+
+    // The dictionary answer stands on its own: a missing or failed translation
+    // backend leaves the entry untouched instead of failing the lookup.
+    m_watcher.setFuture(QtConcurrent::run([service, translation, trimmed, sourceLanguage, targetLanguage] {
+        DictionaryLookupResult result = service->lookup(trimmed);
+        if (result.found() && translation != nullptr && sourceLanguage != targetLanguage) {
+            const Result<QString> translated = translation->translate(trimmed, sourceLanguage, targetLanguage);
+            if (translated.hasValue()) {
+                result.entry->metadata.insert(QStringLiteral("translation"), translated.value());
+            } else {
+                qCInfo(lexiconApp) << "event=translation_unavailable error="
+                                   << errorCodeToString(translated.error().code);
+            }
+        }
+        return result;
+    }));
 }
 
 void ApplicationController::showSettings() {

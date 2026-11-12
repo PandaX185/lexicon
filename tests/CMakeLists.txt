@@ -19,6 +19,18 @@ lexicon_add_test(test_application_controller unit/test_application_controller.cp
     lexicon_controller
     Qt6::Concurrent
 )
+lexicon_add_test(test_argos_worker_protocol unit/test_argos_worker_protocol.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
+lexicon_add_test(test_translation_service unit/test_translation_service.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
+lexicon_add_test(test_language_pack_manager unit/test_language_pack_manager.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
 lexicon_add_test(test_selection_provider unit/test_selection_provider.cpp unit lexicon_core)
 lexicon_add_test(test_selection_factory unit/test_selection_factory.cpp unit
     lexicon_app

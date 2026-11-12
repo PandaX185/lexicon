@@ -7,6 +7,18 @@ and the project uses semantic versioning.
 
 ### Added
 
+- Bundled offline English dictionary built from Princeton WordNet 3.0 (147,806
+  headwords, 206,918 senses) with pronunciations converted from the CMU Pronouncing
+  Dictionary; the importer and licenses ship with the source, and the database is
+  installed to the dictionaries directory and treated as read-only.
+- IPA pronunciations: `dictionary.pronunciation_style = "ipa"` shows IPA with a fallback
+  to the respelling field, and the popup renders whichever the presenter selected.
+- Optional offline translation through a local Argos Translate worker subprocess. Lookups
+  with different `source_language` and `target_language` gain a translation card, and a
+  missing runtime or pack only omits the card instead of failing the lookup.
+- Language pack management in the settings window: a static catalog
+  (`translation.catalog_url`), explicit install and remove actions, download progress,
+  and SHA-256 verification before the runtime ever sees an archive.
 - Dictionary catalog: every `*.sqlite` file in the dictionary directory is inspected, and
   the configured language pair selects which one answers a lookup. Language pairs live in
   the new `dictionary_info` table, so a new language is installed content rather than code.
@@ -38,6 +50,9 @@ and the project uses semantic versioning.
 - Install-tree verification that catches files escaping the intended installation prefix.
 
 ### Changed
+
+- The popup shows `pronunciation.text`, so the pronunciation style is chosen by the
+  presenter rather than toggled inside the view.
 
 - The dictionary schema is now version 2 with `dictionary_info` and
   `entries.transliteration`. Databases without metadata are ignored by the catalog.

@@ -35,12 +35,24 @@ animation = "subtle"
 position = "near_selection"
 
 [dictionary]
-# Empty means $XDG_DATA_HOME/lexicon/dictionaries/en.sqlite.
-# Relative paths are resolved against this file's directory.
+# An explicit single dictionary file. Leave empty to search `directory` for the
+# configured language pair instead. Relative paths resolve against this file.
 database_path = ""
+# Installed dictionaries live here. Empty means $XDG_DATA_HOME/lexicon/dictionaries.
+directory = ""
+# Source language of the words you look up, target language of the definitions.
+# Equal tags mean monolingual definitions; a different target language needs an
+# installed translation pack to show a translation.
+source_language = "en"
+target_language = "en"
 show_pronunciation = true
-# "respelling" or "ipa".
+# "respelling" or "ipa". IPA is available for the bundled WordNet dictionary.
 pronunciation_style = "respelling"
+
+[translation]
+# Static catalog of downloadable Argos Translate language packs. Empty disables
+# downloads; nothing is fetched unless you press install in the settings window.
+catalog_url = ""
 
 [performance]
 cache_enabled = true

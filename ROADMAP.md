@@ -26,9 +26,10 @@
 
 - [x] Multi-dictionary catalog with language-pair metadata and resolution
 - [x] Latin transliteration index and romanized lookup
-- [ ] Redistributable dictionary packaging and attribution
+- [x] Redistributable dictionary packaging and attribution (WordNet 3.0 + CMUdict, bundled)
 - [ ] Installer/first-run flow for dictionary content
-- [ ] Explicit, checked download of additional language pairs
+- [x] Explicit, checked download of additional language pairs (Argos Translate packs)
+- [x] IPA pronunciation and optional offline translation in the popup
 - [ ] Editable settings backed by `config.toml`
 - [ ] Opt-in per-user autostart management for `start_on_login`
 - [ ] Lookup cache with bounded size

@@ -15,6 +15,7 @@ lexicon_enable_warnings(lexicon_controller)
 
 add_library(lexicon_app STATIC
     Application.cpp
+    LanguagePackController.cpp
     QmlPresenter.cpp
     SelectionProviderFactory.cpp
 )
@@ -22,8 +23,10 @@ add_library(lexicon_app STATIC
 target_include_directories(lexicon_app PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(lexicon_app PUBLIC
     lexicon_controller
+    lexicon_infrastructure
     lexicon_kde
     Qt6::Core
+    Qt6::Concurrent
     Qt6::Gui
     Qt6::Widgets
     Qt6::Qml

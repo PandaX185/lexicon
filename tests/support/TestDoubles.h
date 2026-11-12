@@ -3,6 +3,7 @@
 #include "core/interfaces/PopupPresenter.h"
 #include "core/interfaces/SelectionProvider.h"
 #include "core/interfaces/ShortcutService.h"
+#include "core/interfaces/TranslationService.h"
 #include "core/interfaces/TrayService.h"
 #include "dictionary/DictionaryRepository.h"
 #include "dictionary/DictionaryService.h"
@@ -31,6 +32,7 @@ struct PresenterEvent {
     Type type = Type::Loading;
     QString title;
     QString message;
+    QString translation;
     int definitionCount = 0;
 };
 
@@ -50,6 +52,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Entry,
             .title = entry.word,
             .message = {},
+            .translation = entry.metadata.value(QStringLiteral("translation")),
             .definitionCount = static_cast<int>(entry.definitions.size()),
         });
     }
@@ -171,6 +174,32 @@ class FakeTrayService final : public TrayService {
     bool started = false;
     int startCalls = 0;
     int stopCalls = 0;
+};
+
+class FakeTranslationService final : public TranslationService {
+  public:
+    Result<QString> translate(const QString& text, const QString& from, const QString& to) override {
+        ++translateCalls;
+        lastText = text;
+        lastSource = from;
+        lastTarget = to;
+        return translationResult;
+    }
+
+    Result<QList<LanguagePair>> installedPairs() override {
+        return pairs;
+    }
+
+    bool isPairInstalled(const QString& from, const QString& to) override {
+        return pairs.contains(LanguagePair{.source = from, .target = to});
+    }
+
+    Result<QString> translationResult = QStringLiteral("translated");
+    QList<LanguagePair> pairs;
+    QString lastText;
+    QString lastSource;
+    QString lastTarget;
+    int translateCalls = 0;
 };
 
 class FakeRepository final : public DictionaryRepository {

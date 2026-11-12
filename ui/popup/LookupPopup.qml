@@ -164,32 +164,56 @@ Item {
                         Layout.fillWidth: true
                         spacing: 10
 
+                        // `text` is whatever the configured pronunciation style
+                        // selected (IPA or a respelling), so the popup does not
+                        // need to know which field it came from.
                         Label {
-                            visible: root.entry !== null
-                                     && root.entry !== undefined
+                            visible: root.entry !== null && root.entry !== undefined
                                      && root.entry.pronunciation !== undefined
-                                     && root.entry.pronunciation.respelling !== ""
-                            text: root.entry && root.entry.pronunciation
-                                  ? root.entry.pronunciation.respelling : ""
+                                     && root.entry.pronunciation.text !== ""
+                            text: root.entry && root.entry.pronunciation ? root.entry.pronunciation.text : ""
                             color: theme.textSecondary
                             font.pixelSize: 13
                             wrapMode: Text.Wrap
                             Layout.fillWidth: true
+                            textFormat: Text.PlainText
                         }
 
-                        ToolButton {
-                            visible: root.entry !== null
-                                     && root.entry !== undefined
-                                     && root.entry.pronunciation !== undefined
-                                     && root.entry.pronunciation.respelling !== ""
-                            text: qsTr("⊖")
-                            font.pixelSize: 14
-                            implicitWidth: 30
-                            implicitHeight: 30
-                            onClicked: {
-                                if (root.entry && root.entry.pronunciation) {
-                                    let current = root.entry.pronunciation.respelling;
-                                    root.entry.pronunciation.respelling = current === "" ? "/" : "";
+                        // Only shown when a translation backend supplied one; the
+                        // dictionary entry stands on its own without it.
+                        Rectangle {
+                            visible: root.entry !== null && root.entry !== undefined
+                                     && root.entry.metadata !== undefined
+                                     && root.entry.metadata.translation !== undefined
+                                     && root.entry.metadata.translation !== ""
+                            Layout.fillWidth: true
+                            radius: 6
+                            color: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.12)
+                            implicitHeight: translationColumn.implicitHeight + 16
+
+                            ColumnLayout {
+                                id: translationColumn
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.margins: 8
+                                spacing: 2
+
+                                Label {
+                                    text: qsTr("Translation")
+                                    color: theme.accent
+                                    font.pixelSize: 10
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 0.6
+                                }
+
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.entry && root.entry.metadata ? root.entry.metadata.translation : ""
+                                    color: theme.textPrimary
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    textFormat: Text.PlainText
                                 }
                             }
                         }

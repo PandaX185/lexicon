@@ -18,6 +18,8 @@ enum class ErrorCode {
     SelectionUnsupported,
     SelectionNotText,
     SelectionTooLong,
+    TranslationUnavailable,
+    ProtocolViolation,
     ShortcutRegistrationFailed,
     TrayUnavailable,
     Unknown,

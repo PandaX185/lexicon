@@ -54,7 +54,7 @@ but do not fail startup.
 | `source_language` | string | `"en"` | Language of the words being looked up, as a BCP 47 tag. `EN`, `en_GB` and `en-GB` are normalized to lowercase. |
 | `target_language` | string | `"en"` | Language the definitions should be in. Equal to `source_language` for monolingual definitions. |
 | `show_pronunciation` | boolean | `true` | Hides the pronunciation line in the popup when `false`. |
-| `pronunciation_style` | string | `"respelling"` | Only `respelling` is supported. |
+| `pronunciation_style` | string | `"respelling"` | `respelling` or `ipa`. The preferred field is shown, falling back to the other one when empty. See [pronunciation-ipa.md](pronunciation-ipa.md). |
 
 ### Choosing a dictionary
 
@@ -71,6 +71,19 @@ A pair that is not installed produces `database_unavailable` with the pair and t
 directory in the message instead of silently answering in the wrong language. Files that
 do not carry Lexicon metadata are ignored. `lexicon --list-dictionaries` prints what is
 installed.
+
+### Translation
+
+Lookups only produce a translation when `source_language` and `target_language` differ and
+an Argos Translate pack for the pair is installed. The translation is added to the entry
+as metadata; a failure (missing runtime, missing pack) leaves the definition untouched.
+See [argos-translation.md](argos-translation.md) and [language-packs.md](language-packs.md).
+
+## `[translation]`
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `catalog_url` | string | `""` | Static JSON catalog of downloadable language packs. Empty disables downloads; packs are only fetched after an explicit install from the settings window. |
 
 ## `[performance]`
 

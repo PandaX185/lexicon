@@ -31,6 +31,7 @@ find_package(Qt6 6.10 REQUIRED COMPONENTS
     Test
     DBus
     Concurrent
+    Network
 )
 find_package(KF6 6.0 REQUIRED COMPONENTS
     GlobalAccel
@@ -139,6 +140,10 @@ install(FILES data/dictionaries/schema.sql data/dictionaries/en.sqlite
         DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
 install(FILES packaging/shared/lexicon-autostart.desktop
         DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
+# The translation worker is a local subprocess; it ships with the application
+# rather than being looked up in PATH.
+install(FILES scripts/argos_worker.py
+        DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/scripts)
 install(FILES README.md LICENSE CHANGELOG.md ROADMAP.md CONTRIBUTING.md SECURITY.md SUPPORT.md
         licenses/WORDNET.txt licenses/CMUDICT.txt
     DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon

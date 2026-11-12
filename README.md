@@ -22,19 +22,24 @@ what is not implemented yet.
 | Tests, formatting, linting, coverage, and CI | Implemented; see [contributing](CONTRIBUTING.md) |
 | Automatic selected-text retrieval on Wayland | Implemented behind `SelectionProvider`; see [selection retrieval](docs/architecture/selection-retrieval.md) |
 | Automatic selected-text retrieval on X11 | Explicit unsupported error; decision recorded in [selection retrieval](docs/architecture/selection-retrieval.md) |
-| Dictionary content distribution | Not implemented; the included data is a tiny CC0 test fixture |
+| Bundled English dictionary | WordNet 3.0 definitions with CMUdict IPA; see [WordNet dictionary](docs/wordnet-dictionary.md) |
+| IPA pronunciation | `dictionary.pronunciation_style = "ipa"`; see [IPA pronunciation](docs/pronunciation-ipa.md) |
+| Offline translation | Optional Argos Translate packs, downloaded only on request; see [translation](docs/argos-translation.md) |
+| Language pack management | Install and remove packs from the settings window; see [language packs](docs/language-packs.md) |
+| Dictionary content distribution (other languages) | Not implemented beyond the bundled pair |
 | Settings editing | Read-only in Stage 1; edit `config.toml` and restart |
 
 ## Requirements
 
 - CMake 3.24 or newer
 - A C++20 compiler
-- Qt 6.10 or newer (Core, Gui, Widgets, Qml, Quick, QuickControls2, Sql, Test, DBus, Concurrent)
+- Qt 6.10 or newer (Core, Gui, Widgets, Qml, Quick, QuickControls2, Sql, Test, DBus, Concurrent, Network)
 - KDE Frameworks 6: KGlobalAccel, KStatusNotifierItem, KDBusAddons
 - Extra CMake Modules (ECM)
 - SQLite through the Qt SQL plugin
 - toml++ 3.4 or newer, or the vendored copy in `third_party/`
 - Optional: `wayland-client` and `wayland-scanner` for the Wayland selection backend
+- Optional: `python3` and `argostranslate` for offline translation
 
 On Arch-based systems the development packages are typically:
 

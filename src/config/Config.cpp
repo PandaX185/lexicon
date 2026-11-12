@@ -139,6 +139,9 @@ QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     map.insert(QStringLiteral("showPronunciation"), dictionary.showPronunciation);
     map.insert(QStringLiteral("pronunciationStyle"), pronunciationStyleToString(dictionary.pronunciationStyle));
 
+    map.insert(QStringLiteral("languagePackCatalogUrl"), translation.catalogUrl);
+    map.insert(QStringLiteral("languagePacksConfigured"), !translation.catalogUrl.isEmpty());
+
     map.insert(QStringLiteral("cacheEnabled"), performance.cacheEnabled);
     map.insert(QStringLiteral("lazyInitialize"), performance.lazyInitialize);
     return map;

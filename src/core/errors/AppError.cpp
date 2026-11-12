@@ -38,6 +38,10 @@ QString errorCodeToString(ErrorCode code) {
         return QStringLiteral("selection_not_text");
     case ErrorCode::SelectionTooLong:
         return QStringLiteral("selection_too_long");
+    case ErrorCode::TranslationUnavailable:
+        return QStringLiteral("translation_unavailable");
+    case ErrorCode::ProtocolViolation:
+        return QStringLiteral("protocol_violation");
     case ErrorCode::ShortcutRegistrationFailed:
         return QStringLiteral("shortcut_registration_failed");
     case ErrorCode::TrayUnavailable:

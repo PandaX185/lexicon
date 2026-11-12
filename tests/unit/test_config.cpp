@@ -109,8 +109,13 @@ position = "center"
 
 [dictionary]
 database_path = "relative.sqlite"
+source_language = "EN_GB"
+target_language = "de"
 show_pronunciation = false
-pronunciation_style = "respelling"
+pronunciation_style = "ipa"
+
+[translation]
+catalog_url = "  https://example.org/catalog.json  "
 
 [performance]
 cache_enabled = false
@@ -133,6 +138,10 @@ lazy_initialize = false
     QCOMPARE(result.config.appearance.animation, Animation::None);
     QCOMPARE(result.config.appearance.position, PopupPosition::Center);
     QCOMPARE(result.config.dictionary.showPronunciation, false);
+    QCOMPARE(result.config.dictionary.sourceLanguage, QStringLiteral("en-gb"));
+    QCOMPARE(result.config.dictionary.targetLanguage, QStringLiteral("de"));
+    QCOMPARE(result.config.dictionary.pronunciationStyle, PronunciationStyle::Ipa);
+    QCOMPARE(result.config.translation.catalogUrl, QStringLiteral("https://example.org/catalog.json"));
     QCOMPARE(result.config.performance.cacheEnabled, false);
     QCOMPARE(result.config.performance.lazyInitialize, false);
     QCOMPARE(result.config.lookupKeySequence().toString(QKeySequence::PortableText), QStringLiteral("Ctrl+Alt+L"));
