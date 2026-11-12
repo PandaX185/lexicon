@@ -339,6 +339,8 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
             if (readString(dictionary, "pronunciation_style", style, result, QStringLiteral("dictionary"))) {
                 if (style == QStringLiteral("respelling")) {
                     result.config.dictionary.pronunciationStyle = PronunciationStyle::Respelling;
+                } else if (style == QStringLiteral("ipa")) {
+                    result.config.dictionary.pronunciationStyle = PronunciationStyle::Ipa;
                 } else {
                     addWarning(result, QStringLiteral("dictionary.pronunciation_style"),
                                QStringLiteral("Unsupported pronunciation style; keeping respelling."));

@@ -36,6 +36,7 @@ class ConfigLoaderTest : public QObject {
     void keepsDefaultsForWrongTypes();
     void keepsDefaultsForNonTableSection();
     void keepsDefaultsForUnsupportedEnumValues();
+    void loadsIpaPronunciationStyle();
     void explicitPathOverridesEnvironment();
     void environmentConfigPathIsUsed();
     void defaultPathsHaveExpectedSuffixes();
@@ -430,7 +431,7 @@ animation = "bouncy"
 position = "top"
 
 [dictionary]
-pronunciation_style = "ipa"
+pronunciation_style = "sampa"
 )"));
     QVERIFY(!path.isEmpty());
 
@@ -447,6 +448,26 @@ pronunciation_style = "ipa"
     QVERIFY(hasIssue(result, QStringLiteral("appearance.animation")));
     QVERIFY(hasIssue(result, QStringLiteral("appearance.position")));
     QVERIFY(hasIssue(result, QStringLiteral("dictionary.pronunciation_style")));
+}
+
+void ConfigLoaderTest::loadsIpaPronunciationStyle() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = writeConfig(directory, QStringLiteral(R"(
+[dictionary]
+show_pronunciation = true
+pronunciation_style = "ipa"
+)"));
+    QVERIFY(!path.isEmpty());
+
+    ConfigLoader loader;
+    const ConfigLoadResult result = loader.load(path);
+
+    QVERIFY(result.found);
+    QVERIFY(!result.usedDefaults);
+    QVERIFY(result.issues.isEmpty());
+    QCOMPARE(result.config.dictionary.pronunciationStyle, PronunciationStyle::Ipa);
+    QCOMPARE(pronunciationStyleToString(result.config.dictionary.pronunciationStyle), QStringLiteral("ipa"));
 }
 
 void ConfigLoaderTest::explicitPathOverridesEnvironment() {

@@ -19,7 +19,7 @@
 
 namespace {
 
-QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciation) {
+QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciation, Lexicon::PronunciationStyle style) {
     QVariantMap result;
     result.insert(QStringLiteral("word"), entry.word);
     result.insert(QStringLiteral("transliteration"), entry.transliteration);
@@ -27,6 +27,15 @@ QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciati
     QVariantMap pronunciation;
     pronunciation.insert(QStringLiteral("respelling"), entry.pronunciation.respelling);
     pronunciation.insert(QStringLiteral("ipa"), entry.pronunciation.ipa);
+
+    QString text;
+    if (style == Lexicon::PronunciationStyle::Ipa) {
+        text = !entry.pronunciation.ipa.isEmpty() ? entry.pronunciation.ipa : entry.pronunciation.respelling;
+    } else {
+        text = !entry.pronunciation.respelling.isEmpty() ? entry.pronunciation.respelling : entry.pronunciation.ipa;
+    }
+    pronunciation.insert(QStringLiteral("text"), text);
+    pronunciation.insert(QStringLiteral("style"), Lexicon::pronunciationStyleToString(style));
     result.insert(QStringLiteral("pronunciation"), pronunciation);
 
     QVariantList definitions;
@@ -115,7 +124,8 @@ void QmlPresenter::showEntry(const WordEntry& entry) {
     setPopupProperty("loading", false);
     setPopupProperty("hasMessage", false);
     setPopupProperty("word", entry.word);
-    setPopupProperty("entry", entryToVariant(entry, m_config.dictionary.showPronunciation));
+    setPopupProperty(
+        "entry", entryToVariant(entry, m_config.dictionary.showPronunciation, m_config.dictionary.pronunciationStyle));
     presentPopup();
 }
 

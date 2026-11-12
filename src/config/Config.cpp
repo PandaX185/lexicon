@@ -50,6 +50,8 @@ QString pronunciationStyleToString(PronunciationStyle value) {
     switch (value) {
     case PronunciationStyle::Respelling:
         return QStringLiteral("respelling");
+    case PronunciationStyle::Ipa:
+        return QStringLiteral("ipa");
     }
     return QStringLiteral("respelling");
 }

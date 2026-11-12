@@ -39,7 +39,7 @@ position = "near_selection"
 # Relative paths are resolved against this file's directory.
 database_path = ""
 show_pronunciation = true
-# Stage 1 supports only "respelling".
+# "respelling" or "ipa".
 pronunciation_style = "respelling"
 
 [performance]

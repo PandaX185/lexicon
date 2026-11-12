@@ -30,6 +30,7 @@ enum class PopupPosition {
 
 enum class PronunciationStyle {
     Respelling,
+    Ipa,
 };
 
 struct GeneralConfig {
