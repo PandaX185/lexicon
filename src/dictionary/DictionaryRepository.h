@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/errors/AppError.h"
+#include "dictionary/models/DictionaryInfo.h"
 #include "dictionary/models/WordEntry.h"
 
 #include <QString>
@@ -35,11 +36,30 @@ struct DictionaryLookupResult {
     }
 };
 
+// What a repository reports about the dictionary behind it, so the catalog can
+// decide whether the file covers the requested language pair.
+struct DictionaryDescription {
+    DictionaryInfo info;
+    qint64 entryCount = 0;
+    AppError error;
+
+    [[nodiscard]] bool ok() const noexcept {
+        return !error.isError();
+    }
+
+    static DictionaryDescription failure(AppError appError) {
+        DictionaryDescription description;
+        description.error = std::move(appError);
+        return description;
+    }
+};
+
 class DictionaryRepository {
   public:
     virtual ~DictionaryRepository() = default;
 
     [[nodiscard]] virtual DictionaryLookupResult findByWord(const QString& word) const = 0;
+    [[nodiscard]] virtual DictionaryDescription describe() const = 0;
     [[nodiscard]] virtual QString location() const = 0;
 };
 

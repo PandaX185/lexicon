@@ -14,8 +14,9 @@ ApplicationController
    |        +------------> ShortcutService --> KGlobalAccelShortcutService
    +---------------------> TrayService -----> KStatusNotifierTrayService
    |
-   +--> SelectionProvider --> KdeSelectionProvider (stub)
-   |
+   +--> SelectionProvider --> PrimarySelectionProvider --+--> SelectionTextPolicy
+   |                                                      +--> PrimarySelectionSource
+   |                                                             (platform backend)
    +--> DictionaryService --> DictionaryRepository --> SqliteDictionaryRepository
 ```
 
@@ -52,16 +53,28 @@ to `WordNotFound`.
 - Logging categories are namespaced under `lexicon.*`.
 - `UnixSignalHandler` turns SIGINT/SIGTERM into a Qt signal.
 
+### Platform backends
+
+`src/platform` contains optional adapters that implement a core interface and are
+selected by the composition root only. Nothing above `src/app` includes them.
+
+- `wayland/` implements `PrimarySelectionSource` with `ext_data_control_manager_v1`.
+  It is built only when `wayland-client` and `wayland-scanner` are available, or can
+  be disabled with `-DLEXICON_WITH_WAYLAND=OFF`.
+- A future `x11/` backend would implement the same interface. X11 currently reports an
+  explicit unsupported error instead of reading the clipboard.
+- The controller, presenter, and UI depend only on `SelectionProvider`, so backends can
+  be added, removed, or swapped without touching them.
+
+See [selection retrieval](selection-retrieval.md).
+
 ### KDE integration
 
 `src/kde` contains adapters that depend on KDE Frameworks:
 
 - KGlobalAccel registration creates a `QAction` per shortcut and removes it on shutdown.
-- KStatusNotifierItem provides tray actions. Tray availability is checked with
-  `QSystemTrayIcon::isSystemTrayAvailable()`.
+- KStatusNotifierItem provides tray actions.
 - KDBusService enforces single-instance behavior and re-activation opens settings.
-- The selection provider is deliberately a stub. See
-  [selection retrieval](selection-retrieval.md).
 
 ### Application
 

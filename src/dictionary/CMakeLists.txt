@@ -1,6 +1,9 @@
 add_library(lexicon_dictionary STATIC
     models/PartOfSpeech.cpp
     DictionaryService.cpp
+    DictionaryCatalog.cpp
+    CatalogDictionaryRepository.cpp
+    ArpabetToIpa.cpp
 )
 
 target_include_directories(lexicon_dictionary PUBLIC ${CMAKE_SOURCE_DIR}/src)

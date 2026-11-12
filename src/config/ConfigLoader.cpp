@@ -75,6 +75,25 @@ bool readBool(const toml::table* table, const char* key, bool& target, ConfigLoa
 }
 
 bool readString(const toml::table* table, const char* key, QString& target, ConfigLoadResult& result,
+                const QString& prefix);
+
+// Language tags are stored as lowercase BCP 47, so accept "EN", "en_GB" and
+// "en-GB" in the file and normalize them instead of rejecting the value.
+void readLanguageTag(const toml::table& table, const char* key, QString& target, ConfigLoadResult& result) {
+    QString value;
+    if (!readString(&table, key, value, result, QStringLiteral("dictionary"))) {
+        return;
+    }
+    const QString normalized = value.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
+    if (normalized.isEmpty()) {
+        addWarning(result, QStringLiteral("dictionary.") + QString::fromLatin1(key),
+                   QStringLiteral("Expected a language tag; keeping the default."));
+        return;
+    }
+    target = normalized;
+}
+
+bool readString(const toml::table* table, const char* key, QString& target, ConfigLoadResult& result,
                 const QString& prefix) {
     if (!table) {
         return false;
@@ -270,6 +289,7 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
                             QStringLiteral("hotkeys"),
                             QStringLiteral("appearance"),
                             QStringLiteral("dictionary"),
+                            QStringLiteral("translation"),
                             QStringLiteral("performance"),
                         },
                         result);
@@ -300,12 +320,19 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
             warnUnknownKeys(*dictionary, QStringLiteral("dictionary"),
                             {
                                 QStringLiteral("database_path"),
+                                QStringLiteral("directory"),
+                                QStringLiteral("source_language"),
+                                QStringLiteral("target_language"),
                                 QStringLiteral("show_pronunciation"),
                                 QStringLiteral("pronunciation_style"),
                             },
                             result);
             readString(dictionary, "database_path", result.config.dictionary.databasePath, result,
                        QStringLiteral("dictionary"));
+            readString(dictionary, "directory", result.config.dictionary.directory, result,
+                       QStringLiteral("dictionary"));
+            readLanguageTag(*dictionary, "source_language", result.config.dictionary.sourceLanguage, result);
+            readLanguageTag(*dictionary, "target_language", result.config.dictionary.targetLanguage, result);
             readBool(dictionary, "show_pronunciation", result.config.dictionary.showPronunciation, result,
                      QStringLiteral("dictionary"));
 
@@ -313,10 +340,21 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
             if (readString(dictionary, "pronunciation_style", style, result, QStringLiteral("dictionary"))) {
                 if (style == QStringLiteral("respelling")) {
                     result.config.dictionary.pronunciationStyle = PronunciationStyle::Respelling;
+                } else if (style == QStringLiteral("ipa")) {
+                    result.config.dictionary.pronunciationStyle = PronunciationStyle::Ipa;
                 } else {
                     addWarning(result, QStringLiteral("dictionary.pronunciation_style"),
                                QStringLiteral("Unsupported pronunciation style; keeping respelling."));
                 }
+            }
+        }
+
+        const toml::table* translation = readSection(root, "translation", QStringLiteral("translation"), result);
+        if (translation) {
+            warnUnknownKeys(*translation, QStringLiteral("translation"), {QStringLiteral("catalog_url")}, result);
+            QString catalogUrl;
+            if (readString(translation, "catalog_url", catalogUrl, result, QStringLiteral("translation"))) {
+                result.config.translation.catalogUrl = catalogUrl.trimmed();
             }
         }
 
@@ -346,6 +384,12 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
             QDir::isRelativePath(result.config.dictionary.databasePath)) {
             result.config.dictionary.databasePath =
                 configFile.absoluteDir().absoluteFilePath(result.config.dictionary.databasePath);
+        }
+
+        if (!result.config.dictionary.directory.trimmed().isEmpty() &&
+            QDir::isRelativePath(result.config.dictionary.directory)) {
+            result.config.dictionary.directory =
+                configFile.absoluteDir().absoluteFilePath(result.config.dictionary.directory);
         }
 
         result.usedDefaults = false;

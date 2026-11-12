@@ -9,6 +9,9 @@ lexicon_enable_warnings(lexicon_logging)
 
 add_library(lexicon_infrastructure STATIC
     database/SqliteDictionaryRepository.cpp
+    translation/ArgosProcessWorker.cpp
+    translation/ArgosTranslationService.cpp
+    translation/LanguagePackManager.cpp
     UnixSignalHandler.cpp
 )
 
@@ -18,6 +21,7 @@ target_link_libraries(lexicon_infrastructure PUBLIC
     lexicon_dictionary
     lexicon_logging
     Qt6::Core
+    Qt6::Network
     Qt6::Sql
 )
 target_compile_features(lexicon_infrastructure PUBLIC cxx_std_20)

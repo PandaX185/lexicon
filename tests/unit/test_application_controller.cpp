@@ -26,8 +26,17 @@ WordEntry makeEntry(QString word = QStringLiteral("serendipity"), int definition
     return entry;
 }
 
+// The controller copies its configuration, so tests that need a translated
+// lookup have to set the language pair before the harness exists.
+Config translatedConfig() {
+    Config config;
+    config.dictionary.sourceLanguage = QStringLiteral("en");
+    config.dictionary.targetLanguage = QStringLiteral("de");
+    return config;
+}
+
 struct Harness {
-    Harness() {
+    explicit Harness(Config initialConfig = Config{}) : config(std::move(initialConfig)) {
         auto repository = std::make_unique<FakeRepository>();
         repositoryPtr = repository.get();
         auto dictionary = std::make_unique<DictionaryService>(std::move(repository));
@@ -39,14 +48,18 @@ struct Harness {
         auto trayService = std::make_unique<FakeTrayService>();
         trayPtr = trayService.get();
 
-        controller =
-            std::make_unique<ApplicationController>(config, std::move(dictionary), std::move(selectionProvider),
-                                                    std::move(shortcutService), std::move(trayService), presenter);
+        auto translationService = std::make_unique<FakeTranslationService>();
+        translationPtr = translationService.get();
+
+        controller = std::make_unique<ApplicationController>(
+            config, std::move(dictionary), std::move(translationService), std::move(selectionProvider),
+            std::move(shortcutService), std::move(trayService), presenter);
     }
 
     Config config;
     RecordingPresenter presenter;
     FakeRepository* repositoryPtr = nullptr;
+    FakeTranslationService* translationPtr = nullptr;
     FakeSelectionProvider* selectionPtr = nullptr;
     FakeShortcutService* shortcutsPtr = nullptr;
     FakeTrayService* trayPtr = nullptr;
@@ -68,9 +81,14 @@ class ApplicationControllerTest : public QObject {
     void lookupSelectionReportsUnavailable();
     void lookupSelectionIncludesErrorDetail();
     void lookupSelectionRejectsWhitespaceFallback();
+    void lookupSelectionTitlesFollowErrorCode_data();
+    void lookupSelectionTitlesFollowErrorCode();
     void lookupSelectionTrimsText();
     void concurrentLookupIsIgnored();
     void showSettingsDelegates();
+    void translatesWhenLanguagesDiffer();
+    void skipsTranslationForMonolingualLookups();
+    void keepsEntryWhenTranslationFails();
 };
 
 void ApplicationControllerTest::startRegistersShortcutAndTray() {
@@ -200,6 +218,31 @@ void ApplicationControllerTest::lookupSelectionRejectsWhitespaceFallback() {
     QCOMPARE(harness.repositoryPtr->calls, 0);
 }
 
+void ApplicationControllerTest::lookupSelectionTitlesFollowErrorCode_data() {
+    QTest::addColumn<ErrorCode>("code");
+    QTest::addColumn<QString>("title");
+
+    QTest::newRow("unavailable") << ErrorCode::SelectionUnavailable << QStringLiteral("No selection");
+    QTest::newRow("unsupported") << ErrorCode::SelectionUnsupported << QStringLiteral("Selection not supported");
+    QTest::newRow("not-text") << ErrorCode::SelectionNotText << QStringLiteral("Selection is not text");
+    QTest::newRow("too-long") << ErrorCode::SelectionTooLong << QStringLiteral("Selection too long");
+}
+
+void ApplicationControllerTest::lookupSelectionTitlesFollowErrorCode() {
+    QFETCH(ErrorCode, code);
+    QFETCH(QString, title);
+
+    Harness harness;
+    harness.selectionPtr->result = SelectionResult::failure(AppError::make(code, QStringLiteral("Selection failed.")));
+
+    harness.controller->lookupSelection();
+
+    QCOMPARE(harness.presenter.events.size(), 1);
+    QCOMPARE(harness.presenter.events.constFirst().title, title);
+    QCOMPARE(harness.presenter.events.constFirst().message, QStringLiteral("Selection failed."));
+    QCOMPARE(harness.repositoryPtr->calls, 0);
+}
+
 void ApplicationControllerTest::lookupSelectionTrimsText() {
     Harness harness;
     harness.selectionPtr->result = SelectionResult::success(QStringLiteral("\n  serendipity \t"));
@@ -223,8 +266,8 @@ void ApplicationControllerTest::concurrentLookupIsIgnored() {
     RecordingPresenter presenter;
 
     // NOLINTNEXTLINE(readability-trailing-comma): the comma belongs to the argument list.
-    ApplicationController controller(Config{}, std::move(dictionary), std::move(selection), std::move(shortcuts),
-                                     std::move(tray), presenter);
+    ApplicationController controller(Config{}, std::move(dictionary), std::make_unique<FakeTranslationService>(),
+                                     std::move(selection), std::move(shortcuts), std::move(tray), presenter);
 
     controller.lookupWord(QStringLiteral("first"));
     QVERIFY(repositoryPtr->entered.tryAcquire(1, 5000));
@@ -247,6 +290,45 @@ void ApplicationControllerTest::showSettingsDelegates() {
 
     QCOMPARE(harness.presenter.events.size(), 1);
     QCOMPARE(harness.presenter.events.constFirst().type, PresenterEvent::Type::Settings);
+}
+
+void ApplicationControllerTest::translatesWhenLanguagesDiffer() {
+    Harness harness(translatedConfig());
+    harness.repositoryPtr->result = DictionaryLookupResult::success(makeEntry(QStringLiteral("world")));
+    harness.translationPtr->translationResult = QStringLiteral("Welt");
+
+    harness.controller->lookupWord(QStringLiteral("world"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(harness.presenter.events.size(), 2, 5000);
+    QCOMPARE(harness.presenter.events.at(1).type, PresenterEvent::Type::Entry);
+    QCOMPARE(harness.presenter.events.at(1).translation, QStringLiteral("Welt"));
+    QCOMPARE(harness.translationPtr->translateCalls, 1);
+    QCOMPARE(harness.translationPtr->lastSource, QStringLiteral("en"));
+    QCOMPARE(harness.translationPtr->lastTarget, QStringLiteral("de"));
+}
+
+void ApplicationControllerTest::skipsTranslationForMonolingualLookups() {
+    Harness harness;
+    harness.repositoryPtr->result = DictionaryLookupResult::success(makeEntry());
+
+    harness.controller->lookupWord(QStringLiteral("serendipity"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(harness.presenter.events.size(), 2, 5000);
+    QCOMPARE(harness.translationPtr->translateCalls, 0);
+    QVERIFY(harness.presenter.events.at(1).translation.isEmpty());
+}
+
+void ApplicationControllerTest::keepsEntryWhenTranslationFails() {
+    Harness harness(translatedConfig());
+    harness.repositoryPtr->result = DictionaryLookupResult::success(makeEntry());
+    harness.translationPtr->translationResult =
+        AppError::make(ErrorCode::TranslationUnavailable, QStringLiteral("No German pack installed."));
+
+    harness.controller->lookupWord(QStringLiteral("serendipity"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(harness.presenter.events.size(), 2, 5000);
+    QCOMPARE(harness.presenter.events.at(1).type, PresenterEvent::Type::Entry);
+    QVERIFY(harness.presenter.events.at(1).translation.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(ApplicationControllerTest)

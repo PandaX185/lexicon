@@ -19,13 +19,23 @@
 
 namespace {
 
-QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciation) {
+QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciation, Lexicon::PronunciationStyle style) {
     QVariantMap result;
     result.insert(QStringLiteral("word"), entry.word);
+    result.insert(QStringLiteral("transliteration"), entry.transliteration);
 
     QVariantMap pronunciation;
     pronunciation.insert(QStringLiteral("respelling"), entry.pronunciation.respelling);
     pronunciation.insert(QStringLiteral("ipa"), entry.pronunciation.ipa);
+
+    QString text;
+    if (style == Lexicon::PronunciationStyle::Ipa) {
+        text = !entry.pronunciation.ipa.isEmpty() ? entry.pronunciation.ipa : entry.pronunciation.respelling;
+    } else {
+        text = !entry.pronunciation.respelling.isEmpty() ? entry.pronunciation.respelling : entry.pronunciation.ipa;
+    }
+    pronunciation.insert(QStringLiteral("text"), text);
+    pronunciation.insert(QStringLiteral("style"), Lexicon::pronunciationStyleToString(style));
     result.insert(QStringLiteral("pronunciation"), pronunciation);
 
     QVariantList definitions;
@@ -79,6 +89,11 @@ void QmlPresenter::ensurePopup() {
     if (QQuickItem* root = m_popup->rootObject()) {
         root->setProperty("preferredWidth", m_config.appearance.popupWidth);
         root->setProperty("animationDuration", m_config.appearance.animation == Animation::None ? 0 : 140);
+
+        // `SizeViewToRootObject` already makes the window follow the root item.
+        // Resizing the window here as well produced two resize requests per
+        // change, which arrives out of order on Wayland and made dragging the
+        // resize grip jump around.
     }
 }
 
@@ -105,7 +120,8 @@ void QmlPresenter::showEntry(const WordEntry& entry) {
     setPopupProperty("loading", false);
     setPopupProperty("hasMessage", false);
     setPopupProperty("word", entry.word);
-    setPopupProperty("entry", entryToVariant(entry, m_config.dictionary.showPronunciation));
+    setPopupProperty(
+        "entry", entryToVariant(entry, m_config.dictionary.showPronunciation, m_config.dictionary.pronunciationStyle));
     presentPopup();
 }
 
@@ -144,15 +160,51 @@ void QmlPresenter::dismiss() {
     }
 }
 
+namespace {
+
+// The popup is placed on the screen under the cursor; fall back to the primary
+// screen when the cursor is not on any screen (headless, mid-session changes).
+QScreen* popupScreen() {
+    if (QScreen* screen = QGuiApplication::screenAt(QCursor::pos())) {
+        return screen;
+    }
+    return QGuiApplication::primaryScreen();
+}
+
+// Margin kept between the popup and the screen edges, so the resize grip and the
+// popup border stay reachable.
+constexpr int ScreenMargin = 20;
+
+// On Wayland the compositor decides where a new window goes, so a popup that
+// grows to the full work area can end up with its bottom edge clipped. Keep the
+// automatic height to a comfortable fraction of the screen instead; the user can
+// still drag the popup larger.
+constexpr double AutoHeightFraction = 0.7;
+
+} // namespace
+
+void QmlPresenter::applyScreenBounds() {
+    QScreen* screen = popupScreen();
+    if (screen == nullptr) {
+        return;
+    }
+
+    const QRect available = screen->availableGeometry();
+    const int maxHeight = std::max(0, available.height() - (2 * ScreenMargin));
+    const int autoHeight =
+        std::min(maxHeight, static_cast<int>(static_cast<double>(available.height()) * AutoHeightFraction));
+
+    setPopupProperty("maxPopupWidth", std::max(0, available.width() - (2 * ScreenMargin)));
+    setPopupProperty("maxPopupHeight", maxHeight);
+    setPopupProperty("autoPopupHeight", autoHeight);
+}
+
 void QmlPresenter::positionPopup() {
     if (!m_popup) {
         return;
     }
 
-    QScreen* screen = QGuiApplication::screenAt(QCursor::pos());
-    if (screen == nullptr) {
-        screen = QGuiApplication::primaryScreen();
-    }
+    QScreen* screen = popupScreen();
     if (screen == nullptr) {
         return;
     }
@@ -196,6 +248,7 @@ void QmlPresenter::presentPopup() {
         return;
     }
 
+    applyScreenBounds();
     positionPopup();
     m_popup->show();
     m_popup->raise();

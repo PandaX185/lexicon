@@ -1,6 +1,6 @@
 # AGENTS.md — Lexicon Development Guide
 
-Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. Currently at **Stage 1 (scaffold)**.
+Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. Currently at **Stage 2** (Wayland primary-selection lookup implemented; X11 explicitly unsupported).
 
 ## Essential Commands
 
@@ -28,15 +28,16 @@ Direct binary execution:
 
 Strict inward-only dependencies are enforced:
 
-- `src/core/`: Plain domain types (`Result<T>`, `AppError`, `ErrorCode`), interface contracts (`SelectionProvider`, `PopupPresenter`, `ShortcutService`, `TrayService`). Zero dependencies on QML, Widgets, SQLite, or KDE.
-- `src/dictionary/`: Domain models (`WordEntry`, `Definition`, `PartOfSpeech`, `Pronunciation`), `DictionaryService`, `DictionaryRepository` interface. Zero dependencies on QML, SQLite, or KDE.
+- `src/core/`: Plain domain types (`Result<T>`, `AppError`, `ErrorCode`), interface contracts (`SelectionProvider`, `PrimarySelectionSource`, `PopupPresenter`, `ShortcutService`, `TrayService`), and platform-neutral selection logic (`PrimarySelectionProvider`, `SelectionTextPolicy`). Zero dependencies on QML, Widgets, SQLite, KDE, or a display server.
+- `src/dictionary/`: Domain models (`WordEntry`, `Definition`, `PartOfSpeech`, `Pronunciation`, `DictionaryInfo`), `DictionaryService`, `DictionaryRepository` interface, `DictionaryCatalog` (installed dictionaries and language-pair resolution), `CatalogDictionaryRepository`. Zero dependencies on QML, SQLite, or KDE.
 - `src/infrastructure/`: Operational adapters:
   - `database/`: `SqliteDictionaryRepository` implementing `DictionaryRepository`.
   - `logging/`: Structured category logging (`lexiconApp`, `lexiconConfig`, `lexiconDictionary`, `lexiconDatabase`, `lexiconKde`, `lexiconUi`).
   - `UnixSignalHandler`: POSIX signal translation to Qt signals.
 - `src/config/`: TOML configuration loading via `toml++`, schema validation, fallback defaults, and XDG path resolution (`ConfigLoader`).
-- `src/kde/`: KDE Frameworks 6 adapters (`KGlobalAccelShortcutService`, `KStatusNotifierTrayService`, `KdeSession`). Note: `KdeSelectionProvider` is currently an explicit stub returning `ErrorCode::SelectionUnavailable`.
-- `src/app/`: Composition root (`Application`, `main.cpp`), async orchestrator (`ApplicationController` via `QtConcurrent`), presenter (`QmlPresenter`).
+- `src/platform/`: Optional, per-platform selection backends implementing `PrimarySelectionSource`. `wayland/` uses `ext_data_control_manager_v1`. A future `x11/` backend implements the same interface. Backends must stay optional (`LEXICON_WITH_WAYLAND`) and must not be included above `src/app`.
+- `src/kde/`: KDE Frameworks 6 adapters (`KGlobalAccelShortcutService`, `KStatusNotifierTrayService`, `KdeSession`).
+- `src/app/`: Composition root (`Application`, `main.cpp`), async orchestrator (`ApplicationController` via `QtConcurrent`), presenter (`QmlPresenter`), and `SelectionProviderFactory` — the only platform-aware code.
 - `ui/`: Purely declarative QML (Qt Quick Controls 2, custom theme). Business logic remains in C++ presenters.
 
 ## Critical Design Rules & Gotchas
@@ -54,8 +55,10 @@ Strict inward-only dependencies are enforced:
 ### Privacy & Security Guardrails
 - Offline-only: Do not add network calls or remote telemetry.
 - Selection privacy: Never log selected text, clipboard contents, or sensitive data.
-- Wayland selection integrity: Do not fall back to clipboard or inject synthetic keystrokes (`Ctrl+C`) when selected text is unavailable. Return `ErrorCode::SelectionUnavailable`.
+- Selection integrity: Do not fall back to the clipboard or inject synthetic keystrokes (`Ctrl+C`) when selected text is unavailable. Return an explicit error (`SelectionUnavailable`, `SelectionUnsupported`, `SelectionNotText`, or `SelectionTooLong`).
+- Platform seams: keep platform code in `src/platform` behind `PrimarySelectionSource`; `SelectionProviderFactory` is the only place that may branch on the session. Adding X11 or another desktop must not require changes to core, the controller, or the UI.
 - SQLite queries: Always use bound parameters (`?` placeholders); never format values directly into SQL strings.
+- Dictionary content: Never download dictionary data without an explicit user action, and never present content whose `dictionary_info` attribution is missing.
 - Test fixture: `data/dictionaries/dev-seed.sql` is a small CC0 test fixture, not a production dictionary.
 
 ### Coding Standards
@@ -68,7 +71,8 @@ Strict inward-only dependencies are enforced:
 ### Testing
 - Unit tests live in `tests/unit/` (`test_config.cpp`, `test_dictionary_service.cpp`).
 - Integration tests live in `tests/integration/` (`test_sqlite_repository.cpp`).
-- Label any test requiring a live Plasma/Wayland session with `kde` (the default CTest preset excludes `kde`).
+- Label any test requiring a live Plasma/Wayland session with `kde` (the default CTest preset excludes `kde`; run them with `just test-kde`).
+- Selection logic is tested without a compositor through `PrimarySelectionSource` fakes; the live Wayland path is covered by `tests/integration/test_wayland_selection.cpp` using `wl-copy`.
 
 ## Context Pointers
 

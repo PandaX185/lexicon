@@ -8,7 +8,7 @@ runs:
       shell: bash
       run: |
         pacman -S --needed --noconfirm \
-          cmake ninja gcc clang just sqlite gcovr \
+          cmake ninja gcc clang just sqlite gcovr pkgconf wayland \
           qt6-base qt6-declarative qt6-svg \
           kglobalaccel kstatusnotifieritem kdbusaddons \
           extra-cmake-modules

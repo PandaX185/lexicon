@@ -3,6 +3,7 @@
 #include "core/interfaces/PopupPresenter.h"
 #include "core/interfaces/SelectionProvider.h"
 #include "core/interfaces/ShortcutService.h"
+#include "core/interfaces/TranslationService.h"
 #include "core/interfaces/TrayService.h"
 #include "dictionary/DictionaryRepository.h"
 #include "dictionary/DictionaryService.h"
@@ -31,6 +32,7 @@ struct PresenterEvent {
     Type type = Type::Loading;
     QString title;
     QString message;
+    QString translation;
     int definitionCount = 0;
 };
 
@@ -41,6 +43,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Loading,
             .title = word,
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -50,6 +53,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Entry,
             .title = entry.word,
             .message = {},
+            .translation = entry.metadata.value(QStringLiteral("translation")),
             .definitionCount = static_cast<int>(entry.definitions.size()),
         });
     }
@@ -59,6 +63,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Message,
             .title = title,
             .message = message,
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -68,6 +73,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Settings,
             .title = {},
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -77,6 +83,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Dismiss,
             .title = {},
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -173,6 +180,32 @@ class FakeTrayService final : public TrayService {
     int stopCalls = 0;
 };
 
+class FakeTranslationService final : public TranslationService {
+  public:
+    Result<QString> translate(const QString& text, const QString& from, const QString& to) override {
+        ++translateCalls;
+        lastText = text;
+        lastSource = from;
+        lastTarget = to;
+        return translationResult;
+    }
+
+    Result<QList<LanguagePair>> installedPairs() override {
+        return pairs;
+    }
+
+    bool isPairInstalled(const QString& from, const QString& to) override {
+        return pairs.contains(LanguagePair{.source = from, .target = to, .sourceName = {}, .targetName = {}});
+    }
+
+    Result<QString> translationResult = QStringLiteral("translated");
+    QList<LanguagePair> pairs;
+    QString lastText;
+    QString lastSource;
+    QString lastTarget;
+    int translateCalls = 0;
+};
+
 class FakeRepository final : public DictionaryRepository {
   public:
     explicit FakeRepository(DictionaryLookupResult newResult = DictionaryLookupResult::notFound())
@@ -185,6 +218,19 @@ class FakeRepository final : public DictionaryRepository {
             beforeReturn();
         }
         return result;
+    }
+
+    [[nodiscard]] DictionaryDescription describe() const override {
+        DictionaryDescription description;
+        description.info = DictionaryInfo{
+            .name = QStringLiteral("fake"),
+            .sourceLanguage = QStringLiteral("en"),
+            .targetLanguage = QStringLiteral("en"),
+            .license = {},
+            .attribution = {},
+        };
+        description.entryCount = 1;
+        return description;
     }
 
     [[nodiscard]] QString location() const override {
@@ -205,6 +251,18 @@ class BlockingRepository final : public DictionaryRepository {
         entered.release();
         release.acquire();
         return result;
+    }
+
+    [[nodiscard]] DictionaryDescription describe() const override {
+        DictionaryDescription description;
+        description.info = DictionaryInfo{
+            .name = QStringLiteral("blocking"),
+            .sourceLanguage = QStringLiteral("en"),
+            .targetLanguage = QStringLiteral("en"),
+            .license = {},
+            .attribution = {},
+        };
+        return description;
     }
 
     [[nodiscard]] QString location() const override {

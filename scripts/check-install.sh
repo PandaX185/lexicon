@@ -27,6 +27,8 @@ require_file /usr/share/icons/hicolor/scalable/apps/lexicon.svg
 require_file /usr/share/metainfo/org.lexicon.Lexicon.metainfo.xml
 require_file /usr/share/lexicon/config.example.toml
 require_file /usr/share/lexicon/dictionaries/schema.sql
+require_file /usr/share/lexicon/dictionaries/en.sqlite
+require_file /usr/share/lexicon/scripts/argos_worker.py
 require_file /usr/share/lexicon/lexicon-autostart.desktop
 require_file /usr/share/doc/lexicon/README.md
 require_file /usr/share/doc/lexicon/docs/configuration.md

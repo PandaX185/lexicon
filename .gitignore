@@ -15,6 +15,7 @@ compile_commands.json
 *.sqlite3
 *.db
 !data/dictionaries/*.sql
+!data/dictionaries/en.sqlite
 
 # Packaging artifacts
 packaging/arch/src/
@@ -22,6 +23,10 @@ packaging/arch/pkg/
 *.tar.gz
 *.tar.xz
 *.tar.zst
+
+# Python bytecode
+__pycache__/
+*.pyc
 
 # Tooling
 .cache/

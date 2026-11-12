@@ -11,7 +11,12 @@ configure:
 build: configure
     cmake --build --preset {{ preset }}
 
-run: build
+# The bundled dictionary is installed to the XDG data directory, so a development
+# run finds it the same way an installed package finds /usr/share/lexicon.
+install-dictionary:
+    install -Dm644 data/dictionaries/en.sqlite "${XDG_DATA_HOME:-$HOME/.local/share}/lexicon/dictionaries/en.sqlite"
+
+run: build install-dictionary
     ./build/{{ preset }}/lexicon
 
 test: build
@@ -58,6 +63,11 @@ seed-db:
     rm -f build/dev/lexicon.sqlite
     sqlite3 build/dev/lexicon.sqlite < data/dictionaries/schema.sql
     sqlite3 build/dev/lexicon.sqlite < data/dictionaries/dev-seed.sql
+
+# Rebuild the bundled English dictionary. Needs the WordNet 3.0 `dict/` directory
+# (from WNdb-3.0.tar.gz) and a CMUdict file; both are build-time inputs only.
+build-wordnet *args:
+    python3 scripts/lexicon_importer/import_wordnet.py {{ args }}
 
 demo: build seed-db
     QT_QPA_PLATFORM=offscreen ./build/{{ preset }}/lexicon --lookup serendipity --database build/dev/lexicon.sqlite

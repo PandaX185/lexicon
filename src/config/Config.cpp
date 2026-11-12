@@ -50,6 +50,8 @@ QString pronunciationStyleToString(PronunciationStyle value) {
     switch (value) {
     case PronunciationStyle::Respelling:
         return QStringLiteral("respelling");
+    case PronunciationStyle::Ipa:
+        return QStringLiteral("ipa");
     }
     return QStringLiteral("respelling");
 }
@@ -69,6 +71,31 @@ QString Config::resolvedDatabasePath() const {
     }
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
            QStringLiteral("/lexicon/dictionaries/en.sqlite");
+}
+
+QString Config::resolvedDictionaryDirectory() const {
+    if (!dictionary.directory.trimmed().isEmpty()) {
+        return dictionary.directory;
+    }
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
+           QStringLiteral("/lexicon/dictionaries");
+}
+
+QStringList Config::resolvedDictionaryDirectories() const {
+    if (!dictionary.directory.trimmed().isEmpty()) {
+        return {dictionary.directory};
+    }
+    QStringList dirs;
+    const QString subPath = QStringLiteral("/lexicon/dictionaries");
+    const QStringList dataDirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+    for (const QString& base : dataDirs) {
+        dirs.append(base + subPath);
+    }
+    return dirs;
+}
+
+bool Config::usesDictionaryDirectory() const {
+    return dictionary.databasePath.trimmed().isEmpty();
 }
 
 QKeySequence Config::lookupKeySequence() const {
@@ -106,8 +133,14 @@ QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     map.insert(QStringLiteral("position"), popupPositionToString(appearance.position));
 
     map.insert(QStringLiteral("databasePath"), resolvedDatabasePath());
+    map.insert(QStringLiteral("dictionaryDirectory"), resolvedDictionaryDirectory());
+    map.insert(QStringLiteral("sourceLanguage"), dictionary.sourceLanguage);
+    map.insert(QStringLiteral("targetLanguage"), dictionary.targetLanguage);
     map.insert(QStringLiteral("showPronunciation"), dictionary.showPronunciation);
     map.insert(QStringLiteral("pronunciationStyle"), pronunciationStyleToString(dictionary.pronunciationStyle));
+
+    map.insert(QStringLiteral("languagePackCatalogUrl"), translation.catalogUrl);
+    map.insert(QStringLiteral("languagePacksConfigured"), !translation.catalogUrl.isEmpty());
 
     map.insert(QStringLiteral("cacheEnabled"), performance.cacheEnabled);
     map.insert(QStringLiteral("lazyInitialize"), performance.lazyInitialize);

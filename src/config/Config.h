@@ -30,6 +30,7 @@ enum class PopupPosition {
 
 enum class PronunciationStyle {
     Respelling,
+    Ipa,
 };
 
 struct GeneralConfig {
@@ -56,9 +57,20 @@ struct AppearanceConfig {
 };
 
 struct DictionaryConfig {
+    // An explicit single-file override. When empty, the dictionaries in
+    // `directory` are searched for the configured language pair.
     QString databasePath;
+    QString directory;
+    QString sourceLanguage = QStringLiteral("en");
+    QString targetLanguage = QStringLiteral("en");
     bool showPronunciation = true;
     PronunciationStyle pronunciationStyle = PronunciationStyle::Respelling;
+};
+
+// Translation is optional: with no catalog configured the settings window can
+// still list what is installed, but nothing can be downloaded.
+struct TranslationConfig {
+    QString catalogUrl;
 };
 
 struct PerformanceConfig {
@@ -72,9 +84,13 @@ struct Config {
     HotkeysConfig hotkeys;
     AppearanceConfig appearance;
     DictionaryConfig dictionary;
+    TranslationConfig translation;
     PerformanceConfig performance;
 
     [[nodiscard]] QString resolvedDatabasePath() const;
+    [[nodiscard]] QString resolvedDictionaryDirectory() const;
+    [[nodiscard]] QStringList resolvedDictionaryDirectories() const;
+    [[nodiscard]] bool usesDictionaryDirectory() const;
     [[nodiscard]] QKeySequence lookupKeySequence() const;
     [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown) const;
 };

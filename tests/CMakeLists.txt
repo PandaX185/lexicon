@@ -13,12 +13,38 @@ endfunction()
 lexicon_add_test(test_core_types unit/test_core_types.cpp unit lexicon_dictionary)
 lexicon_add_test(test_config unit/test_config.cpp unit lexicon_config)
 lexicon_add_test(test_dictionary_service unit/test_dictionary_service.cpp unit lexicon_dictionary)
+lexicon_add_test(test_dictionary_catalog unit/test_dictionary_catalog.cpp unit lexicon_dictionary)
+lexicon_add_test(test_arpabet_to_ipa unit/test_arpabet_to_ipa.cpp unit lexicon_dictionary)
 lexicon_add_test(test_application_controller unit/test_application_controller.cpp unit
     lexicon_controller
     Qt6::Concurrent
 )
-lexicon_add_test(test_kde_selection_provider unit/test_kde_selection_provider.cpp unit lexicon_kde)
+lexicon_add_test(test_argos_worker_protocol unit/test_argos_worker_protocol.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
+lexicon_add_test(test_translation_service unit/test_translation_service.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
+lexicon_add_test(test_language_pack_manager unit/test_language_pack_manager.cpp unit
+    lexicon_infrastructure
+    Qt6::Network
+)
+lexicon_add_test(test_selection_provider unit/test_selection_provider.cpp unit lexicon_core)
+lexicon_add_test(test_selection_factory unit/test_selection_factory.cpp unit
+    lexicon_app
+    Qt6::Gui
+)
+if(TARGET lexicon_wayland)
+    lexicon_add_test(test_wayland_selection integration/test_wayland_selection.cpp kde lexicon_wayland)
+endif()
 lexicon_add_test(test_sqlite_repository integration/test_sqlite_repository.cpp integration
+    lexicon_infrastructure
+    Qt6::Sql
+    Qt6::Concurrent
+)
+lexicon_add_test(test_wordnet_sqlite integration/test_wordnet_sqlite.cpp integration
     lexicon_infrastructure
     Qt6::Sql
     Qt6::Concurrent

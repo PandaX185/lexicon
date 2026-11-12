@@ -11,6 +11,7 @@ class SqliteDictionaryRepository final : public DictionaryRepository {
     explicit SqliteDictionaryRepository(QString databasePath);
 
     [[nodiscard]] DictionaryLookupResult findByWord(const QString& word) const override;
+    [[nodiscard]] DictionaryDescription describe() const override;
     [[nodiscard]] QString location() const override;
 
   private:

@@ -7,6 +7,39 @@ and the project uses semantic versioning.
 
 ### Added
 
+- Bundled offline English dictionary built from Princeton WordNet 3.0 (147,806
+  headwords, 206,918 senses) with pronunciations converted from the CMU Pronouncing
+  Dictionary; the importer and licenses ship with the source, and the database is
+  installed to the dictionaries directory and treated as read-only.
+- IPA pronunciations: `dictionary.pronunciation_style = "ipa"` shows IPA with a fallback
+  to the respelling field, and the popup renders whichever the presenter selected.
+- Optional offline translation through a local Argos Translate worker subprocess. Lookups
+  with different `source_language` and `target_language` gain a translation card, and a
+  missing runtime or pack only omits the card instead of failing the lookup.
+- Language pack management in the settings window: a static catalog
+  (`translation.catalog_url`), explicit install and remove actions, download progress,
+  and SHA-256 verification before the runtime ever sees an archive.
+- Dictionary catalog: every `*.sqlite` file in the dictionary directory is inspected, and
+  the configured language pair selects which one answers a lookup. Language pairs live in
+  the new `dictionary_info` table, so a new language is installed content rather than code.
+- `entries.transliteration` indexes a Latin-script romanization of non-Latin headwords.
+  Lookups fall back to it after the headword, and the popup shows it under the word.
+- `--list-dictionaries` prints the installed dictionaries with their language pair, entry
+  count, and path.
+- New `dictionary.directory`, `dictionary.source_language`, and `dictionary.target_language`
+  configuration keys.
+- Automatic primary-selection retrieval on Wayland through
+  `ext_data_control_manager_v1`, behind the platform-neutral `SelectionProvider` and
+  `PrimarySelectionSource` interfaces.
+- `SelectionTextPolicy` for MIME preference, UTF-8 validation, trimming, and a
+  128-character limit, with distinct `SelectionUnsupported`, `SelectionNotText`, and
+  `SelectionTooLong` errors.
+- Optional `src/platform` backend layer: the Wayland backend is built when its
+  dependencies exist and can be disabled with `-DLEXICON_WITH_WAYLAND=OFF`, and the
+  application still runs with an explicit unsupported error.
+- Vendor the `ext-data-control-v1` protocol XML and generate bindings at build time.
+- Live `kde`-labelled selection tests using `wl-copy`, plus unit tests for the provider,
+  policy, and backend factory.
 - Unit, integration, and QML smoke tests covering core types, configuration, dictionary
   lookup, controller orchestration, SQLite access, and QML loading.
 - Header-only test fakes plus SQLite and scoped-environment fixtures under `tests/support/`.
@@ -18,6 +51,17 @@ and the project uses semantic versioning.
 
 ### Changed
 
+- The popup shows `pronunciation.text`, so the pronunciation style is chosen by the
+  presenter rather than toggled inside the view.
+
+- The dictionary schema is now version 2 with `dictionary_info` and
+  `entries.transliteration`. Databases without metadata are ignored by the catalog.
+- A missing dictionary now reports the requested language pair instead of only the path.
+
+- Replaced the `KdeSelectionProvider` stub with the layered selection design; the KDE
+  directory now holds only KDE Frameworks adapters.
+- Fixed the CTest presets so `kde`-labelled tests are actually excluded from the default
+  presets (the filter used an unsupported `labels` array instead of `label`).
 - Split the application into testable `lexicon_controller` and `lexicon_app` libraries.
 - Added an explicit Qt Widgets dependency.
 - The autostart template now installs under `${KDE_INSTALL_DATADIR}/lexicon` instead of an

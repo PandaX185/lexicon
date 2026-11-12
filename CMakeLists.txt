@@ -4,7 +4,7 @@ project(Lexicon
     VERSION 0.1.0
     DESCRIPTION "Lightweight offline English dictionary utility for KDE Plasma"
     HOMEPAGE_URL "https://github.com/PandaX185/lexicon"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -31,6 +31,7 @@ find_package(Qt6 6.10 REQUIRED COMPONENTS
     Test
     DBus
     Concurrent
+    Network
 )
 find_package(KF6 6.0 REQUIRED COMPONENTS
     GlobalAccel
@@ -55,6 +56,11 @@ enable_testing()
 option(LEXICON_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(LEXICON_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(LEXICON_ENABLE_COVERAGE "Build with GCC/Clang coverage instrumentation" OFF)
+
+# Platform tiering: the application depends only on the SelectionProvider and
+# PrimarySelectionSource interfaces, so any backend can be omitted. A build
+# without a backend still runs and reports an explicit unsupported error.
+option(LEXICON_WITH_WAYLAND "Build the Wayland primary-selection backend" ON)
 
 if(LEXICON_ENABLE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -130,10 +136,16 @@ install(FILES packaging/shared/${LEXICON_APP_ID}.desktop DESTINATION ${KDE_INSTA
 install(FILES resources/icons/lexicon.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 install(FILES packaging/shared/${LEXICON_APP_ID}.metainfo.xml DESTINATION ${KDE_INSTALL_METAINFODIR})
 install(FILES resources/config/config.example.toml DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
-install(FILES data/dictionaries/schema.sql DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
+install(FILES data/dictionaries/schema.sql data/dictionaries/en.sqlite
+        DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
 install(FILES packaging/shared/lexicon-autostart.desktop
         DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
+# The translation worker is a local subprocess; it ships with the application
+# rather than being looked up in PATH.
+install(FILES scripts/argos_worker.py
+        DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/scripts)
 install(FILES README.md LICENSE CHANGELOG.md ROADMAP.md CONTRIBUTING.md SECURITY.md SUPPORT.md
+        licenses/WORDNET.txt licenses/CMUDICT.txt
     DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon
 )
 install(DIRECTORY docs/ DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon/docs)

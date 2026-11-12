@@ -27,8 +27,23 @@ QVariantMap qmlConfig(bool darkMode = true) {
     return config.toVariantMap(darkMode ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
 }
 
+// The real object is a QObject created by the application; the view only needs
+// the properties it binds to.
+QVariantMap qmlLanguagePacks() {
+    return QVariantMap{
+        {QStringLiteral("status"), QStringLiteral("No language pack catalog is configured.")},
+        {QStringLiteral("installedPairs"), QVariantList{}},
+        {QStringLiteral("availablePacks"), QVariantList{}},
+        {QStringLiteral("busy"), false},
+        {QStringLiteral("activePack"), QString()},
+        {QStringLiteral("progress"), 0.0},
+        {QStringLiteral("catalogConfigured"), false},
+    };
+}
+
 void configureView(QQuickView& view, bool darkMode = true) {
     view.engine()->rootContext()->setContextProperty(QStringLiteral("config"), qmlConfig(darkMode));
+    view.engine()->rootContext()->setContextProperty(QStringLiteral("languagePacks"), qmlLanguagePacks());
     view.setResizeMode(QQuickView::SizeViewToRootObject);
 }
 
@@ -43,7 +58,9 @@ class QmlViewsTest : public QObject {
     void lookupPopupLoads();
     void lookupPopupShowsEntry();
     void lookupPopupShowsMessage();
+    void lookupPopupRendersIpaAndTranslation();
     void settingsViewLoads();
+    void settingsViewShowsLanguageSection();
     void themeRespondsToDarkMode();
 };
 
@@ -137,6 +154,45 @@ void QmlViewsTest::lookupPopupShowsMessage() {
     QCOMPARE(view.rootObject()->property("messageTitle").toString(), QStringLiteral("No selection"));
     QCOMPARE(view.rootObject()->property("message").toString(), QStringLiteral("Selection is unavailable."));
     QVERIFY(view.height() > 0);
+}
+
+void QmlViewsTest::lookupPopupRendersIpaAndTranslation() {
+    QQuickView view;
+    configureView(view);
+    view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
+    QCOMPARE(view.status(), QQuickView::Ready);
+
+    QVariantMap pronunciation{
+        {QStringLiteral("ipa"), QStringLiteral("/ˌsɛrənˈdɪpɪti/")},
+        {QStringLiteral("text"), QStringLiteral("/ˌsɛrənˈdɪpɪti/")},
+        {QStringLiteral("style"), QStringLiteral("ipa")},
+    };
+    QVariantMap entry{
+        {QStringLiteral("word"), QStringLiteral("serendipity")},
+        {QStringLiteral("pronunciation"), pronunciation},
+        {QStringLiteral("metadata"), QVariantMap{{QStringLiteral("translation"), QStringLiteral("Zufallstreffer")}}},
+        {QStringLiteral("definitions"), QVariantList{}},
+    };
+
+    view.rootObject()->setProperty("loading", false);
+    view.rootObject()->setProperty("hasMessage", false);
+    view.rootObject()->setProperty("word", QStringLiteral("serendipity"));
+    view.rootObject()->setProperty("entry", entry);
+    QCoreApplication::processEvents();
+
+    QCOMPARE(view.status(), QQuickView::Ready);
+    QVERIFY(view.errors().isEmpty());
+    QVERIFY(view.height() > 0);
+}
+
+void QmlViewsTest::settingsViewShowsLanguageSection() {
+    QQuickView view;
+    configureView(view);
+    view.setSource(sourceUrl(QStringLiteral("ui/settings/SettingsView.qml")));
+
+    QCOMPARE(view.status(), QQuickView::Ready);
+    QVERIFY(view.errors().isEmpty());
+    QVERIFY(view.rootObject() != nullptr);
 }
 
 void QmlViewsTest::settingsViewLoads() {

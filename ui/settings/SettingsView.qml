@@ -135,6 +135,115 @@ Item {
 
             SectionCard {
                 Layout.fillWidth: true
+                title: qsTr("Language packs & translation")
+
+                Label {
+                    Layout.fillWidth: true
+                    text: languagePacks.status
+                    color: theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
+
+                // Installed packs: translation is offline once a pair is here.
+                Repeater {
+                    model: languagePacks.installedPairs
+
+                    delegate: RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.label
+                            color: theme.textPrimary
+                            font.pixelSize: 13
+                        }
+
+                        Button {
+                            text: qsTr("Remove")
+                            enabled: !languagePacks.busy
+                            onClicked: languagePacks.remove(modelData.source, modelData.target)
+                        }
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: languagePacks.installedPairs.length === 0
+                    text: qsTr("No translation pairs are installed. Mixed-language lookups show the dictionary entry only.")
+                    color: theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
+
+                // Downloads only ever start from these buttons.
+                Repeater {
+                    model: languagePacks.availablePacks
+
+                    delegate: ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.label !== undefined
+                                      ? modelData.label
+                                      : qsTr("%1 → %2").arg(modelData.source, modelData.target)
+                                color: theme.textPrimary
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Button {
+                                text: qsTr("Install")
+                                enabled: !languagePacks.busy
+                                onClicked: languagePacks.install(modelData.id)
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: modelData.description !== ""
+                            text: modelData.description
+                            color: theme.textSecondary
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 11
+                        }
+
+                        ProgressBar {
+                            Layout.fillWidth: true
+                            visible: languagePacks.activePack === modelData.id
+                                     && languagePacks.busy
+                            from: 0
+                            to: 1
+                            value: languagePacks.progress
+                        }
+                    }
+                }
+
+                Button {
+                    text: qsTr("Refresh catalog")
+                    enabled: languagePacks.catalogConfigured && !languagePacks.busy
+                    onClicked: languagePacks.refresh()
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: !languagePacks.catalogConfigured
+                    text: qsTr("No language pack catalog is configured. Set translation.catalog_url in the configuration file to enable downloads.")
+                    color: theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                }
+            }
+
+            SectionCard {
+                Layout.fillWidth: true
                 title: qsTr("Dictionary")
 
                 Label {

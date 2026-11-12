@@ -15,20 +15,33 @@ lexicon_enable_warnings(lexicon_controller)
 
 add_library(lexicon_app STATIC
     Application.cpp
+    LanguagePackController.cpp
     QmlPresenter.cpp
+    SelectionProviderFactory.cpp
 )
 
 target_include_directories(lexicon_app PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(lexicon_app PUBLIC
     lexicon_controller
+    lexicon_infrastructure
     lexicon_kde
     Qt6::Core
+    Qt6::Concurrent
     Qt6::Gui
     Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
 )
+
+# The composition root is the only place that knows which platform backends
+# exist. Backends are optional, so it gets a compile definition per available
+# backend and selects among them at runtime.
+if(TARGET lexicon_wayland)
+    target_link_libraries(lexicon_app PUBLIC lexicon_wayland)
+    target_compile_definitions(lexicon_app PRIVATE LEXICON_HAVE_WAYLAND=1)
+endif()
+
 target_compile_features(lexicon_app PUBLIC cxx_std_20)
 lexicon_enable_warnings(lexicon_app)
 
