@@ -74,3 +74,7 @@ such as a file escaping the expected prefix, fail the build.
 - Keep changes focused and explain the user-visible effect.
 - Include verification commands and results.
 - Do not commit generated build directories or local databases.
+- `main` is protected: changes must arrive through a pull request with all CI checks
+  green. Only squash and rebase merges are allowed, force pushes are rejected, and
+  review conversations must be resolved before merging.
+- Head branches are deleted automatically after a pull request is closed.
