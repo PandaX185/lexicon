@@ -22,8 +22,7 @@ Item {
         height: card.implicitHeight + 20
 
     Theme {
-        id: theme        // `system` is a supported TOML value, but palette probing is not
-        // implemented yet. For now `system` behaves like `dark`.
+        id: theme
         darkMode: config.themeUsesDarkPalette !== false
     }
             MouseArea {

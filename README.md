@@ -18,6 +18,7 @@ buildable, and honest about what is not implemented yet.
 | KStatusNotifierItem tray integration | Implemented |
 | QML settings window and lookup popup | Implemented |
 | Command-line lookup | Implemented |
+| Tests, formatting, linting, coverage, and CI | Implemented; see [contributing](CONTRIBUTING.md) |
 | Automatic selected-text retrieval on Wayland | Not implemented; see [selection retrieval](docs/architecture/selection-retrieval.md) |
 | Dictionary content distribution | Not implemented; the included data is a tiny CC0 test fixture |
 | Settings editing | Read-only in Stage 1; edit `config.toml` and restart |
@@ -26,7 +27,7 @@ buildable, and honest about what is not implemented yet.
 
 - CMake 3.24 or newer
 - A C++20 compiler
-- Qt 6.10 or newer (Core, Gui, Qml, Quick, QuickControls2, Sql, Test, DBus, Concurrent)
+- Qt 6.10 or newer (Core, Gui, Widgets, Qml, Quick, QuickControls2, Sql, Test, DBus, Concurrent)
 - KDE Frameworks 6: KGlobalAccel, KStatusNotifierItem, KDBusAddons
 - Extra CMake Modules (ECM)
 - SQLite through the Qt SQL plugin
@@ -36,9 +37,11 @@ On Arch-based systems the development packages are typically:
 
 ```sh
 sudo pacman -S --needed base-devel cmake ninja extra-cmake-modules \
-    qt6-base qt6-declarative qt6-quickcontrols2 qt6-sql \
+    qt6-base qt6-declarative qt6-svg \
     kglobalaccel kstatusnotifieritem kdbusaddons
 ```
+
+For the development checks, also install `clang`, `just`, and `gcovr`.
 
 The build uses the vendored toml++ header when the system package is unavailable.
 
@@ -109,15 +112,23 @@ docs/                architecture and reference documentation
 packaging/shared/    desktop, metainfo, and autostart templates
 ```
 
-## Testing
+## Testing and quality checks
 
 ```sh
-ctest --preset dev-debug
+just check       # formatting, QML lint, build, and tests
+just lint        # clang-tidy with warnings as errors
+just coverage    # instrumented build, tests, and gcovr report
 ```
 
-The tests cover configuration loading and validation, dictionary service behavior, and
-SQLite lookup. The default CTest preset excludes tests labelled `kde`, because KDE
-shortcut and tray behavior depends on a live Plasma session.
+Reports are written to `build/coverage-report/`. The tests cover core types,
+configuration loading and validation, dictionary service behavior, controller
+orchestration, SQLite lookup, and QML smoke loading. The default CTest preset excludes
+tests labelled `kde`, because KDE shortcut and tray behavior depends on a live Plasma
+session.
+
+The GitHub Actions pipeline runs formatting and QML lint, GCC and Clang builds with
+warnings as errors, ASan/UBSan, clang-tidy, coverage, and an install-tree check. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full command list.
 
 ## Known limitations
 
@@ -125,6 +136,7 @@ shortcut and tray behavior depends on a live Plasma session.
   an explicit `SelectionUnavailable` error rather than silently reading the clipboard or
   reusing stale text.
 - The settings window is read-only in Stage 1.
+- `start_on_login` is accepted but does not install an autostart entry until Stage 3.
 - The bundled dictionary data is a fixture, not a real dictionary.
 - The project has no production package, Flatpak, AppImage, or release pipeline yet.
 

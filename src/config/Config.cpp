@@ -75,13 +75,19 @@ QKeySequence Config::lookupKeySequence() const {
     return parseKeySequence(hotkeys.lookup);
 }
 
-bool Config::appearanceUsesDarkPalette() const {
-    // `system` is a supported TOML value, but the palette does not yet probe the
-    // desktop theme. For now `system` behaves like `dark`.
-    return appearance.theme != Theme::Light;
+bool resolveDarkPalette(Theme theme, Qt::ColorScheme systemScheme) {
+    switch (theme) {
+    case Theme::Dark:
+        return true;
+    case Theme::Light:
+        return false;
+    case Theme::System:
+        return systemScheme != Qt::ColorScheme::Light;
+    }
+    return true;
 }
 
-QVariantMap Config::toVariantMap() const {
+QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     QVariantMap map;
     map.insert(QStringLiteral("startOnLogin"), general.startOnLogin);
     map.insert(QStringLiteral("offlineFirst"), general.offlineFirst);
@@ -94,7 +100,7 @@ QVariantMap Config::toVariantMap() const {
     map.insert(QStringLiteral("lookup"), hotkeys.lookup);
 
     map.insert(QStringLiteral("theme"), themeToString(appearance.theme));
-    map.insert(QStringLiteral("themeUsesDarkPalette"), appearanceUsesDarkPalette());
+    map.insert(QStringLiteral("themeUsesDarkPalette"), resolveDarkPalette(appearance.theme, systemScheme));
     map.insert(QStringLiteral("popupWidth"), appearance.popupWidth);
     map.insert(QStringLiteral("animation"), animationToString(appearance.animation));
     map.insert(QStringLiteral("position"), popupPositionToString(appearance.position));

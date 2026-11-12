@@ -23,6 +23,7 @@ include(ECMEnableSanitizers)
 find_package(Qt6 6.10 REQUIRED COMPONENTS
     Core
     Gui
+    Widgets
     Qml
     Quick
     QuickControls2
@@ -53,6 +54,16 @@ enable_testing()
 
 option(LEXICON_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(LEXICON_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(LEXICON_ENABLE_COVERAGE "Build with GCC/Clang coverage instrumentation" OFF)
+
+if(LEXICON_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    else()
+        message(FATAL_ERROR "Coverage is only supported with GCC or Clang")
+    endif()
+endif()
 
 if(LEXICON_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -83,17 +94,32 @@ endfunction()
 
 add_subdirectory(src)
 
+set(LEXICON_QML_FILES
+    ui/Main.qml
+    ui/popup/LookupPopup.qml
+    ui/settings/SettingsView.qml
+    ui/components/DefinitionList.qml
+    ui/components/SectionCard.qml
+    ui/themes/Theme.qml
+)
+
 qt_add_resources(lexicon "lexicon_resources"
     PREFIX "/"
     FILES
-        ui/Main.qml
-        ui/popup/LookupPopup.qml
-        ui/settings/SettingsView.qml
-        ui/components/DefinitionList.qml
-        ui/components/SectionCard.qml
-        ui/themes/Theme.qml
+        ${LEXICON_QML_FILES}
         resources/icons/lexicon.svg
 )
+
+if(TARGET Qt6::qmllint)
+    add_custom_target(qml-lint
+        COMMAND Qt6::qmllint ${LEXICON_QML_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Linting QML sources"
+        VERBATIM
+    )
+else()
+    message(WARNING "Qt6::qmllint is not available; the qml-lint target will not be created")
+endif()
 
 add_subdirectory(tests)
 
@@ -106,8 +132,7 @@ install(FILES packaging/shared/${LEXICON_APP_ID}.metainfo.xml DESTINATION ${KDE_
 install(FILES resources/config/config.example.toml DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
 install(FILES data/dictionaries/schema.sql DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/dictionaries)
 install(FILES packaging/shared/lexicon-autostart.desktop
-        DESTINATION ${KDE_INSTALL_APPDATA_DIR}/autostart
-        OPTIONAL)
+        DESTINATION ${KDE_INSTALL_DATADIR}/lexicon)
 install(FILES README.md LICENSE CHANGELOG.md ROADMAP.md CONTRIBUTING.md SECURITY.md SUPPORT.md
     DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon
 )

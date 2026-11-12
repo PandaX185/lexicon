@@ -18,8 +18,7 @@ Rectangle {
 
     Theme {
         id: theme
-        // `system` is a supported TOML value, but palette probing is not
-        // implemented yet. For now `system` behaves like `dark`.
+        // `system` follows the platform color scheme.
         darkMode: config.themeUsesDarkPalette !== false
     }
 

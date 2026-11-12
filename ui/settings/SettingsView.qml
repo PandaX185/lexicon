@@ -93,13 +93,13 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Dismiss on Escape: %1 (always on in popup)").arg(config.dismissOnEscape ? qsTr("yes") : qsTr("no"))
+                    text: qsTr("Dismiss on Escape: %1 (while the popup has focus)").arg(config.dismissOnEscape ? qsTr("yes") : qsTr("no"))
                     color: theme.textSecondary
                 }
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Dismiss on outside click: %1 (not used in Stage 1)").arg(config.dismissOnOutsideClick ? qsTr("yes") : qsTr("no"))
+                    text: qsTr("Dismiss on outside click: %1 (inside popup window only)").arg(config.dismissOnOutsideClick ? qsTr("yes") : qsTr("no"))
                     color: theme.textSecondary
                 }
             }

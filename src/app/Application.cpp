@@ -14,14 +14,27 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QStyleHints>
 #include <QTimer>
+
+namespace {
+
+QVariantMap buildConfigMap(const Lexicon::Config& config) {
+    return config.toVariantMap(QGuiApplication::styleHints()->colorScheme());
+}
+
+} // namespace
 
 namespace Lexicon {
 
 Application::Application(Config config) : m_config(std::move(config)) {
     m_engine = std::make_unique<QQmlApplicationEngine>();
-    m_engine->rootContext()->setContextProperty(QStringLiteral("config"), m_config.toVariantMap());
+    m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config));
     m_engine->rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
+
+    QObject::connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, m_engine.get(), [this] {
+        m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config));
+    });
 
     m_engine->load(QUrl(QStringLiteral("qrc:/ui/Main.qml")));
     if (m_engine->rootObjects().isEmpty()) {

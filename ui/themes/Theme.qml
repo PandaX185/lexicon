@@ -13,6 +13,5 @@ QtObject {
     readonly property color danger: "#f7768e"
     readonly property int radius: 14
 
-    // `system` is a supported TOML value, but the palette does not yet probe the
-    // desktop theme. For now `system` behaves like `dark`.
+    // `system` is resolved by Config::toVariantMap from the platform color scheme.
 }

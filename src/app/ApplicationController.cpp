@@ -63,7 +63,7 @@ void ApplicationController::start() {
 
     if (m_config.general.startOnLogin) {
         qCInfo(lexiconApp) << "event=start_on_login_requested action=install_autostart_entry"
-                           << "source=" << installedAutostartFilePath() << "stage=1 note=install_not_implemented";
+                           << "source=" << installedAutostartFilePath() << "stage=3 note=install_not_implemented";
     }
     const ServiceStatus trayStatus = m_tray->start(trayActions);
     if (!trayStatus.available) {
@@ -79,6 +79,9 @@ void ApplicationController::lookupSelection() {
     const QString selectedText = selection.text.value_or(QString());
     if (selectedText.trimmed().isEmpty()) {
         QString message = selection.error.message;
+        if (message.isEmpty()) {
+            message = QStringLiteral("No text is currently selected.");
+        }
         if (!selection.error.detail.isEmpty()) {
             message += QStringLiteral("\n\n") + selection.error.detail;
         }

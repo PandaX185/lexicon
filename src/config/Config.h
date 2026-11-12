@@ -3,6 +3,7 @@
 #include <QKeySequence>
 #include <QString>
 #include <QVariantMap>
+#include <Qt>
 
 namespace Lexicon {
 
@@ -75,13 +76,12 @@ struct Config {
 
     [[nodiscard]] QString resolvedDatabasePath() const;
     [[nodiscard]] QKeySequence lookupKeySequence() const;
-    [[nodiscard]] QVariantMap toVariantMap() const;
-
-    // Convenience for QML: explicit boolean that matches the current palette intent.
-    // `system` currently behaves like `dark`, so this is intentionally not a separate
-    // theme path.
-    [[nodiscard]] bool appearanceUsesDarkPalette() const;
+    [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown) const;
 };
+
+// Resolves the configured theme against the platform color scheme. `system` follows
+// the platform scheme; when the platform does not report one, it falls back to dark.
+[[nodiscard]] bool resolveDarkPalette(Theme theme, Qt::ColorScheme systemScheme);
 
 [[nodiscard]] QString activationToString(Activation value);
 [[nodiscard]] QString themeToString(Theme value);
