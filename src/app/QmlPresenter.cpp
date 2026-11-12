@@ -173,13 +173,13 @@ QScreen* popupScreen() {
 
 // Margin kept between the popup and the screen edges, so the resize grip and the
 // popup border stay reachable.
-constexpr int kScreenMargin = 20;
+constexpr int ScreenMargin = 20;
 
 // On Wayland the compositor decides where a new window goes, so a popup that
 // grows to the full work area can end up with its bottom edge clipped. Keep the
 // automatic height to a comfortable fraction of the screen instead; the user can
 // still drag the popup larger.
-constexpr double kAutoHeightFraction = 0.7;
+constexpr double AutoHeightFraction = 0.7;
 
 } // namespace
 
@@ -190,11 +190,11 @@ void QmlPresenter::applyScreenBounds() {
     }
 
     const QRect available = screen->availableGeometry();
-    const int maxHeight = std::max(0, available.height() - 2 * kScreenMargin);
+    const int maxHeight = std::max(0, available.height() - (2 * ScreenMargin));
     const int autoHeight =
-        std::min(maxHeight, static_cast<int>(static_cast<double>(available.height()) * kAutoHeightFraction));
+        std::min(maxHeight, static_cast<int>(static_cast<double>(available.height()) * AutoHeightFraction));
 
-    setPopupProperty("maxPopupWidth", std::max(0, available.width() - 2 * kScreenMargin));
+    setPopupProperty("maxPopupWidth", std::max(0, available.width() - (2 * ScreenMargin)));
     setPopupProperty("maxPopupHeight", maxHeight);
     setPopupProperty("autoPopupHeight", autoHeight);
 }

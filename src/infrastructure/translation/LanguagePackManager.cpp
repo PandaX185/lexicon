@@ -20,7 +20,7 @@
 namespace Lexicon {
 namespace {
 
-constexpr int kCatalogVersion = 1;
+constexpr int CatalogVersion = 1;
 
 QNetworkRequest catalogRequest(const QUrl& url) {
     QNetworkRequest request(url);
@@ -63,7 +63,7 @@ QList<LanguagePackInfo> LanguagePackManager::parseCatalogJson(const QByteArray& 
     }
 
     const QJsonObject root = document.object();
-    if (root.value(QStringLiteral("version")).toInt(kCatalogVersion) > kCatalogVersion) {
+    if (root.value(QStringLiteral("version")).toInt(CatalogVersion) > CatalogVersion) {
         return packs;
     }
 

@@ -17,8 +17,10 @@ bool workerAvailable() {
 // working tree copy instead of inventing an installation prefix.
 std::unique_ptr<ArgosProcessWorker> developmentWorker() {
     return std::make_unique<ArgosProcessWorker>(QStringLiteral("python3"),
-                                                QStringList{QStringLiteral(LEXICON_SOURCE_DIR "/scripts/"
-                                                                                              "argos_worker.py")});
+                                                QStringList{
+                                                    QStringLiteral(LEXICON_SOURCE_DIR "/scripts/"
+                                                                                      "argos_worker.py"),
+                                                });
 }
 
 } // namespace

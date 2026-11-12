@@ -50,8 +50,11 @@ class SelectionProviderTest : public QObject {
 void SelectionProviderTest::policyUsesPlainTextPreference() {
     const SelectionTextPolicy policy;
 
-    const QStringList expectedMimeTypes{QStringLiteral("text/plain;charset=utf-8"), QStringLiteral("text/plain"),
-                                        QStringLiteral("utf8_string")};
+    const QStringList expectedMimeTypes{
+        QStringLiteral("text/plain;charset=utf-8"),
+        QStringLiteral("text/plain"),
+        QStringLiteral("utf8_string"),
+    };
 
     QCOMPARE(policy.maxCharacters(), 128);
     QCOMPARE(policy.acceptedMimeTypes(), expectedMimeTypes);

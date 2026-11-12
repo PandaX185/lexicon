@@ -6,7 +6,7 @@ namespace Lexicon {
 
 PrimarySelectionProvider::PrimarySelectionProvider(std::unique_ptr<PrimarySelectionSource> source,
                                                    SelectionTextPolicy policy)
-    : m_source(std::move(source)), m_policy(policy) {}
+    : m_source(std::move(source)), m_policy(std::move(policy)) {}
 
 PrimarySelectionProvider::~PrimarySelectionProvider() = default;
 

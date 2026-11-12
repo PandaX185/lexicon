@@ -81,7 +81,7 @@ void splitCodaAndOnset(const QStringList& consonants, bool hasPrecedingVowel, QS
     }
 
     // 3 or more consonants: check if last two form an onset pair
-    const int lastIdx = consonants.size() - 1;
+    const auto lastIdx = consonants.size() - 1;
     if (isValidOnsetPair(consonants.at(lastIdx - 1), consonants.at(lastIdx))) {
         coda = consonants.mid(0, lastIdx - 1);
         onset = {consonants.at(lastIdx - 1), consonants.at(lastIdx)};

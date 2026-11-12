@@ -3,7 +3,7 @@
 #include "core/selection/PrimarySelectionProvider.h"
 #include "core/selection/UnsupportedPrimarySelectionSource.h"
 
-#if defined(LEXICON_HAVE_WAYLAND)
+#ifdef LEXICON_HAVE_WAYLAND
 #include "platform/wayland/WaylandDataControlSource.h"
 #endif
 
@@ -45,7 +45,7 @@ std::unique_ptr<SelectionProvider> unsupportedProvider(const QString& displayNam
 }
 
 std::unique_ptr<SelectionProvider> waylandProvider() {
-#if defined(LEXICON_HAVE_WAYLAND)
+#ifdef LEXICON_HAVE_WAYLAND
     return std::make_unique<PrimarySelectionProvider>(std::make_unique<WaylandDataControlSource>());
 #else
     return unsupportedProvider(

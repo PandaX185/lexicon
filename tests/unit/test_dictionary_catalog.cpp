@@ -278,10 +278,8 @@ void DictionaryCatalogTest::scansMultipleDirectoriesWithPriority() {
     const QString userDirPath = userDir.path();
     auto factory = [systemInfos, userInfos, userDirPath](const QString& path) -> std::unique_ptr<DictionaryRepository> {
         const QString base = QFileInfo(path).completeBaseName();
-        if (path.contains(QStringLiteral("user")) || path.startsWith(userDirPath)) {
-            if (userInfos.contains(base)) {
-                return std::make_unique<StubRepository>(path, userInfos);
-            }
+        if ((path.contains(QStringLiteral("user")) || path.startsWith(userDirPath)) && userInfos.contains(base)) {
+            return std::make_unique<StubRepository>(path, userInfos);
         }
         return std::make_unique<StubRepository>(path, systemInfos);
     };

@@ -13,7 +13,7 @@
 namespace Lexicon {
 namespace {
 
-constexpr int kProtocolVersion = 1;
+constexpr int ProtocolVersion = 1;
 
 ErrorCode errorCodeFromWorker(const QString& code) {
     if (code == QStringLiteral("invalid_argument")) {
@@ -169,7 +169,7 @@ Result<QJsonObject> ArgosProcessWorker::sendRequest(const QString& action, const
     const int id = ++m_requestId;
     QJsonObject request{
         {QStringLiteral("id"), id},
-        {QStringLiteral("version"), kProtocolVersion},
+        {QStringLiteral("version"), ProtocolVersion},
         {QStringLiteral("action"), action},
         {QStringLiteral("params"), params},
     };

@@ -43,6 +43,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Loading,
             .title = word,
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -62,6 +63,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Message,
             .title = title,
             .message = message,
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -71,6 +73,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Settings,
             .title = {},
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -80,6 +83,7 @@ class RecordingPresenter final : public PopupPresenter {
             .type = PresenterEvent::Type::Dismiss,
             .title = {},
             .message = {},
+            .translation = {},
             .definitionCount = 0,
         });
     }
@@ -191,7 +195,7 @@ class FakeTranslationService final : public TranslationService {
     }
 
     bool isPairInstalled(const QString& from, const QString& to) override {
-        return pairs.contains(LanguagePair{.source = from, .target = to});
+        return pairs.contains(LanguagePair{.source = from, .target = to, .sourceName = {}, .targetName = {}});
     }
 
     Result<QString> translationResult = QStringLiteral("translated");

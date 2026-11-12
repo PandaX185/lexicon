@@ -166,7 +166,8 @@ void registryGlobal(void* data, wl_registry* registry, std::uint32_t name, const
     }
 }
 
-void registryGlobalRemove(void*, wl_registry*, std::uint32_t) {}
+void registryGlobalRemove([[maybe_unused]] void* data, [[maybe_unused]] wl_registry* registry,
+                          [[maybe_unused]] std::uint32_t name) {}
 
 const wl_registry_listener RegistryListener = {
     .global = registryGlobal,
@@ -182,7 +183,8 @@ const ext_data_control_offer_v1_listener OfferListener = {
     .offer = offerMimeType,
 };
 
-void deviceDataOffer(void* data, ext_data_control_device_v1*, ext_data_control_offer_v1* offer) {
+void deviceDataOffer(void* data, [[maybe_unused]] ext_data_control_device_v1* device,
+                     ext_data_control_offer_v1* offer) {
     if (!offer) {
         return;
     }
@@ -191,13 +193,15 @@ void deviceDataOffer(void* data, ext_data_control_device_v1*, ext_data_control_o
     ext_data_control_offer_v1_add_listener(offer, &OfferListener, &context);
 }
 
-void deviceSelection(void*, ext_data_control_device_v1*, ext_data_control_offer_v1*) {
+void deviceSelection([[maybe_unused]] void* data, [[maybe_unused]] ext_data_control_device_v1* device,
+                     [[maybe_unused]] ext_data_control_offer_v1* offer) {
     // Only the primary selection is relevant for selected-text lookup.
 }
 
-void deviceFinished(void*, ext_data_control_device_v1*) {}
+void deviceFinished([[maybe_unused]] void* data, [[maybe_unused]] ext_data_control_device_v1* device) {}
 
-void devicePrimarySelection(void* data, ext_data_control_device_v1*, ext_data_control_offer_v1* offer) {
+void devicePrimarySelection(void* data, [[maybe_unused]] ext_data_control_device_v1* device,
+                            ext_data_control_offer_v1* offer) {
     auto& context = *static_cast<ReadContext*>(data);
     context.primaryOffer = offer;
     context.primarySelectionReceived = true;
@@ -276,8 +280,8 @@ PrimarySelectionReadResult WaylandDataControlSource::readPrimarySelection(const 
                        QStringLiteral("Offered types: %1").arg(offeredTypes.join(QStringLiteral(", "))));
     }
 
-    int pipeDescriptors[2] = {-1, -1};
-    if (::pipe(pipeDescriptors) != 0) {
+    std::array<int, 2> pipeDescriptors = {-1, -1};
+    if (::pipe(pipeDescriptors.data()) != 0) {
         return failure(ErrorCode::SelectionUnavailable, QStringLiteral("Could not create a pipe for the selection."),
                        systemErrorMessage(errno));
     }
