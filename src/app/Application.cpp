@@ -4,6 +4,8 @@
 #include "app/QmlPresenter.h"
 #include "app/SelectionProviderFactory.h"
 #include "core/interfaces/SelectionProvider.h"
+#include "dictionary/CatalogDictionaryRepository.h"
+#include "dictionary/DictionaryCatalog.h"
 #include "dictionary/DictionaryService.h"
 #include "infrastructure/UnixSignalHandler.h"
 #include "infrastructure/database/SqliteDictionaryRepository.h"
@@ -22,6 +24,23 @@ namespace {
 
 QVariantMap buildConfigMap(const Lexicon::Config& config) {
     return config.toVariantMap(QGuiApplication::styleHints()->colorScheme());
+}
+
+// A dictionary can be pointed at explicitly, which keeps single-file setups and
+// the test fixture working; otherwise the installed dictionaries are searched
+// for the configured language pair.
+std::unique_ptr<Lexicon::DictionaryRepository> buildDictionaryRepository(const Lexicon::Config& config) {
+    const auto open = [](const QString& path) -> std::unique_ptr<Lexicon::DictionaryRepository> {
+        return std::make_unique<Lexicon::SqliteDictionaryRepository>(path);
+    };
+
+    if (!config.usesDictionaryDirectory()) {
+        return open(config.resolvedDatabasePath());
+    }
+
+    return std::make_unique<Lexicon::CatalogDictionaryRepository>(
+        Lexicon::DictionaryCatalog(config.resolvedDictionaryDirectory(), open), open, config.dictionary.sourceLanguage,
+        config.dictionary.targetLanguage);
 }
 
 } // namespace
@@ -46,8 +65,7 @@ Application::Application(Config config) : m_config(std::move(config)) {
 
     m_presenter = std::make_unique<QmlPresenter>(*m_engine, m_config);
 
-    auto dictionary = std::make_unique<DictionaryService>(
-        std::make_unique<SqliteDictionaryRepository>(m_config.resolvedDatabasePath()));
+    auto dictionary = std::make_unique<DictionaryService>(buildDictionaryRepository(m_config));
 
     m_session = std::make_unique<KdeSession>();
     m_signals = std::make_unique<UnixSignalHandler>();

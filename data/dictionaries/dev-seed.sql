@@ -1,5 +1,8 @@
 PRAGMA foreign_keys = ON;
 
+INSERT OR REPLACE INTO dictionary_info (id, name, source_language, target_language, license, attribution)
+VALUES (1, 'Lexicon development fixture', 'en', 'en', 'CC0-1.0', 'Lexicon project test fixture, not a dictionary.');
+
 INSERT OR IGNORE INTO entries (id, word, pronunciation_respelling, pronunciation_ipa, source, license)
 VALUES
     (1, 'serendipity', 'ser-uhn-DIP-i-tee', '', 'lexicon-dev-fixture', 'CC0-1.0'),

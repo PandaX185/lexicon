@@ -24,8 +24,11 @@
 
 ## Stage 3: usable dictionary product
 
+- [x] Multi-dictionary catalog with language-pair metadata and resolution
+- [x] Latin transliteration index and romanized lookup
 - [ ] Redistributable dictionary packaging and attribution
 - [ ] Installer/first-run flow for dictionary content
+- [ ] Explicit, checked download of additional language pairs
 - [ ] Editable settings backed by `config.toml`
 - [ ] Opt-in per-user autostart management for `start_on_login`
 - [ ] Lookup cache with bounded size

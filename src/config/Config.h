@@ -56,7 +56,12 @@ struct AppearanceConfig {
 };
 
 struct DictionaryConfig {
+    // An explicit single-file override. When empty, the dictionaries in
+    // `directory` are searched for the configured language pair.
     QString databasePath;
+    QString directory;
+    QString sourceLanguage = QStringLiteral("en");
+    QString targetLanguage = QStringLiteral("en");
     bool showPronunciation = true;
     PronunciationStyle pronunciationStyle = PronunciationStyle::Respelling;
 };
@@ -75,6 +80,8 @@ struct Config {
     PerformanceConfig performance;
 
     [[nodiscard]] QString resolvedDatabasePath() const;
+    [[nodiscard]] QString resolvedDictionaryDirectory() const;
+    [[nodiscard]] bool usesDictionaryDirectory() const;
     [[nodiscard]] QKeySequence lookupKeySequence() const;
     [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown) const;
 };

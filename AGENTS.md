@@ -29,7 +29,7 @@ Direct binary execution:
 Strict inward-only dependencies are enforced:
 
 - `src/core/`: Plain domain types (`Result<T>`, `AppError`, `ErrorCode`), interface contracts (`SelectionProvider`, `PrimarySelectionSource`, `PopupPresenter`, `ShortcutService`, `TrayService`), and platform-neutral selection logic (`PrimarySelectionProvider`, `SelectionTextPolicy`). Zero dependencies on QML, Widgets, SQLite, KDE, or a display server.
-- `src/dictionary/`: Domain models (`WordEntry`, `Definition`, `PartOfSpeech`, `Pronunciation`), `DictionaryService`, `DictionaryRepository` interface. Zero dependencies on QML, SQLite, or KDE.
+- `src/dictionary/`: Domain models (`WordEntry`, `Definition`, `PartOfSpeech`, `Pronunciation`, `DictionaryInfo`), `DictionaryService`, `DictionaryRepository` interface, `DictionaryCatalog` (installed dictionaries and language-pair resolution), `CatalogDictionaryRepository`. Zero dependencies on QML, SQLite, or KDE.
 - `src/infrastructure/`: Operational adapters:
   - `database/`: `SqliteDictionaryRepository` implementing `DictionaryRepository`.
   - `logging/`: Structured category logging (`lexiconApp`, `lexiconConfig`, `lexiconDictionary`, `lexiconDatabase`, `lexiconKde`, `lexiconUi`).
@@ -58,6 +58,7 @@ Strict inward-only dependencies are enforced:
 - Selection integrity: Do not fall back to the clipboard or inject synthetic keystrokes (`Ctrl+C`) when selected text is unavailable. Return an explicit error (`SelectionUnavailable`, `SelectionUnsupported`, `SelectionNotText`, or `SelectionTooLong`).
 - Platform seams: keep platform code in `src/platform` behind `PrimarySelectionSource`; `SelectionProviderFactory` is the only place that may branch on the session. Adding X11 or another desktop must not require changes to core, the controller, or the UI.
 - SQLite queries: Always use bound parameters (`?` placeholders); never format values directly into SQL strings.
+- Dictionary content: Never download dictionary data without an explicit user action, and never present content whose `dictionary_info` attribution is missing.
 - Test fixture: `data/dictionaries/dev-seed.sql` is a small CC0 test fixture, not a production dictionary.
 
 ### Coding Standards

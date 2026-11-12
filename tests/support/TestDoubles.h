@@ -187,6 +187,19 @@ class FakeRepository final : public DictionaryRepository {
         return result;
     }
 
+    [[nodiscard]] DictionaryDescription describe() const override {
+        DictionaryDescription description;
+        description.info = DictionaryInfo{
+            .name = QStringLiteral("fake"),
+            .sourceLanguage = QStringLiteral("en"),
+            .targetLanguage = QStringLiteral("en"),
+            .license = {},
+            .attribution = {},
+        };
+        description.entryCount = 1;
+        return description;
+    }
+
     [[nodiscard]] QString location() const override {
         return QStringLiteral("fake.sqlite");
     }
@@ -205,6 +218,18 @@ class BlockingRepository final : public DictionaryRepository {
         entered.release();
         release.acquire();
         return result;
+    }
+
+    [[nodiscard]] DictionaryDescription describe() const override {
+        DictionaryDescription description;
+        description.info = DictionaryInfo{
+            .name = QStringLiteral("blocking"),
+            .sourceLanguage = QStringLiteral("en"),
+            .targetLanguage = QStringLiteral("en"),
+            .license = {},
+            .attribution = {},
+        };
+        return description;
     }
 
     [[nodiscard]] QString location() const override {

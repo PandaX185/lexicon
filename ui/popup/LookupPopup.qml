@@ -111,6 +111,19 @@ Item {
                 }
             }
 
+            // Romanization of a headword written in another script, so the
+            // lookup result is readable when it was typed in Latin letters.
+            Label {
+                Layout.fillWidth: true
+                visible: !root.loading && !root.hasMessage && root.entry !== null && root.entry !== undefined
+                         && root.entry.transliteration !== undefined && root.entry.transliteration !== ""
+                text: root.entry && root.entry.transliteration ? qsTr("Latin: %1").arg(root.entry.transliteration) : ""
+                color: theme.textSecondary
+                font.pixelSize: 12
+                elide: Text.ElideRight
+                textFormat: Text.PlainText
+            }
+
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 1

@@ -1,11 +1,16 @@
 #include "app/Application.h"
 #include "config/ConfigLoader.h"
+#include "dictionary/DictionaryCatalog.h"
+#include "infrastructure/database/SqliteDictionaryRepository.h"
 #include "infrastructure/logging/Logging.h"
 
 #include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QTextStream>
+
+#include <memory>
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
@@ -26,8 +31,10 @@ int main(int argc, char* argv[]) {
                                       QStringLiteral("Override the dictionary database path."), QStringLiteral("path"));
     QCommandLineOption lookupOption({QStringLiteral("l"), QStringLiteral("lookup")},
                                     QStringLiteral("Look up <word> after starting."), QStringLiteral("word"));
+    QCommandLineOption listDictionariesOption(QStringLiteral("list-dictionaries"),
+                                              QStringLiteral("List the installed dictionaries and exit."));
     QCommandLineOption debugOption(QStringLiteral("debug"), QStringLiteral("Enable debug logging."));
-    parser.addOptions({configOption, databaseOption, lookupOption, debugOption});
+    parser.addOptions({configOption, databaseOption, lookupOption, listDictionariesOption, debugOption});
     parser.process(app);
 
     Lexicon::Logging::initialize(parser.isSet(debugOption));
@@ -39,6 +46,24 @@ int main(int argc, char* argv[]) {
     }
     if (parser.isSet(databaseOption)) {
         loaded.config.dictionary.databasePath = parser.value(databaseOption);
+    }
+
+    if (parser.isSet(listDictionariesOption)) {
+        const auto open = [](const QString& path) -> std::unique_ptr<Lexicon::DictionaryRepository> {
+            return std::make_unique<Lexicon::SqliteDictionaryRepository>(path);
+        };
+        const Lexicon::DictionaryCatalog catalog(loaded.config.resolvedDictionaryDirectory(), open);
+
+        QTextStream out(stdout);
+        if (catalog.entries().isEmpty()) {
+            out << "No dictionaries installed in " << catalog.directory() << '\n';
+            return 0;
+        }
+        for (const Lexicon::DictionaryCatalogEntry& entry : catalog.entries()) {
+            out << entry.info.name << "\t" << entry.info.languagePairLabel() << "\t" << entry.entryCount << " entries\t"
+                << entry.path << '\n';
+        }
+        return 0;
     }
 
     Lexicon::Application application(loaded.config);

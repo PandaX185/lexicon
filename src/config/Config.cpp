@@ -71,6 +71,18 @@ QString Config::resolvedDatabasePath() const {
            QStringLiteral("/lexicon/dictionaries/en.sqlite");
 }
 
+QString Config::resolvedDictionaryDirectory() const {
+    if (!dictionary.directory.trimmed().isEmpty()) {
+        return dictionary.directory;
+    }
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
+           QStringLiteral("/lexicon/dictionaries");
+}
+
+bool Config::usesDictionaryDirectory() const {
+    return dictionary.databasePath.trimmed().isEmpty();
+}
+
 QKeySequence Config::lookupKeySequence() const {
     return parseKeySequence(hotkeys.lookup);
 }
@@ -106,6 +118,9 @@ QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     map.insert(QStringLiteral("position"), popupPositionToString(appearance.position));
 
     map.insert(QStringLiteral("databasePath"), resolvedDatabasePath());
+    map.insert(QStringLiteral("dictionaryDirectory"), resolvedDictionaryDirectory());
+    map.insert(QStringLiteral("sourceLanguage"), dictionary.sourceLanguage);
+    map.insert(QStringLiteral("targetLanguage"), dictionary.targetLanguage);
     map.insert(QStringLiteral("showPronunciation"), dictionary.showPronunciation);
     map.insert(QStringLiteral("pronunciationStyle"), pronunciationStyleToString(dictionary.pronunciationStyle));
 

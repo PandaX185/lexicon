@@ -27,13 +27,15 @@ void requireSqliteDriver() {
 void insertEntry(SqliteFixture& fixture, int id, const QString& word,
                  const QStringList& definitions = {QStringLiteral("A definition.")}, const QString& respelling = {},
                  const QString& ipa = {}, const QString& source = QStringLiteral("fixture"),
-                 const QString& license = QStringLiteral("CC0-1.0")) {
+                 const QString& license = QStringLiteral("CC0-1.0"), const QString& transliteration = {}) {
     QSqlQuery entryQuery(fixture.database());
     entryQuery.prepare(QStringLiteral("INSERT INTO entries "
-                                      "(id, word, pronunciation_respelling, pronunciation_ipa, source, license) "
-                                      "VALUES (?, ?, ?, ?, ?, ?)"));
+                                      "(id, word, transliteration, pronunciation_respelling, pronunciation_ipa, "
+                                      "source, license) "
+                                      "VALUES (?, ?, ?, ?, ?, ?, ?)"));
     entryQuery.addBindValue(id);
     entryQuery.addBindValue(word);
+    entryQuery.addBindValue(transliteration.isNull() ? QStringLiteral("") : transliteration);
     // The schema marks pronunciation columns NOT NULL: a null QString would bind as SQL NULL.
     entryQuery.addBindValue(respelling.isNull() ? QStringLiteral("") : respelling);
     entryQuery.addBindValue(ipa.isNull() ? QStringLiteral("") : ipa);
@@ -78,6 +80,10 @@ class SqliteRepositoryTest : public QObject {
     void handlesSqlMetacharacters();
     void handlesConcurrentLookups();
     void removesLookupConnections();
+    void looksUpByTransliteration();
+    void prefersHeadwordOverTransliteration();
+    void describesDictionaryMetadata();
+    void reportsMissingDictionaryMetadata();
     void exposesDatabaseLocation();
 };
 
@@ -336,6 +342,91 @@ void SqliteRepositoryTest::removesLookupConnections() {
         QVERIFY2(!connectionName.startsWith(QStringLiteral("lexicon_lookup_")),
                  qPrintable(QStringLiteral("Leaked connection: %1").arg(connectionName)));
     }
+}
+
+void SqliteRepositoryTest::looksUpByTransliteration() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    insertEntry(fixture, 1, QStringLiteral("\u4e2d\u6587"), {QStringLiteral("The Chinese language.")},
+                QStringLiteral("zhong-wen"), {}, QStringLiteral("fixture"), QStringLiteral("CC0-1.0"),
+                QStringLiteral("zhongwen"));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryLookupResult result = repository.findByWord(QStringLiteral("ZhongWen"));
+
+    QVERIFY(result.found());
+    QCOMPARE(result.entry->word, QStringLiteral("\u4e2d\u6587"));
+    QCOMPARE(result.entry->transliteration, QStringLiteral("zhongwen"));
+}
+
+void SqliteRepositoryTest::prefersHeadwordOverTransliteration() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    insertEntry(fixture, 1, QStringLiteral("\u4e2d\u6587"), {QStringLiteral("The Chinese language.")}, {}, {},
+                QStringLiteral("fixture"), QStringLiteral("CC0-1.0"), QStringLiteral("zhongwen"));
+    insertEntry(fixture, 2, QStringLiteral("zhongwen"), {QStringLiteral("A romanized headword.")});
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryLookupResult result = repository.findByWord(QStringLiteral("zhongwen"));
+
+    QVERIFY(result.found());
+    QCOMPARE(result.entry->word, QStringLiteral("zhongwen"));
+    QVERIFY(result.entry->transliteration.isEmpty());
+}
+
+void SqliteRepositoryTest::describesDictionaryMetadata() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    QVERIFY(
+        fixture.exec(QStringLiteral("INSERT INTO dictionary_info "
+                                    "(id, name, source_language, target_language, license, attribution) "
+                                    "VALUES (1, 'Test dictionary', 'EN', 'de_DE', 'CC0-1.0', 'Test attribution')")));
+    insertEntry(fixture, 1, QStringLiteral("serendipity"));
+    insertEntry(fixture, 2, QStringLiteral("lexicon"));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryDescription description = repository.describe();
+
+    QVERIFY(description.ok());
+    QCOMPARE(description.info.name, QStringLiteral("Test dictionary"));
+    // Tags are normalized so pairs compare reliably.
+    QCOMPARE(description.info.sourceLanguage, QStringLiteral("en"));
+    QCOMPARE(description.info.targetLanguage, QStringLiteral("de-de"));
+    QCOMPARE(description.info.license, QStringLiteral("CC0-1.0"));
+    QCOMPARE(description.info.attribution, QStringLiteral("Test attribution"));
+    QCOMPARE(description.entryCount, 2);
+}
+
+void SqliteRepositoryTest::reportsMissingDictionaryMetadata() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    insertEntry(fixture, 1, QStringLiteral("serendipity"));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryDescription description = repository.describe();
+
+    QVERIFY(!description.ok());
+    QCOMPARE(description.error.code, ErrorCode::DatabaseQueryFailed);
 }
 
 void SqliteRepositoryTest::exposesDatabaseLocation() {

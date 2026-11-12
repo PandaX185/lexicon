@@ -13,6 +13,7 @@ endfunction()
 lexicon_add_test(test_core_types unit/test_core_types.cpp unit lexicon_dictionary)
 lexicon_add_test(test_config unit/test_config.cpp unit lexicon_config)
 lexicon_add_test(test_dictionary_service unit/test_dictionary_service.cpp unit lexicon_dictionary)
+lexicon_add_test(test_dictionary_catalog unit/test_dictionary_catalog.cpp unit lexicon_dictionary)
 lexicon_add_test(test_application_controller unit/test_application_controller.cpp unit
     lexicon_controller
     Qt6::Concurrent

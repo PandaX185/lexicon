@@ -22,6 +22,7 @@ namespace {
 QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciation) {
     QVariantMap result;
     result.insert(QStringLiteral("word"), entry.word);
+    result.insert(QStringLiteral("transliteration"), entry.transliteration);
 
     QVariantMap pronunciation;
     pronunciation.insert(QStringLiteral("respelling"), entry.pronunciation.respelling);

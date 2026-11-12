@@ -7,6 +7,15 @@ and the project uses semantic versioning.
 
 ### Added
 
+- Dictionary catalog: every `*.sqlite` file in the dictionary directory is inspected, and
+  the configured language pair selects which one answers a lookup. Language pairs live in
+  the new `dictionary_info` table, so a new language is installed content rather than code.
+- `entries.transliteration` indexes a Latin-script romanization of non-Latin headwords.
+  Lookups fall back to it after the headword, and the popup shows it under the word.
+- `--list-dictionaries` prints the installed dictionaries with their language pair, entry
+  count, and path.
+- New `dictionary.directory`, `dictionary.source_language`, and `dictionary.target_language`
+  configuration keys.
 - Automatic primary-selection retrieval on Wayland through
   `ext_data_control_manager_v1`, behind the platform-neutral `SelectionProvider` and
   `PrimarySelectionSource` interfaces.
@@ -29,6 +38,10 @@ and the project uses semantic versioning.
 - Install-tree verification that catches files escaping the intended installation prefix.
 
 ### Changed
+
+- The dictionary schema is now version 2 with `dictionary_info` and
+  `entries.transliteration`. Databases without metadata are ignored by the catalog.
+- A missing dictionary now reports the requested language pair instead of only the path.
 
 - Replaced the `KdeSelectionProvider` stub with the layered selection design; the KDE
   directory now holds only KDE Frameworks adapters.
