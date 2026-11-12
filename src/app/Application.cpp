@@ -39,8 +39,8 @@ std::unique_ptr<Lexicon::DictionaryRepository> buildDictionaryRepository(const L
     }
 
     return std::make_unique<Lexicon::CatalogDictionaryRepository>(
-        Lexicon::DictionaryCatalog(config.resolvedDictionaryDirectory(), open), open, config.dictionary.sourceLanguage,
-        config.dictionary.targetLanguage);
+        Lexicon::DictionaryCatalog(config.resolvedDictionaryDirectories(), open), open,
+        config.dictionary.sourceLanguage, config.dictionary.targetLanguage);
 }
 
 } // namespace

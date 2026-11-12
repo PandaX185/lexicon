@@ -79,6 +79,19 @@ QString Config::resolvedDictionaryDirectory() const {
            QStringLiteral("/lexicon/dictionaries");
 }
 
+QStringList Config::resolvedDictionaryDirectories() const {
+    if (!dictionary.directory.trimmed().isEmpty()) {
+        return {dictionary.directory};
+    }
+    QStringList dirs;
+    const QString subPath = QStringLiteral("/lexicon/dictionaries");
+    const QStringList dataDirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+    for (const QString& base : dataDirs) {
+        dirs.append(base + subPath);
+    }
+    return dirs;
+}
+
 bool Config::usesDictionaryDirectory() const {
     return dictionary.databasePath.trimmed().isEmpty();
 }

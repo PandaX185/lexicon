@@ -81,6 +81,7 @@ struct Config {
 
     [[nodiscard]] QString resolvedDatabasePath() const;
     [[nodiscard]] QString resolvedDictionaryDirectory() const;
+    [[nodiscard]] QStringList resolvedDictionaryDirectories() const;
     [[nodiscard]] bool usesDictionaryDirectory() const;
     [[nodiscard]] QKeySequence lookupKeySequence() const;
     [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown) const;

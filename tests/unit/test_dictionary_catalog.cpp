@@ -94,6 +94,7 @@ class DictionaryCatalogTest : public QObject {
     void describesResolvedDictionary();
     void locationFallsBackToDirectory();
     void emptyDirectoryHasNoEntries();
+    void scansMultipleDirectoriesWithPriority();
 };
 
 void DictionaryCatalogTest::listsOnlyDescribableDictionaries() {
@@ -254,6 +255,48 @@ void DictionaryCatalogTest::emptyDirectoryHasNoEntries() {
 
     QVERIFY(catalog.entries().isEmpty());
     QVERIFY(!catalog.find(QStringLiteral("en"), QStringLiteral("en")).has_value());
+}
+
+void DictionaryCatalogTest::scansMultipleDirectoriesWithPriority() {
+    QTemporaryDir systemDir;
+    QTemporaryDir userDir;
+    QVERIFY(systemDir.isValid());
+    QVERIFY(userDir.isValid());
+
+    writeFile(systemDir, QStringLiteral("english.sqlite"));
+    writeFile(userDir, QStringLiteral("english.sqlite")); // User override
+    writeFile(systemDir, QStringLiteral("german.sqlite"));
+
+    DictionaryInfos systemInfos{
+        {QStringLiteral("english"), info("System English", "en", "en")},
+        {QStringLiteral("german"), info("German", "de", "de")},
+    };
+    DictionaryInfos userInfos{
+        {QStringLiteral("english"), info("User English", "en", "en")},
+    };
+
+    const QString userDirPath = userDir.path();
+    auto factory = [systemInfos, userInfos, userDirPath](const QString& path) -> std::unique_ptr<DictionaryRepository> {
+        const QString base = QFileInfo(path).completeBaseName();
+        if (path.contains(QStringLiteral("user")) || path.startsWith(userDirPath)) {
+            if (userInfos.contains(base)) {
+                return std::make_unique<StubRepository>(path, userInfos);
+            }
+        }
+        return std::make_unique<StubRepository>(path, systemInfos);
+    };
+
+    const DictionaryCatalog catalog(QStringList{userDir.path(), systemDir.path()}, factory);
+
+    QCOMPARE(catalog.entries().size(), 2);
+    const auto englishEntry = catalog.find(QStringLiteral("en"), QStringLiteral("en"));
+    QVERIFY(englishEntry.has_value());
+    QCOMPARE(englishEntry->info.name, QStringLiteral("User English"));
+    QVERIFY(englishEntry->path.startsWith(userDir.path()));
+
+    const auto germanEntry = catalog.find(QStringLiteral("de"), QStringLiteral("de"));
+    QVERIFY(germanEntry.has_value());
+    QCOMPARE(germanEntry->info.name, QStringLiteral("German"));
 }
 
 QTEST_GUILESS_MAIN(DictionaryCatalogTest)

@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QSet>
 
 #include <algorithm>
 #include <utility>
@@ -9,31 +10,42 @@
 namespace Lexicon {
 
 DictionaryCatalog::DictionaryCatalog(QString directory, RepositoryFactory factory)
-    : m_directory(std::move(directory)), m_factory(std::move(factory)) {
+    : DictionaryCatalog(QStringList{std::move(directory)}, std::move(factory)) {}
+
+DictionaryCatalog::DictionaryCatalog(QStringList directories, RepositoryFactory factory)
+    : m_directories(std::move(directories)), m_factory(std::move(factory)) {
     refresh();
 }
 
 void DictionaryCatalog::refresh() {
     QList<DictionaryCatalogEntry> entries;
+    QSet<QString> seenFileNames;
     if (m_factory) {
-        const QDir directory(m_directory);
-        const QFileInfoList files =
-            directory.entryInfoList({QStringLiteral("*.sqlite")}, QDir::Files | QDir::Readable, QDir::Name);
-        for (const QFileInfo& file : files) {
-            const QString path = file.absoluteFilePath();
-            const std::unique_ptr<DictionaryRepository> repository = m_factory(path);
-            if (!repository) {
-                continue;
+        for (const QString& dirPath : m_directories) {
+            const QDir directory(dirPath);
+            const QFileInfoList files =
+                directory.entryInfoList({QStringLiteral("*.sqlite")}, QDir::Files | QDir::Readable, QDir::Name);
+            for (const QFileInfo& file : files) {
+                const QString fileName = file.fileName();
+                if (seenFileNames.contains(fileName)) {
+                    continue;
+                }
+                const QString path = file.absoluteFilePath();
+                const std::unique_ptr<DictionaryRepository> repository = m_factory(path);
+                if (!repository) {
+                    continue;
+                }
+                const DictionaryDescription description = repository->describe();
+                if (!description.ok() || !description.info.isValid()) {
+                    continue;
+                }
+                seenFileNames.insert(fileName);
+                entries.append(DictionaryCatalogEntry{
+                    .info = description.info,
+                    .path = path,
+                    .entryCount = description.entryCount,
+                });
             }
-            const DictionaryDescription description = repository->describe();
-            if (!description.ok() || !description.info.isValid()) {
-                continue;
-            }
-            entries.append(DictionaryCatalogEntry{
-                .info = description.info,
-                .path = path,
-                .entryCount = description.entryCount,
-            });
         }
     }
     m_entries = std::move(entries);
@@ -43,8 +55,12 @@ const QList<DictionaryCatalogEntry>& DictionaryCatalog::entries() const noexcept
     return m_entries;
 }
 
+QStringList DictionaryCatalog::directories() const {
+    return m_directories;
+}
+
 QString DictionaryCatalog::directory() const {
-    return m_directory;
+    return m_directories.isEmpty() ? QString() : m_directories.constFirst();
 }
 
 std::optional<DictionaryCatalogEntry> DictionaryCatalog::find(const QString& sourceLanguage,

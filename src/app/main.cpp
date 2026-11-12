@@ -52,11 +52,12 @@ int main(int argc, char* argv[]) {
         const auto open = [](const QString& path) -> std::unique_ptr<Lexicon::DictionaryRepository> {
             return std::make_unique<Lexicon::SqliteDictionaryRepository>(path);
         };
-        const Lexicon::DictionaryCatalog catalog(loaded.config.resolvedDictionaryDirectory(), open);
+        const Lexicon::DictionaryCatalog catalog(loaded.config.resolvedDictionaryDirectories(), open);
 
         QTextStream out(stdout);
         if (catalog.entries().isEmpty()) {
-            out << "No dictionaries installed in " << catalog.directory() << '\n';
+            out << "No dictionaries installed in "
+                << loaded.config.resolvedDictionaryDirectories().join(QStringLiteral(", ")) << '\n';
             return 0;
         }
         for (const Lexicon::DictionaryCatalogEntry& entry : catalog.entries()) {

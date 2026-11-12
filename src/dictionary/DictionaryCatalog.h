@@ -28,11 +28,13 @@ class DictionaryCatalog {
     using RepositoryFactory = std::function<std::unique_ptr<DictionaryRepository>(const QString& path)>;
 
     explicit DictionaryCatalog(QString directory, RepositoryFactory factory = {});
+    explicit DictionaryCatalog(QStringList directories, RepositoryFactory factory = {});
 
     void refresh();
 
     [[nodiscard]] const QList<DictionaryCatalogEntry>& entries() const noexcept;
     [[nodiscard]] QString directory() const;
+    [[nodiscard]] QStringList directories() const;
 
     // Resolution order: the exact language pair, then a monolingual dictionary
     // for the source language, then one for the target language. A pair that is
@@ -41,7 +43,7 @@ class DictionaryCatalog {
                                                              const QString& targetLanguage) const;
 
   private:
-    QString m_directory;
+    QStringList m_directories;
     RepositoryFactory m_factory;
     QList<DictionaryCatalogEntry> m_entries;
 };
