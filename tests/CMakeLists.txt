@@ -17,7 +17,14 @@ lexicon_add_test(test_application_controller unit/test_application_controller.cp
     lexicon_controller
     Qt6::Concurrent
 )
-lexicon_add_test(test_kde_selection_provider unit/test_kde_selection_provider.cpp unit lexicon_kde)
+lexicon_add_test(test_selection_provider unit/test_selection_provider.cpp unit lexicon_core)
+lexicon_add_test(test_selection_factory unit/test_selection_factory.cpp unit
+    lexicon_app
+    Qt6::Gui
+)
+if(TARGET lexicon_wayland)
+    lexicon_add_test(test_wayland_selection integration/test_wayland_selection.cpp kde lexicon_wayland)
+endif()
 lexicon_add_test(test_sqlite_repository integration/test_sqlite_repository.cpp integration
     lexicon_infrastructure
     Qt6::Sql

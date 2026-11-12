@@ -32,6 +32,12 @@ QString errorCodeToString(ErrorCode code) {
         return QStringLiteral("word_not_found");
     case ErrorCode::SelectionUnavailable:
         return QStringLiteral("selection_unavailable");
+    case ErrorCode::SelectionUnsupported:
+        return QStringLiteral("selection_unsupported");
+    case ErrorCode::SelectionNotText:
+        return QStringLiteral("selection_not_text");
+    case ErrorCode::SelectionTooLong:
+        return QStringLiteral("selection_too_long");
     case ErrorCode::ShortcutRegistrationFailed:
         return QStringLiteral("shortcut_registration_failed");
     case ErrorCode::TrayUnavailable:

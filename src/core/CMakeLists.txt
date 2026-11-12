@@ -1,5 +1,8 @@
 add_library(lexicon_core STATIC
     errors/AppError.cpp
+    selection/PrimarySelectionProvider.cpp
+    selection/SelectionTextPolicy.cpp
+    selection/UnsupportedPrimarySelectionSource.cpp
 )
 
 target_include_directories(lexicon_core PUBLIC ${CMAKE_SOURCE_DIR}/src)

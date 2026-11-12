@@ -2,11 +2,12 @@
 
 #include "app/ApplicationController.h"
 #include "app/QmlPresenter.h"
+#include "app/SelectionProviderFactory.h"
+#include "core/interfaces/SelectionProvider.h"
 #include "dictionary/DictionaryService.h"
 #include "infrastructure/UnixSignalHandler.h"
 #include "infrastructure/database/SqliteDictionaryRepository.h"
 #include "infrastructure/logging/Logging.h"
-#include "kde/selection/KdeSelectionProvider.h"
 #include "kde/session/KdeSession.h"
 #include "kde/shortcuts/KGlobalAccelShortcutService.h"
 #include "kde/tray/KStatusNotifierTrayService.h"
@@ -52,8 +53,8 @@ Application::Application(Config config) : m_config(std::move(config)) {
     m_signals = std::make_unique<UnixSignalHandler>();
 
     m_controller = std::make_unique<ApplicationController>(
-        m_config, std::move(dictionary), std::make_unique<KdeSelectionProvider>(),
-        std::make_unique<KGlobalAccelShortcutService>(), std::make_unique<KStatusNotifierTrayService>(), *m_presenter);
+        m_config, std::move(dictionary), createSelectionProvider(), std::make_unique<KGlobalAccelShortcutService>(),
+        std::make_unique<KStatusNotifierTrayService>(), *m_presenter);
 
     QObject::connect(m_signals.get(), &UnixSignalHandler::terminationRequested, m_controller.get(),
                      &ApplicationController::quit);

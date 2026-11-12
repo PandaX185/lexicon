@@ -4,8 +4,9 @@ Lexicon is a small, native, offline-first English dictionary utility for KDE Pla
 It starts quietly, stays available through a global shortcut and tray icon, and shows
 definitions in a focused popup.
 
-This repository currently contains the **Stage 1 scaffold**. It is intentionally small,
-buildable, and honest about what is not implemented yet.
+This repository currently implements **Stage 2**: automatic selected-text lookup on
+Wayland, on top of the Stage 1 scaffold. It stays small, buildable, and honest about
+what is not implemented yet.
 
 ## Status
 
@@ -19,7 +20,8 @@ buildable, and honest about what is not implemented yet.
 | QML settings window and lookup popup | Implemented |
 | Command-line lookup | Implemented |
 | Tests, formatting, linting, coverage, and CI | Implemented; see [contributing](CONTRIBUTING.md) |
-| Automatic selected-text retrieval on Wayland | Not implemented; see [selection retrieval](docs/architecture/selection-retrieval.md) |
+| Automatic selected-text retrieval on Wayland | Implemented behind `SelectionProvider`; see [selection retrieval](docs/architecture/selection-retrieval.md) |
+| Automatic selected-text retrieval on X11 | Explicit unsupported error; decision recorded in [selection retrieval](docs/architecture/selection-retrieval.md) |
 | Dictionary content distribution | Not implemented; the included data is a tiny CC0 test fixture |
 | Settings editing | Read-only in Stage 1; edit `config.toml` and restart |
 
@@ -32,13 +34,15 @@ buildable, and honest about what is not implemented yet.
 - Extra CMake Modules (ECM)
 - SQLite through the Qt SQL plugin
 - toml++ 3.4 or newer, or the vendored copy in `third_party/`
+- Optional: `wayland-client` and `wayland-scanner` for the Wayland selection backend
 
 On Arch-based systems the development packages are typically:
 
 ```sh
 sudo pacman -S --needed base-devel cmake ninja extra-cmake-modules \
     qt6-base qt6-declarative qt6-svg \
-    kglobalaccel kstatusnotifieritem kdbusaddons
+    kglobalaccel kstatusnotifieritem kdbusaddons \
+    wayland wayland-protocols
 ```
 
 For the development checks, also install `clang`, `just`, and `gcovr`.
@@ -104,8 +108,9 @@ src/core/            domain types, errors, interfaces
 src/config/          TOML loading, validation, defaults
 src/dictionary/      domain models and lookup service
 src/infrastructure/  logging, SQLite repository, Unix signal handling
-src/kde/             KGlobalAccel, tray, session, selection boundary
-src/app/             composition root, controller, QML presenter, CLI
+src/platform/        optional selection backends (Wayland; X11 later)
+src/kde/             KGlobalAccel, tray, and session adapters
+src/app/             composition root, controller, QML presenter, selection factory, CLI
 ui/                  QML settings window and popup
 data/dictionaries/   schema and development fixture
 docs/                architecture and reference documentation
@@ -123,8 +128,8 @@ just coverage    # instrumented build, tests, and gcovr report
 Reports are written to `build/coverage-report/`. The tests cover core types,
 configuration loading and validation, dictionary service behavior, controller
 orchestration, SQLite lookup, and QML smoke loading. The default CTest preset excludes
-tests labelled `kde`, because KDE shortcut and tray behavior depends on a live Plasma
-session.
+tests labelled `kde`, because shortcut, tray, and selection behavior depends on a live
+Plasma session. Run those with `just test-kde`.
 
 The GitHub Actions pipeline runs formatting and QML lint, GCC and Clang builds with
 warnings as errors, ASan/UBSan, clang-tidy, coverage, and an install-tree check. See
@@ -132,9 +137,10 @@ warnings as errors, ASan/UBSan, clang-tidy, coverage, and an install-tree check.
 
 ## Known limitations
 
-- Selected-text retrieval on Wayland is not implemented. The selection provider returns
-  an explicit `SelectionUnavailable` error rather than silently reading the clipboard or
-  reusing stale text.
+- Selected-text retrieval works on Wayland (`ext_data_control_manager_v1`) only. X11
+  returns an explicit `SelectionUnsupported` error, and nothing ever falls back to the
+  clipboard or reuses stale text.
+- Selections longer than 128 characters are rejected rather than looked up.
 - The settings window is read-only in Stage 1.
 - `start_on_login` is accepted but does not install an autostart entry until Stage 3.
 - The bundled dictionary data is a fixture, not a real dictionary.

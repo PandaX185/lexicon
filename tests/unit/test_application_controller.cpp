@@ -68,6 +68,8 @@ class ApplicationControllerTest : public QObject {
     void lookupSelectionReportsUnavailable();
     void lookupSelectionIncludesErrorDetail();
     void lookupSelectionRejectsWhitespaceFallback();
+    void lookupSelectionTitlesFollowErrorCode_data();
+    void lookupSelectionTitlesFollowErrorCode();
     void lookupSelectionTrimsText();
     void concurrentLookupIsIgnored();
     void showSettingsDelegates();
@@ -197,6 +199,31 @@ void ApplicationControllerTest::lookupSelectionRejectsWhitespaceFallback() {
     QCOMPARE(harness.presenter.events.constFirst().type, PresenterEvent::Type::Message);
     QCOMPARE(harness.presenter.events.constFirst().title, QStringLiteral("No selection"));
     QVERIFY(!harness.presenter.events.constFirst().message.isEmpty());
+    QCOMPARE(harness.repositoryPtr->calls, 0);
+}
+
+void ApplicationControllerTest::lookupSelectionTitlesFollowErrorCode_data() {
+    QTest::addColumn<ErrorCode>("code");
+    QTest::addColumn<QString>("title");
+
+    QTest::newRow("unavailable") << ErrorCode::SelectionUnavailable << QStringLiteral("No selection");
+    QTest::newRow("unsupported") << ErrorCode::SelectionUnsupported << QStringLiteral("Selection not supported");
+    QTest::newRow("not-text") << ErrorCode::SelectionNotText << QStringLiteral("Selection is not text");
+    QTest::newRow("too-long") << ErrorCode::SelectionTooLong << QStringLiteral("Selection too long");
+}
+
+void ApplicationControllerTest::lookupSelectionTitlesFollowErrorCode() {
+    QFETCH(ErrorCode, code);
+    QFETCH(QString, title);
+
+    Harness harness;
+    harness.selectionPtr->result = SelectionResult::failure(AppError::make(code, QStringLiteral("Selection failed.")));
+
+    harness.controller->lookupSelection();
+
+    QCOMPARE(harness.presenter.events.size(), 1);
+    QCOMPARE(harness.presenter.events.constFirst().title, title);
+    QCOMPARE(harness.presenter.events.constFirst().message, QStringLiteral("Selection failed."));
     QCOMPARE(harness.repositoryPtr->calls, 0);
 }
 

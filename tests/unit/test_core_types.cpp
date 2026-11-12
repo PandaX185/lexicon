@@ -99,6 +99,10 @@ void CoreTypesTest::errorCodeNames_data() {
     QTest::newRow("db-query") << ErrorCode::DatabaseQueryFailed << QStringLiteral("database_query_failed");
     QTest::newRow("word-not-found") << ErrorCode::WordNotFound << QStringLiteral("word_not_found");
     QTest::newRow("selection") << ErrorCode::SelectionUnavailable << QStringLiteral("selection_unavailable");
+    QTest::newRow("selection-unsupported")
+        << ErrorCode::SelectionUnsupported << QStringLiteral("selection_unsupported");
+    QTest::newRow("selection-not-text") << ErrorCode::SelectionNotText << QStringLiteral("selection_not_text");
+    QTest::newRow("selection-too-long") << ErrorCode::SelectionTooLong << QStringLiteral("selection_too_long");
     QTest::newRow("shortcut") << ErrorCode::ShortcutRegistrationFailed
                               << QStringLiteral("shortcut_registration_failed");
     QTest::newRow("tray") << ErrorCode::TrayUnavailable << QStringLiteral("tray_unavailable");

@@ -14,11 +14,13 @@
 
 ## Stage 2: real selected-text lookup
 
-- [ ] Wayland data-control proof of concept behind `SelectionProvider`
-- [ ] Primary-selection MIME handling and length limits
-- [ ] Explicit unavailable/unsupported/non-text errors
-- [ ] X11 behavior decision
-- [ ] KDE-labelled integration tests on a live Plasma session
+- [x] Wayland data-control proof of concept behind `SelectionProvider`
+- [x] Primary-selection MIME handling and length limits
+- [x] Explicit unavailable/unsupported/non-text/too-long errors
+- [x] X11 behavior decision: explicit unsupported error, no clipboard fallback
+- [x] Selection backend made optional and swappable (`-DLEXICON_WITH_WAYLAND=OFF`)
+- [x] KDE-labelled integration tests for a live Plasma session
+- [x] Confirm the selection matrix (Kate, Firefox, Qt app) on the target session
 
 ## Stage 3: usable dictionary product
 

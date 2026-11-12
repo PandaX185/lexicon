@@ -137,9 +137,7 @@
       },
       "filter": {
         "exclude": {
-          "labels": [
-            "kde"
-          ]
+          "label": "kde"
         }
       }
     },
@@ -155,9 +153,7 @@
       },
       "filter": {
         "exclude": {
-          "labels": [
-            "kde"
-          ]
+          "label": "kde"
         }
       }
     },
@@ -249,9 +245,7 @@
       },
       "filter": {
         "exclude": {
-          "labels": [
-            "kde"
-          ]
+          "label": "kde"
         }
       }
     }

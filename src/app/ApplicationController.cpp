@@ -16,6 +16,36 @@
 #include <utility>
 
 namespace Lexicon {
+namespace {
+
+// Selection failures are distinct on purpose; the popup title should say which
+// one happened instead of reporting every case as "No selection".
+QString selectionErrorTitle(ErrorCode code) {
+    switch (code) {
+    case ErrorCode::SelectionNotText:
+        return QStringLiteral("Selection is not text");
+    case ErrorCode::SelectionTooLong:
+        return QStringLiteral("Selection too long");
+    case ErrorCode::SelectionUnsupported:
+        return QStringLiteral("Selection not supported");
+    case ErrorCode::SelectionUnavailable:
+    case ErrorCode::None:
+    case ErrorCode::InvalidArgument:
+    case ErrorCode::ConfigParseError:
+    case ErrorCode::ConfigValidationError:
+    case ErrorCode::DatabaseUnavailable:
+    case ErrorCode::DatabaseOpenFailed:
+    case ErrorCode::DatabaseQueryFailed:
+    case ErrorCode::WordNotFound:
+    case ErrorCode::ShortcutRegistrationFailed:
+    case ErrorCode::TrayUnavailable:
+    case ErrorCode::Unknown:
+        break;
+    }
+    return QStringLiteral("No selection");
+}
+
+} // namespace
 
 ApplicationController::ApplicationController(Config config, std::unique_ptr<DictionaryService> dictionary,
                                              std::unique_ptr<SelectionProvider> selection,
@@ -85,7 +115,7 @@ void ApplicationController::lookupSelection() {
         if (!selection.error.detail.isEmpty()) {
             message += QStringLiteral("\n\n") + selection.error.detail;
         }
-        m_presenter.showMessage(QStringLiteral("No selection"), message);
+        m_presenter.showMessage(selectionErrorTitle(selection.error.code), message);
         return;
     }
 

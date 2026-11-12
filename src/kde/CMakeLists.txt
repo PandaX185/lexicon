@@ -1,6 +1,5 @@
 add_library(lexicon_kde STATIC
     shortcuts/KGlobalAccelShortcutService.cpp
-    selection/KdeSelectionProvider.cpp
     tray/KStatusNotifierTrayService.cpp
     session/KdeSession.cpp
 )

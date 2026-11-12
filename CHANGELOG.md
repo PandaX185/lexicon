@@ -7,6 +7,18 @@ and the project uses semantic versioning.
 
 ### Added
 
+- Automatic primary-selection retrieval on Wayland through
+  `ext_data_control_manager_v1`, behind the platform-neutral `SelectionProvider` and
+  `PrimarySelectionSource` interfaces.
+- `SelectionTextPolicy` for MIME preference, UTF-8 validation, trimming, and a
+  128-character limit, with distinct `SelectionUnsupported`, `SelectionNotText`, and
+  `SelectionTooLong` errors.
+- Optional `src/platform` backend layer: the Wayland backend is built when its
+  dependencies exist and can be disabled with `-DLEXICON_WITH_WAYLAND=OFF`, and the
+  application still runs with an explicit unsupported error.
+- Vendor the `ext-data-control-v1` protocol XML and generate bindings at build time.
+- Live `kde`-labelled selection tests using `wl-copy`, plus unit tests for the provider,
+  policy, and backend factory.
 - Unit, integration, and QML smoke tests covering core types, configuration, dictionary
   lookup, controller orchestration, SQLite access, and QML loading.
 - Header-only test fakes plus SQLite and scoped-environment fixtures under `tests/support/`.
@@ -18,6 +30,10 @@ and the project uses semantic versioning.
 
 ### Changed
 
+- Replaced the `KdeSelectionProvider` stub with the layered selection design; the KDE
+  directory now holds only KDE Frameworks adapters.
+- Fixed the CTest presets so `kde`-labelled tests are actually excluded from the default
+  presets (the filter used an unsupported `labels` array instead of `label`).
 - Split the application into testable `lexicon_controller` and `lexicon_app` libraries.
 - Added an explicit Qt Widgets dependency.
 - The autostart template now installs under `${KDE_INSTALL_DATADIR}/lexicon` instead of an

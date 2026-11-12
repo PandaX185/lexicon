@@ -4,7 +4,7 @@ project(Lexicon
     VERSION 0.1.0
     DESCRIPTION "Lightweight offline English dictionary utility for KDE Plasma"
     HOMEPAGE_URL "https://github.com/PandaX185/lexicon"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -55,6 +55,11 @@ enable_testing()
 option(LEXICON_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(LEXICON_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(LEXICON_ENABLE_COVERAGE "Build with GCC/Clang coverage instrumentation" OFF)
+
+# Platform tiering: the application depends only on the SelectionProvider and
+# PrimarySelectionSource interfaces, so any backend can be omitted. A build
+# without a backend still runs and reports an explicit unsupported error.
+option(LEXICON_WITH_WAYLAND "Build the Wayland primary-selection backend" ON)
 
 if(LEXICON_ENABLE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
