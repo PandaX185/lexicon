@@ -1,27 +1,27 @@
 set shell := ["bash", "-uc"]
 
-preset := env_var_or_default("PRESET", "dev-debug")
+preset := env("PRESET", "dev-debug")
 
 default:
     @just --list
 
 configure:
-    cmake --preset {{preset}}
+    cmake --preset {{ preset }}
 
 build: configure
-    cmake --build --preset {{preset}}
+    cmake --build --preset {{ preset }}
 
 run: build
-    ./build/{{preset}}/lexicon
+    ./build/{{ preset }}/lexicon
 
 test: build
-    ctest --preset {{preset}}
+    ctest --preset {{ preset }}
 
 test-all: build
-    ctest --test-dir build/{{preset}} --output-on-failure
+    ctest --test-dir build/{{ preset }} --output-on-failure
 
 test-kde: build
-    ctest --test-dir build/{{preset}} -L kde --output-on-failure
+    ctest --test-dir build/{{ preset }} -L kde --output-on-failure
 
 format:
     find src tests -type f \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
@@ -41,11 +41,11 @@ seed-db:
     sqlite3 build/dev/lexicon.sqlite < data/dictionaries/dev-seed.sql
 
 demo: build seed-db
-    QT_QPA_PLATFORM=offscreen ./build/{{preset}}/lexicon --lookup serendipity --database build/dev/lexicon.sqlite
+    QT_QPA_PLATFORM=offscreen ./build/{{ preset }}/lexicon --lookup serendipity --database build/dev/lexicon.sqlite
 
 install-check: build
     rm -rf build/install-root
-    DESTDIR="$PWD/build/install-root" cmake --install build/{{preset}} --prefix /usr
+    DESTDIR="$PWD/build/install-root" cmake --install build/{{ preset }} --prefix /usr
     find build/install-root -type f | sort
 
 clean:
