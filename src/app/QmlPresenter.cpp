@@ -90,14 +90,10 @@ void QmlPresenter::ensurePopup() {
         root->setProperty("preferredWidth", m_config.appearance.popupWidth);
         root->setProperty("animationDuration", m_config.appearance.animation == Animation::None ? 0 : 140);
 
-        // `SizeViewToRootObject` only sizes the window when the source is set; the
-        // popup changes size later (loading -> entry, user resize), so mirror the
-        // root item's size onto the window ourselves.
-        const auto syncWindowSize = [this, root] {
-            m_popup->resize(QSize(static_cast<int>(root->width()), static_cast<int>(root->height())));
-        };
-        QObject::connect(root, &QQuickItem::widthChanged, m_popup.get(), syncWindowSize);
-        QObject::connect(root, &QQuickItem::heightChanged, m_popup.get(), syncWindowSize);
+        // `SizeViewToRootObject` already makes the window follow the root item.
+        // Resizing the window here as well produced two resize requests per
+        // change, which arrives out of order on Wayland and made dragging the
+        // resize grip jump around.
     }
 }
 

@@ -64,10 +64,12 @@ Item {
 
     Rectangle {
         id: card
-        width: parent.width - 20
-        height: parent.height - 20
         implicitHeight: content.implicitHeight + 36
-        anchors.centerIn: parent
+        // Fill the window instead of centering a fixed-size card: a centered
+        // card moves as the window grows, which moves the resize grip away from
+        // the pointer mid-drag.
+        anchors.fill: parent
+        anchors.margins: 10
         radius: theme.radius
         color: theme.surface
         border.width: 1
@@ -100,6 +102,19 @@ Item {
                     font.pixelSize: 22
                     font.weight: Font.DemiBold
                     wrapMode: Text.Wrap
+
+                    // Dragging the header moves the whole popup. The compositor
+                    // performs the move on Wayland, which is why this asks for a
+                    // system move instead of setting the window position.
+                    MouseArea {
+                        anchors.fill: parent
+                        onPressed: (mouse) => {
+                            const popup = Window.window;
+                            if (popup && popup.startSystemMove) {
+                                mouse.accepted = popup.startSystemMove();
+                            }
+                        }
+                    }
                 }
 
                 ToolButton {
@@ -275,12 +290,15 @@ Item {
             cursorShape: Qt.SizeFDiagCursor
             hoverEnabled: true
 
-            property point pressPoint: Qt.point(0, 0)
+            // Scene coordinates are used because the grip moves with the window
+            // edge: `mouse.x` is relative to the grip, so growing the window
+            // shifted the grip under the pointer and the delta collapsed.
+            property point pressScene: Qt.point(0, 0)
             property real startWidth: 0
             property real startHeight: 0
 
             onPressed: (mouse) => {
-                pressPoint = Qt.point(mouse.x, mouse.y);
+                pressScene = mapToItem(null, mouse.x, mouse.y);
                 startWidth = root.width;
                 startHeight = root.height;
                 root.userResized = true;
@@ -292,8 +310,9 @@ Item {
                 if (!pressed) {
                     return;
                 }
-                root.manualWidth = startWidth + (mouse.x - pressPoint.x);
-                root.manualHeight = startHeight + (mouse.y - pressPoint.y);
+                const scene = mapToItem(null, mouse.x, mouse.y);
+                root.manualWidth = startWidth + (scene.x - pressScene.x);
+                root.manualHeight = startHeight + (scene.y - pressScene.y);
             }
 
             Rectangle {
