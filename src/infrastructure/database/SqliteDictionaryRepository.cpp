@@ -24,9 +24,8 @@ DictionaryLookupResult SqliteDictionaryRepository::findByWord(const QString& wor
 
     const QFileInfo databaseFile(m_databasePath);
     if (!databaseFile.exists() || !databaseFile.isFile()) {
-        return DictionaryLookupResult::failure(
-            AppError::make(ErrorCode::DatabaseUnavailable,
-                           QStringLiteral("Dictionary database not found: %1").arg(m_databasePath), m_databasePath));
+        return DictionaryLookupResult::failure(AppError::make(
+            ErrorCode::DatabaseUnavailable, QStringLiteral("Dictionary database not found."), m_databasePath));
     }
 
     const QString connectionName =

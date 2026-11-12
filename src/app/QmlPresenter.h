@@ -28,6 +28,7 @@ class QmlPresenter final : public PopupPresenter {
   private:
     void ensurePopup();
     void setPopupProperty(const char* name, const QVariant& value);
+    void applyScreenBounds();
     void positionPopup();
     void presentPopup();
 
