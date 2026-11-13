@@ -24,16 +24,23 @@ bool isOpeningCharacter(QChar character) {
     return opening.contains(character);
 }
 
-constexpr std::array<std::pair<ushort, ushort>, 8> Wrappers{{
-    {'"', '"'},
-    {'\'', '\''},
-    {0x201C, 0x201D}, // “ ”
-    {0x2018, 0x2019}, // ‘ ’
-    {'(', ')'},
-    {'[', ']'},
-    {'{', '}'},
-    {0x00AB, 0x00BB}, // « »
-}};
+struct CharacterWrapper {
+    ushort opening;
+    ushort closing;
+};
+
+constexpr std::array<CharacterWrapper, 8> Wrappers = {
+    {
+        {.opening = '"', .closing = '"'},
+        {.opening = '\'', .closing = '\''},
+        {.opening = 0x201C, .closing = 0x201D}, // “ ”
+        {.opening = 0x2018, .closing = 0x2019}, // ‘ ’
+        {.opening = '(', .closing = ')'},
+        {.opening = '[', .closing = ']'},
+        {.opening = '{', .closing = '}'},
+        {.opening = 0x00AB, .closing = 0x00BB}, // « »
+    },
+};
 
 // Removes a trailing run of dots only when it is sentence punctuation. One dot
 // in a token with no other dots is a full stop ("word."); dots inside the token
@@ -100,7 +107,7 @@ QString normalizeLookupText(const QString& raw) {
             changed = true;
         }
 
-        const int beforeDots = text.size();
+        const qsizetype beforeDots = text.size();
         stripTrailingDots(text);
         changed = changed || text.size() != beforeDots;
 
@@ -114,7 +121,7 @@ QString normalizeLookupText(const QString& raw) {
 }
 
 int countLookupWords(const QString& text) {
-    return text.split(QLatin1Char(' '), Qt::SkipEmptyParts).size();
+    return static_cast<int>(text.split(QLatin1Char(' '), Qt::SkipEmptyParts).size());
 }
 
 } // namespace Lexicon

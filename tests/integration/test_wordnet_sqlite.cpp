@@ -3,6 +3,8 @@
 #include <QFile>
 #include <QTest>
 
+#include <array>
+
 using namespace Lexicon;
 
 class WordNetSqliteTest : public QObject {
@@ -75,11 +77,18 @@ void WordNetSqliteTest::resolvesInflectedForms() {
     }
     SqliteDictionaryRepository repo(dbPath);
 
-    const struct {
+    struct FormCase {
         const char* form;
         const char* headword;
-    } cases[] = {
-        {"went", "go"}, {"ran", "run"}, {"children", "child"}, {"walked", "walk"}, {"jumped", "jump"},
+    };
+    const std::array<FormCase, 5> cases = {
+        {
+            {.form = "went", .headword = "go"},
+            {.form = "ran", .headword = "run"},
+            {.form = "children", .headword = "child"},
+            {.form = "walked", .headword = "walk"},
+            {.form = "jumped", .headword = "jump"},
+        },
     };
 
     for (const auto& item : cases) {
