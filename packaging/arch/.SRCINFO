@@ -1,0 +1,25 @@
+pkgbase = lexicon
+	pkgdesc = Native offline English dictionary daemon for KDE Plasma
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/PandaX185/lexicon
+	arch = x86_64
+	license = MIT
+	makedepends = cmake
+	makedepends = ninja
+	makedepends = extra-cmake-modules
+	makedepends = pkgconf
+	depends = qt6-base
+	depends = qt6-declarative
+	depends = qt6-quickcontrols2
+	depends = qt6-svg
+	depends = kglobalaccel
+	depends = kstatusnotifieritem
+	depends = kdbusaddons
+	depends = wayland
+	optdepends = python: offline translation worker
+	optdepends = python-argostranslate: offline translation models
+	source = lexicon-0.1.0.tar.gz::https://github.com/PandaX185/lexicon/releases/download/v0.1.0/lexicon-0.1.0.tar.gz
+	sha256sums = 34cc283ca7bd3400525340998e666f0f3a0de714be4ac8d8f5916366f3ce7c64
+
+pkgname = lexicon

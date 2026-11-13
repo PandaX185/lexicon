@@ -24,7 +24,7 @@ optdepends=(
 # The release workflow publishes this source tarball together with its SHA-256
 # checksum. Regenerate both when bumping pkgver.
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('34cc283ca7bd3400525340998e666f0f3a0de714be4ac8d8f5916366f3ce7c64')
 
 build() {
     cmake -S "$srcdir/$pkgname-$pkgver" -B build -G Ninja \
