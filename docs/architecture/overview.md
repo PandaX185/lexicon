@@ -38,11 +38,17 @@ KDE, SQLite, or QML.
 and errors. Invalid values keep their defaults. Unknown keys are reported. Paths are
 resolved against XDG locations or the configuration file directory.
 
+`ConfigLoader::save` writes the whole document through `QSaveFile`, so an interrupted
+save cannot truncate an existing configuration. If the previous file contained comments
+or keys the schema does not know, it is copied to `config.toml.bak` and a warning lists
+what the rewrite would drop.
+
 ### Dictionary
 
 `src/dictionary` contains the `WordEntry` model and `DictionaryService`. The service
 normalizes input, checks empty input, delegates to a repository, and maps a missing row
-to `WordNotFound`.
+to `WordNotFound`. Successful lookups pass through a bounded `QCache`; `cache_size = 0`
+disables it, and `clearCache()` is available after dictionary content changes.
 
 ### Infrastructure
 
@@ -80,9 +86,17 @@ See [selection retrieval](selection-retrieval.md).
 
 `src/app` wires everything together.
 
-- `Application` owns the QML engine and service composition.
+- `Application` owns the QML engine and service composition. Before the repository is
+  built it asks `DictionarySeeder` to copy the installed dictionary into the configured
+  or writable dictionary directory when none is present.
 - `ApplicationController` handles asynchronous lookups with `QtConcurrent` and a
-  `QFutureWatcher`, so the GUI thread is never blocked by SQLite.
+  `QFutureWatcher`, so the GUI thread is never blocked by SQLite. It delegates autostart
+  reconciliation to `AutostartManager`.
+- `AutostartManager` installs or removes the per-user XDG entry, writes an absolute
+  `Exec` path (or `flatpak run …` inside a sandbox), and is testable with temporary
+  paths.
+- `SettingsController` exposes the editable configuration to QML, applies autostart
+  changes immediately, and saves through `ConfigLoader`.
 - `QmlPresenter` owns the lazy `QQuickView` popup and maps domain models to QVariant
   data for QML.
 
@@ -96,8 +110,10 @@ threads; each call creates and removes its own connection.
 
 1. `main` parses CLI options, initializes logging, loads configuration, and applies the
    optional database override.
-2. `Application` creates the hidden settings `ApplicationWindow` and the presenter.
-3. `ApplicationController` registers the global shortcut and starts the tray item.
+2. `Application` creates the settings controller, seeds the user dictionary directory if
+   needed, then creates the hidden settings `ApplicationWindow` and the presenter.
+3. `ApplicationController` registers the global shortcut, reconciles the autostart entry
+   with `start_on_login`, and starts the tray item.
 4. The application stays alive with no visible window (`quitOnLastWindowClosed` is off).
 5. The lookup popup is created lazily on first use.
 6. Shutdown unregisters shortcuts, stops the tray item, waits for any in-flight lookup,

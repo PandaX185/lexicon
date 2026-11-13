@@ -14,11 +14,16 @@ Invalid values produce a warning and keep the default. An invalid TOML document 
 an error and the entire configuration falls back to defaults. Unknown keys are reported
 but do not fail startup.
 
+Saving from the settings window rewrites the file with `QSaveFile`, so a failed write
+leaves the previous file intact. Because the rewrite is generated from the schema,
+comments and unknown keys cannot be preserved: when any are detected, the original file
+is copied to `config.toml.bak` and the discarded items are listed in the log.
+
 ## `[general]`
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `start_on_login` | boolean | `false` | Accepted but not implemented in Stage 1. Stage 3 will install or remove a per-user XDG autostart entry on opt-in. The installed template is never activated system-wide. |
+| `start_on_login` | boolean | `false` | Installs or removes a per-user XDG autostart entry under `$XDG_CONFIG_HOME/autostart/`. The system-wide template is never activated automatically. Inside a Flatpak the entry starts `flatpak run org.lexicon.Lexicon` and needs `--filesystem=xdg-config/autostart:create`. |
 | `offline_first` | boolean | `true` | Reserved for future online providers. |
 
 ## `[interaction]`
@@ -83,11 +88,12 @@ See [argos-translation.md](argos-translation.md) and [language-packs.md](languag
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `catalog_url` | string | `""` | Static JSON catalog of downloadable language packs. Empty disables downloads; packs are only fetched after an explicit install from the settings window. |
+| `catalog_url` | string | `""` | Static JSON catalog of downloadable language packs. Empty disables downloads, and only `https://` URLs are accepted; entries with an insecure pack URL are ignored. Packs are only fetched after an explicit install from the settings window. |
 
 ## `[performance]`
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `cache_enabled` | boolean | `true` | Reserved; lookup caching is not implemented yet and is not wired to any behavior in Stage 1. |
+| `cache_enabled` | boolean | `true` | Enables an in-memory LRU cache for dictionary lookups. Applies after restart. |
+| `cache_size` | integer | `256` | Maximum number of cached lookups, clamped to 0–4096; 0 disables caching. |
 | `lazy_initialize` | boolean | `true` | The popup is created on first use; the flag is preserved for future eager-initialization behavior. |

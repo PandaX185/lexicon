@@ -1,6 +1,6 @@
 # AGENTS.md — Lexicon Development Guide
 
-Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. Currently at **Stage 2** (Wayland primary-selection lookup implemented; X11 explicitly unsupported).
+Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. Currently at **Stage 3** (editable settings, dictionary catalog, pronunciation, optional offline translation, lookup cache, autostart, and packaging; Wayland primary-selection lookup implemented, X11 explicitly unsupported).
 
 ## Essential Commands
 

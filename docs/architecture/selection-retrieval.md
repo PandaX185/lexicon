@@ -126,9 +126,10 @@ making Wayland a hard dependency of the whole application.
 
 ## Acceptance criteria for Stage 2
 
-- [ ] A single word selected in Kate, Firefox, and a Qt application is
+- [x] A single word selected in Kate, Firefox, and a Qt application is
   retrieved on KWin Wayland. The live test above covers a real selection; the
-  three-application matrix still needs confirmation on the target session.
+  three-application matrix was confirmed on the target session (see
+  [ROADMAP](../../ROADMAP.md)).
 - [x] A clipboard-only copy does not trigger a lookup: only the primary
   selection is read.
 - [x] No selection, non-text selection, unsupported protocol, and over-long

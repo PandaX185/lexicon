@@ -4,8 +4,8 @@ Lexicon is a small, native, offline-first English dictionary utility for KDE Pla
 It starts quietly, stays available through a global shortcut and tray icon, and shows
 definitions in a focused popup.
 
-This repository currently implements **Stage 2**: automatic selected-text lookup on
-Wayland, on top of the Stage 1 scaffold. It stays small, buildable, and honest about
+This repository currently implements **Stage 3**: a usable dictionary product on top of
+Stage 2's automatic selected-text lookup. It stays small, buildable, and honest about
 what is not implemented yet.
 
 ## Status
@@ -27,7 +27,11 @@ what is not implemented yet.
 | Offline translation | Optional Argos Translate packs, downloaded only on request; see [translation](docs/argos-translation.md) |
 | Language pack management | Install and remove packs from the settings window; see [language packs](docs/language-packs.md) |
 | Dictionary content distribution (other languages) | Not implemented beyond the bundled pair |
-| Settings editing | Read-only in Stage 1; edit `config.toml` and restart |
+| Editable settings | Settings window writes `config.toml` atomically; some changes apply after restart |
+| Lookup cache | Bounded in-memory cache controlled by `performance.cache_size` |
+| Autostart | `start_on_login` installs or removes a per-user XDG entry |
+| First-run dictionary seeding | Copies the installed dictionary into the user data directory when missing |
+| Packaging | Arch `PKGBUILD`, Flatpak manifest, and tagged release workflow; see [packaging](packaging/README.md) |
 
 ## Requirements
 
@@ -80,8 +84,9 @@ default), the tray icon, or a command-line lookup:
 
 ### Development database
 
-The repository does not ship a production dictionary. A small CC0 fixture is provided
-for smoke tests:
+The repository ships the generated WordNet 3.0 + CMUdict database at
+`data/dictionaries/en.sqlite` (about 43 MB). A small CC0 fixture remains available for
+fast smoke tests:
 
 ```sh
 just seed-db
@@ -99,12 +104,17 @@ $XDG_CONFIG_HOME/lexicon/config.toml
 If the file is missing, built-in defaults are used. See
 [configuration reference](docs/configuration.md) and
 [`resources/config/config.example.toml`](resources/config/config.example.toml).
+Saving from the settings window rewrites the file atomically; when the previous file
+contained comments or keys Lexicon does not recognize, it is copied to
+`config.toml.bak` first and a warning records what would be dropped.
 
 The default dictionary location is:
 
 ```text
 $XDG_DATA_HOME/lexicon/dictionaries/en.sqlite
 ```
+
+On first run Lexicon copies the installed dictionary there when the directory is empty.
 
 ## Project layout
 
@@ -117,9 +127,10 @@ src/platform/        optional selection backends (Wayland; X11 later)
 src/kde/             KGlobalAccel, tray, and session adapters
 src/app/             composition root, controller, QML presenter, selection factory, CLI
 ui/                  QML settings window and popup
-data/dictionaries/   schema and development fixture
+data/dictionaries/   WordNet 3.0 database, schema, and test fixture
 docs/                architecture and reference documentation
-packaging/shared/    desktop, metainfo, and autostart templates
+packaging/           Arch PKGBUILD, Flatpak manifest, and shared desktop files
+.github/workflows/   CI and tagged release automation
 ```
 
 ## Testing and quality checks
@@ -131,8 +142,9 @@ just coverage    # instrumented build, tests, and gcovr report
 ```
 
 Reports are written to `build/coverage-report/`. The tests cover core types,
-configuration loading and validation, dictionary service behavior, controller
-orchestration, SQLite lookup, and QML smoke loading. The default CTest preset excludes
+configuration loading and atomic saving, dictionary service behavior and its bounded
+cache, controller orchestration, database seeding, autostart entries, language pack
+HTTPS policy, SQLite lookup, and QML smoke loading. The default CTest preset excludes
 tests labelled `kde`, because shortcut, tray, and selection behavior depends on a live
 Plasma session. Run those with `just test-kde`.
 
@@ -146,10 +158,12 @@ warnings as errors, ASan/UBSan, clang-tidy, coverage, and an install-tree check.
   returns an explicit `SelectionUnsupported` error, and nothing ever falls back to the
   clipboard or reuses stale text.
 - Selections longer than 128 characters are rejected rather than looked up.
-- The settings window is read-only in Stage 1.
-- `start_on_login` is accepted but does not install an autostart entry until Stage 3.
-- The bundled dictionary data is a fixture, not a real dictionary.
-- The project has no production package, Flatpak, AppImage, or release pipeline yet.
+- Settings are saved immediately, but shortcut, dictionary, cache, and theme changes
+  take effect after restart unless the UI says otherwise.
+- Language pack downloads require HTTPS. Offline translation additionally needs
+  `python3` and `argostranslate`; the Flatpak runtime does not bundle them.
+- Arch and Flatpak packaging templates live under `packaging/`; see
+  [packaging/README.md](packaging/README.md).
 
 ## License
 

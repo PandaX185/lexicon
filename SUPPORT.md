@@ -1,14 +1,15 @@
 # Support
 
-This is a Stage 1 scaffold. Before reporting an issue:
+This is a Stage 3 build. Before reporting an issue:
 
 1. Confirm the build steps in the README.
 2. Run `ctest --preset dev-debug`.
 3. Check the log with `--debug`.
 4. Include your Plasma, KWin, Qt, and KF6 versions.
 
-Known limitation: automatic selected-text retrieval on Wayland is not implemented.
-The application reports `SelectionUnavailable` instead of reading the clipboard.
+Known limitation: automatic selected-text retrieval requires a Wayland session with
+`ext_data_control_manager_v1` (KWin). X11 reports an explicit unsupported error instead
+of reading the clipboard.
 
 When reporting a lookup problem, include whether the database path exists, whether the
 default database or an override was used, and the exact command. Do not paste private

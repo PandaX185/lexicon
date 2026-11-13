@@ -44,12 +44,14 @@ on a release host or object storage.
 | `version` | yes | Catalog schema version. Documents newer than 1 are ignored. |
 | `packs[].id` | yes | Unique, stable identifier; also the settings-window key. |
 | `packs[].source`, `packs[].target` | yes | BCP 47 language codes matching the Argos pair. |
-| `packs[].url` | yes | HTTPS URL of the `.argosmodel` file. Redirects to a release host are allowed. |
+| `packs[].url` | yes | HTTPS URL of the `.argosmodel` file. Redirects must not downgrade the transport. |
 | `packs[].sha256` | yes | Lowercase hex digest of the archive. Case is normalized on read. |
 | `packs[].version`, `size`, `description` | no | Shown in the settings window. |
 
 A pack missing `id`, `source`, `target`, `url`, or a 64-character `sha256` is dropped
-silently, so one bad entry cannot break the list.
+silently, so one bad entry cannot break the list. Entries whose `url` is not HTTPS are
+dropped as well. The catalog URL itself must be HTTPS; requesting an insecure catalog
+fails before any network traffic is sent.
 
 ## Install flow
 

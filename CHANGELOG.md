@@ -48,6 +48,18 @@ and the project uses semantic versioning.
 - Qt 6 `qmllint` target, clang-format check, and clang-tidy gate with warnings as errors.
 - GCC, Clang, and ASan/UBSan CI presets, plus GitHub Actions jobs for all quality checks.
 - Install-tree verification that catches files escaping the intended installation prefix.
+- Editable settings window backed by `SettingsController`: values are written to
+  `config.toml` atomically, and `config.toml.bak` preserves comments or unknown keys the
+  rewrite would otherwise drop.
+- Opt-in per-user autostart management for `start_on_login`, with an absolute `Exec`
+  path and a Flatpak-aware `flatpak run …` entry.
+- First-run dictionary seeding that copies the installed database into the user data
+  directory without overwriting existing content.
+- Bounded lookup cache wired to `performance.cache_enabled` and
+  `performance.cache_size`.
+- HTTPS is required for the language pack catalog and downloads; insecure catalog
+  entries are ignored and insecure downloads are rejected.
+- Arch `PKGBUILD`, Flatpak manifest, packaging guide, and tagged release workflow.
 
 ### Changed
 
@@ -68,9 +80,10 @@ and the project uses semantic versioning.
   unintended `/autostart` path.
 - Clarified that Escape works while the popup has focus and outside-click dismissal only
   applies inside the popup window.
-- Documented `start_on_login` as accepted but deferred to Stage 3.
 - `theme = "system"` now follows the platform color scheme and falls back to dark when the
   platform does not report one.
+- Unit tests now cover settings persistence, autostart, first-run seeding, the lookup
+  cache, and the HTTPS policy; QML tests receive the real `SettingsController`.
 
 ## [0.1.0] - 2026-11-06
 
