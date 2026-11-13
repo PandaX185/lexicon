@@ -1,4 +1,5 @@
 #include "app/DictionarySeeder.h"
+#include "support/ScopedEnvironment.h"
 
 #include <QDir>
 #include <QFile>
@@ -6,6 +7,7 @@
 #include <QTest>
 
 using namespace Lexicon;
+using Lexicon::Test::ScopedEnvironment;
 
 namespace {
 
@@ -40,6 +42,7 @@ class DictionarySeederTest : public QObject {
     void skipsWhenSourceIsMissing();
     void doesNotOverwriteExistingDestination();
     void skipsWhenExplicitDatabasePathIsConfigured();
+    void seedsExplicitConfiguredDirectory();
 };
 
 void DictionarySeederTest::seedsMissingDictionary() {
@@ -149,6 +152,22 @@ void DictionarySeederTest::skipsWhenExplicitDatabasePathIsConfigured() {
     config.dictionary.databasePath = QStringLiteral("/tmp/explicit.sqlite");
 
     QVERIFY(!seedUserDictionary(config));
+}
+
+void DictionarySeederTest::seedsExplicitConfiguredDirectory() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString dataHome = directory.filePath(QStringLiteral("data"));
+    const QString sourceDir = dataHome + QStringLiteral("/lexicon/dictionaries");
+    const QString destinationDir = directory.filePath(QStringLiteral("custom/dictionaries"));
+    QVERIFY(QDir().mkpath(sourceDir));
+    QVERIFY(!writeFile(sourceDir + QStringLiteral("/en.sqlite"), QStringLiteral("dictionary")).isEmpty());
+    const ScopedEnvironment xdgDataHome("XDG_DATA_HOME", dataHome.toUtf8());
+
+    Config config;
+    config.dictionary.directory = destinationDir;
+    QVERIFY(seedUserDictionary(config));
+    QCOMPARE(readFile(destinationDir + QStringLiteral("/en.sqlite")), QStringLiteral("dictionary"));
 }
 
 QTEST_GUILESS_MAIN(DictionarySeederTest)

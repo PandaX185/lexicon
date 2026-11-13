@@ -60,6 +60,11 @@ bool seedUserDictionary(const Config& config) {
     const QString writableRoot = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     const QString subPath = QStringLiteral("/lexicon/dictionaries");
 
+    // A configured directory is where the catalog actually looks, so seed that
+    // directory instead of the default location.
+    const QString destinationDirectory =
+        config.dictionary.directory.trimmed().isEmpty() ? writableRoot + subPath : config.resolvedDictionaryDirectory();
+
     QStringList sources;
     for (const QString& base : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation)) {
         sources << base + subPath;
@@ -70,7 +75,7 @@ bool seedUserDictionary(const Config& config) {
     return seedUserDictionary(DictionarySeedPaths{
         .populatedDirectories = config.resolvedDictionaryDirectories(),
         .sourceDirectories = sources,
-        .destinationDirectory = writableRoot + subPath,
+        .destinationDirectory = destinationDirectory,
     });
 }
 
