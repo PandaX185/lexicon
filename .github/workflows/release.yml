@@ -15,7 +15,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install git for checkout
-        run: pacman -Syu --needed --noconfirm git
+        run: pacman -Syu --needed --noconfirm git gzip tar
       - name: Checkout
         uses: actions/checkout@v4
       - uses: ./.github/actions/setup-arch
@@ -30,6 +30,7 @@ jobs:
       - name: Package
         run: |
           version="${GITHUB_REF_NAME#v}"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git archive --format=tar.gz --prefix="lexicon-${version}/" \
             -o "lexicon-${version}.tar.gz" HEAD
           sha256sum "lexicon-${version}.tar.gz" > "lexicon-${version}.tar.gz.sha256"
