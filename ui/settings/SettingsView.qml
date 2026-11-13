@@ -39,13 +39,6 @@ Item {
                 font.pixelSize: 14
             }
 
-            Label {
-                Layout.topMargin: 8
-                text: qsTr("Most settings are read-only in Stage 1 and take effect after restart.")
-                color: theme.textSecondary
-                font.pixelSize: 12
-            }
-
             SectionCard {
                 Layout.fillWidth: true
                 title: qsTr("Status")
@@ -61,17 +54,9 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Global shortcut: %1").arg(config.lookup)
+                    text: qsTr("Global shortcut: %1").arg(settings.lookup)
                     color: theme.textPrimary
                     font.pixelSize: 13
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Selection lookup: not available yet. Only the documented shortcut and command-line lookup are active.")
-                    color: theme.textSecondary
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 12
                 }
             }
 
@@ -79,28 +64,15 @@ Item {
                 Layout.fillWidth: true
                 title: qsTr("Interaction")
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Activation: %1").arg(config.activation)
-                    color: theme.textPrimary
+                    Label { text: qsTr("Dismiss on Escape"); color: theme.textPrimary; Layout.fillWidth: true }
+                    Switch { checked: settings.dismissOnEscape; onToggled: settings.dismissOnEscape = checked }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Clipboard fallback: %1 (not used in Stage 1)").arg(config.clipboardFallback ? qsTr("enabled") : qsTr("disabled"))
-                    color: theme.textSecondary
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Dismiss on Escape: %1 (while the popup has focus)").arg(config.dismissOnEscape ? qsTr("yes") : qsTr("no"))
-                    color: theme.textSecondary
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Dismiss on outside click: %1 (inside popup window only)").arg(config.dismissOnOutsideClick ? qsTr("yes") : qsTr("no"))
-                    color: theme.textSecondary
+                    Label { text: qsTr("Dismiss on outside click"); color: theme.textPrimary; Layout.fillWidth: true }
+                    Switch { checked: settings.dismissOnOutsideClick; onToggled: settings.dismissOnOutsideClick = checked }
                 }
             }
 
@@ -108,28 +80,37 @@ Item {
                 Layout.fillWidth: true
                 title: qsTr("Appearance")
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Theme: %1").arg(config.theme)
-                    color: theme.textPrimary
+                    Label { text: qsTr("Theme"); color: theme.textPrimary; Layout.fillWidth: true }
+                    ComboBox {
+                        model: ["dark", "light", "system"]
+                        currentIndex: Math.max(0, model.indexOf(settings.theme))
+                        onActivated: settings.theme = model[currentIndex]
+                    }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Popup width: %1 px").arg(config.popupWidth)
-                    color: theme.textSecondary
+                    Label { text: qsTr("Popup width"); color: theme.textPrimary; Layout.fillWidth: true }
+                    SpinBox { from: 240; to: 1200; value: settings.popupWidth; onValueChanged: settings.popupWidth = value }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Popup position: %1").arg(config.position)
-                    color: theme.textSecondary
+                    Label { text: qsTr("Animation"); color: theme.textPrimary; Layout.fillWidth: true }
+                    ComboBox {
+                        model: ["none", "subtle"]
+                        currentIndex: Math.max(0, model.indexOf(settings.animation))
+                        onActivated: settings.animation = model[currentIndex]
+                    }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Animation: %1").arg(config.animation)
-                    color: theme.textSecondary
+                    Label { text: qsTr("Position"); color: theme.textPrimary; Layout.fillWidth: true }
+                    ComboBox {
+                        model: ["near_selection", "center", "cursor"]
+                        currentIndex: Math.max(0, model.indexOf(settings.position))
+                        onActivated: settings.position = model[currentIndex]
+                    }
                 }
             }
 
@@ -145,21 +126,17 @@ Item {
                     font.pixelSize: 12
                 }
 
-                // Installed packs: translation is offline once a pair is here.
                 Repeater {
                     model: languagePacks.installedPairs
-
                     delegate: RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-
                         Label {
                             Layout.fillWidth: true
                             text: modelData.label
                             color: theme.textPrimary
                             font.pixelSize: 13
                         }
-
                         Button {
                             text: qsTr("Remove")
                             enabled: !languagePacks.busy
@@ -171,57 +148,38 @@ Item {
                 Label {
                     Layout.fillWidth: true
                     visible: languagePacks.installedPairs.length === 0
-                    text: qsTr("No translation pairs are installed. Mixed-language lookups show the dictionary entry only.")
+                    text: qsTr("No translation pairs are installed.")
                     color: theme.textSecondary
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
                 }
 
-                // Downloads only ever start from these buttons.
                 Repeater {
                     model: languagePacks.availablePacks
-
                     delegate: ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
-
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 8
-
                             Label {
                                 Layout.fillWidth: true
-                                text: modelData.label !== undefined
-                                      ? modelData.label
+                                text: modelData.label !== undefined ? modelData.label
                                       : qsTr("%1 → %2").arg(modelData.source, modelData.target)
                                 color: theme.textPrimary
                                 font.pixelSize: 13
                                 wrapMode: Text.WordWrap
                             }
-
                             Button {
                                 text: qsTr("Install")
                                 enabled: !languagePacks.busy
                                 onClicked: languagePacks.install(modelData.id)
                             }
                         }
-
-                        Label {
-                            Layout.fillWidth: true
-                            visible: modelData.description !== ""
-                            text: modelData.description
-                            color: theme.textSecondary
-                            wrapMode: Text.WordWrap
-                            font.pixelSize: 11
-                        }
-
                         ProgressBar {
                             Layout.fillWidth: true
-                            visible: languagePacks.activePack === modelData.id
-                                     && languagePacks.busy
-                            from: 0
-                            to: 1
-                            value: languagePacks.progress
+                            visible: languagePacks.activePack === modelData.id && languagePacks.busy
+                            from: 0; to: 1; value: languagePacks.progress
                         }
                     }
                 }
@@ -232,13 +190,14 @@ Item {
                     onClicked: languagePacks.refresh()
                 }
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    visible: !languagePacks.catalogConfigured
-                    text: qsTr("No language pack catalog is configured. Set translation.catalog_url in the configuration file to enable downloads.")
-                    color: theme.textSecondary
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: 11
+                    Label { text: qsTr("Catalog URL"); color: theme.textPrimary; Layout.fillWidth: true }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: settings.catalogUrl
+                        onEditingFinished: settings.catalogUrl = text
+                    }
                 }
             }
 
@@ -246,22 +205,19 @@ Item {
                 Layout.fillWidth: true
                 title: qsTr("Dictionary")
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Show pronunciation: %1").arg(config.showPronunciation ? qsTr("yes") : qsTr("no"))
-                    color: theme.textPrimary
+                    Label { text: qsTr("Show pronunciation"); color: theme.textPrimary; Layout.fillWidth: true }
+                    Switch { checked: settings.showPronunciation; onToggled: settings.showPronunciation = checked }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Pronunciation style: %1").arg(config.pronunciationStyle)
-                    color: theme.textSecondary
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: qsTr("Offline first: %1 (reserved)").arg(config.offlineFirst ? qsTr("yes") : qsTr("no"))
-                    color: theme.textSecondary
+                    Label { text: qsTr("Pronunciation style"); color: theme.textPrimary; Layout.fillWidth: true }
+                    ComboBox {
+                        model: ["respelling", "ipa"]
+                        currentIndex: Math.max(0, model.indexOf(settings.pronunciationStyle))
+                        onActivated: settings.pronunciationStyle = model[currentIndex]
+                    }
                 }
             }
 
@@ -269,32 +225,36 @@ Item {
                 Layout.fillWidth: true
                 title: qsTr("Startup and performance")
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Start on login: %1").arg(config.startOnLogin ? qsTr("yes") : qsTr("no"))
-                    color: theme.textPrimary
+                    Label { text: qsTr("Start on login"); color: theme.textPrimary; Layout.fillWidth: true }
+                    Switch { checked: settings.startOnLogin; onToggled: settings.startOnLogin = checked }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Lazy initialization: %1 (popup appears on lookup)").arg(config.lazyInitialize ? qsTr("yes") : qsTr("no"))
-                    color: theme.textSecondary
+                    Label { text: qsTr("Lookup cache"); color: theme.textPrimary; Layout.fillWidth: true }
+                    Switch { checked: settings.cacheEnabled; onToggled: settings.cacheEnabled = checked }
                 }
-
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: qsTr("Lookup cache: %1 (not used in Stage 1)").arg(config.cacheEnabled ? qsTr("enabled") : qsTr("disabled"))
-                    color: theme.textSecondary
+                    Label { text: qsTr("Cache size"); color: theme.textPrimary; Layout.fillWidth: true }
+                    SpinBox { from: 0; to: 4096; value: settings.cacheSize; onValueChanged: settings.cacheSize = value }
                 }
             }
 
-            Label {
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: 4
-                text: qsTr("This window is read-only in the Stage 1 scaffold. Edit ~/.config/lexicon/config.toml and restart Lexicon to change settings. Some options are reserved for future stages.")
-                color: theme.textSecondary
-                wrapMode: Text.WordWrap
-                font.pixelSize: 11
+                Button {
+                    text: qsTr("Save")
+                    onClicked: settings.save()
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: settings.status
+                    color: theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 12
+                }
             }
 
             Label {

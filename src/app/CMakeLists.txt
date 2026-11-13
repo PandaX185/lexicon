@@ -1,5 +1,6 @@
 add_library(lexicon_controller STATIC
     ApplicationController.cpp
+    AutostartManager.cpp
 )
 
 target_include_directories(lexicon_controller PUBLIC ${CMAKE_SOURCE_DIR}/src)
@@ -15,9 +16,11 @@ lexicon_enable_warnings(lexicon_controller)
 
 add_library(lexicon_app STATIC
     Application.cpp
+    DictionarySeeder.cpp
     LanguagePackController.cpp
     QmlPresenter.cpp
     SelectionProviderFactory.cpp
+    SettingsController.cpp
 )
 
 target_include_directories(lexicon_app PUBLIC ${CMAKE_SOURCE_DIR}/src)

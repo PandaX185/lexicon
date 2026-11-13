@@ -75,6 +75,7 @@ struct TranslationConfig {
 
 struct PerformanceConfig {
     bool cacheEnabled = true;
+    int cacheSize = 256;
     bool lazyInitialize = true;
 };
 
@@ -86,6 +87,9 @@ struct Config {
     DictionaryConfig dictionary;
     TranslationConfig translation;
     PerformanceConfig performance;
+
+    // Where this configuration was loaded from (or where it should be saved).
+    QString configPath;
 
     [[nodiscard]] QString resolvedDatabasePath() const;
     [[nodiscard]] QString resolvedDictionaryDirectory() const;

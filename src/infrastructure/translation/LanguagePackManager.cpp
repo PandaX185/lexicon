@@ -81,11 +81,15 @@ QList<LanguagePackInfo> LanguagePackManager::parseCatalogJson(const QByteArray& 
             .description = item.value(QStringLiteral("description")).toString(),
             .size = static_cast<qint64>(item.value(QStringLiteral("size")).toDouble()),
         };
-        if (pack.isValid()) {
+        if (pack.isValid() && LanguagePackManager::isSecureUrl(QUrl(pack.url))) {
             packs.append(std::move(pack));
         }
     }
     return packs;
+}
+
+bool LanguagePackManager::isSecureUrl(const QUrl& url) {
+    return url.isValid() && url.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) == 0;
 }
 
 bool LanguagePackManager::verifyFileIntegrity(const QString& filePath, const QString& expectedSha256) {
@@ -109,6 +113,10 @@ void LanguagePackManager::fetchCatalog(const QUrl& catalogUrl) {
         Q_EMIT catalogFailed(QStringLiteral("The language pack catalog location is not configured."));
         return;
     }
+    if (!isSecureUrl(catalogUrl)) {
+        Q_EMIT catalogFailed(QStringLiteral("The language pack catalog must use HTTPS."));
+        return;
+    }
 
     QNetworkReply* reply = m_network->get(catalogRequest(catalogUrl));
     QObject::connect(reply, &QNetworkReply::finished, this, [this, reply] {
@@ -127,6 +135,10 @@ void LanguagePackManager::fetchCatalog(const QUrl& catalogUrl) {
 void LanguagePackManager::installPack(const LanguagePackInfo& pack) {
     if (!pack.isValid()) {
         Q_EMIT operationError(pack.id, QStringLiteral("This language pack entry is incomplete."));
+        return;
+    }
+    if (!isSecureUrl(QUrl(pack.url))) {
+        Q_EMIT operationError(pack.id, QStringLiteral("Language packs must be downloaded over HTTPS."));
         return;
     }
     if (m_downloads.contains(pack.id)) {

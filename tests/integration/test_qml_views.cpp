@@ -1,3 +1,4 @@
+#include "app/SettingsController.h"
 #include "config/Config.h"
 
 #include <QColor>
@@ -41,9 +42,15 @@ QVariantMap qmlLanguagePacks() {
     };
 }
 
-void configureView(QQuickView& view, bool darkMode = true) {
-    view.engine()->rootContext()->setContextProperty(QStringLiteral("config"), qmlConfig(darkMode));
-    view.engine()->rootContext()->setContextProperty(QStringLiteral("languagePacks"), qmlLanguagePacks());
+void configureEngine(QQmlEngine& engine, SettingsController& settings, bool darkMode = true) {
+    engine.rootContext()->setContextProperty(QStringLiteral("config"), qmlConfig(darkMode));
+    engine.rootContext()->setContextProperty(QStringLiteral("languagePacks"), qmlLanguagePacks());
+    engine.rootContext()->setContextProperty(QStringLiteral("settings"), &settings);
+    engine.rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
+}
+
+void configureView(QQuickView& view, SettingsController& settings, bool darkMode = true) {
+    configureEngine(*view.engine(), settings, darkMode);
     view.setResizeMode(QQuickView::SizeViewToRootObject);
 }
 
@@ -65,8 +72,9 @@ class QmlViewsTest : public QObject {
 };
 
 void QmlViewsTest::mainWindowLoadsHidden() {
+    SettingsController settings{Config{}};
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("config"), qmlConfig());
+    configureEngine(engine, settings);
     engine.rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
 
     engine.load(sourceUrl(QStringLiteral("ui/Main.qml")));
@@ -79,8 +87,9 @@ void QmlViewsTest::mainWindowLoadsHidden() {
 }
 
 void QmlViewsTest::mainWindowUsesLightPaletteWhenConfigured() {
+    SettingsController settings{Config{}};
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("config"), qmlConfig(false));
+    configureEngine(engine, settings, false);
     engine.rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
 
     engine.load(sourceUrl(QStringLiteral("ui/Main.qml")));
@@ -92,8 +101,9 @@ void QmlViewsTest::mainWindowUsesLightPaletteWhenConfigured() {
 }
 
 void QmlViewsTest::lookupPopupLoads() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
 
     view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
 
@@ -103,8 +113,9 @@ void QmlViewsTest::lookupPopupLoads() {
 }
 
 void QmlViewsTest::lookupPopupShowsEntry() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
     view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
     QCOMPARE(view.status(), QQuickView::Ready);
     QVERIFY(view.rootObject() != nullptr);
@@ -112,6 +123,7 @@ void QmlViewsTest::lookupPopupShowsEntry() {
     QVariantMap pronunciation;
     pronunciation.insert(QStringLiteral("respelling"), QStringLiteral("ser-uhn-DIP-i-tee"));
     pronunciation.insert(QStringLiteral("ipa"), QString());
+    pronunciation.insert(QStringLiteral("text"), QStringLiteral("ser-uhn-DIP-i-tee"));
 
     QVariantMap definition;
     definition.insert(QStringLiteral("text"), QStringLiteral("A fortunate discovery by chance."));
@@ -138,8 +150,9 @@ void QmlViewsTest::lookupPopupShowsEntry() {
 }
 
 void QmlViewsTest::lookupPopupShowsMessage() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
     view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
     QCOMPARE(view.status(), QQuickView::Ready);
     QVERIFY(view.rootObject() != nullptr);
@@ -157,8 +170,9 @@ void QmlViewsTest::lookupPopupShowsMessage() {
 }
 
 void QmlViewsTest::lookupPopupRendersIpaAndTranslation() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
     view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
     QCOMPARE(view.status(), QQuickView::Ready);
 
@@ -186,8 +200,9 @@ void QmlViewsTest::lookupPopupRendersIpaAndTranslation() {
 }
 
 void QmlViewsTest::settingsViewShowsLanguageSection() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
     view.setSource(sourceUrl(QStringLiteral("ui/settings/SettingsView.qml")));
 
     QCOMPARE(view.status(), QQuickView::Ready);
@@ -196,8 +211,9 @@ void QmlViewsTest::settingsViewShowsLanguageSection() {
 }
 
 void QmlViewsTest::settingsViewLoads() {
+    SettingsController settings{Config{}};
     QQuickView view;
-    configureView(view);
+    configureView(view, settings);
     view.setSource(sourceUrl(QStringLiteral("ui/settings/SettingsView.qml")));
 
     QCOMPARE(view.status(), QQuickView::Ready);

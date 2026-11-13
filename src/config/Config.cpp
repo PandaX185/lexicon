@@ -143,6 +143,7 @@ QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     map.insert(QStringLiteral("languagePacksConfigured"), !translation.catalogUrl.isEmpty());
 
     map.insert(QStringLiteral("cacheEnabled"), performance.cacheEnabled);
+    map.insert(QStringLiteral("cacheSize"), performance.cacheSize);
     map.insert(QStringLiteral("lazyInitialize"), performance.lazyInitialize);
     return map;
 }

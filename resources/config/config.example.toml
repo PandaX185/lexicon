@@ -3,7 +3,7 @@
 # Unknown keys and invalid values are reported in the log; invalid values keep their defaults.
 
 [general]
-# Accepted but not implemented yet. Stage 3 will manage a per-user autostart entry.
+# Installs or removes a per-user XDG autostart entry when enabled.
 start_on_login = false
 offline_first = true
 
@@ -56,4 +56,5 @@ catalog_url = ""
 
 [performance]
 cache_enabled = true
+cache_size = 256
 lazy_initialize = true

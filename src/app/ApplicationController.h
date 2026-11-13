@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/AutostartManager.h"
 #include "config/Config.h"
 #include "dictionary/DictionaryRepository.h"
 
@@ -25,10 +26,19 @@ class ApplicationController final : public QObject {
                                    std::unique_ptr<TranslationService> translation,
                                    std::unique_ptr<SelectionProvider> selection,
                                    std::unique_ptr<ShortcutService> shortcuts, std::unique_ptr<TrayService> tray,
-                                   PopupPresenter& presenter, QObject* parent = nullptr);
+                                   PopupPresenter& presenter,
+                                   AutostartManager autostart = AutostartManager::forCurrentUser(),
+                                   QObject* parent = nullptr);
     ~ApplicationController() override;
 
     void start();
+
+    // Reconciles the per-user autostart entry with the current configuration.
+    // Safe to call after updating `config` at runtime.
+    void syncAutostart();
+
+    // Updates the daemon's live config and reconciles the autostart entry.
+    void setStartOnLogin(bool enabled);
 
   public Q_SLOTS:
     void lookupSelection();
@@ -48,8 +58,7 @@ class ApplicationController final : public QObject {
     std::unique_ptr<TrayService> m_tray;
     PopupPresenter& m_presenter;
     QFutureWatcher<DictionaryLookupResult> m_watcher;
-
-    static QString installedAutostartFilePath();
+    AutostartManager m_autostart;
 
     Q_DISABLE_COPY(ApplicationController);
 

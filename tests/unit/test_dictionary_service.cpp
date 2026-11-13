@@ -41,6 +41,13 @@ class DictionaryServiceTest : public QObject {
     void handlesNullRepositoryLocation();
     void passesThroughUnicodeWord();
     void passesThroughVeryLongWord();
+    void cachesSuccessfulLookups();
+    void doesNotCacheMisses();
+    void clearCacheForcesNewLookup();
+    void disablesCacheWhenSizeIsZero();
+    void negativeCacheSizeDisablesCache();
+    void cacheReturnsFirstResultForRepeatedLookup();
+    void notFoundMessageQuotesWordWithoutBackslashes();
 };
 
 void DictionaryServiceTest::trimsLookupWord() {
@@ -188,6 +195,85 @@ void DictionaryServiceTest::passesThroughVeryLongWord() {
 
     QVERIFY(result.found());
     QCOMPARE(repositoryPtr->lastWord, word);
+}
+
+void DictionaryServiceTest::cachesSuccessfulLookups() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    const DictionaryLookupResult first = service.lookup(QStringLiteral("serendipity"));
+    const DictionaryLookupResult second = service.lookup(QStringLiteral("serendipity"));
+
+    QVERIFY(first.found());
+    QVERIFY(second.found());
+    QCOMPARE(repositoryPtr->calls, 1);
+}
+
+void DictionaryServiceTest::doesNotCacheMisses() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::notFound());
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    QVERIFY(!service.lookup(QStringLiteral("missing")).found());
+    QVERIFY(!service.lookup(QStringLiteral("missing")).found());
+
+    QCOMPARE(repositoryPtr->calls, 2);
+}
+
+void DictionaryServiceTest::clearCacheForcesNewLookup() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+    service.clearCache();
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+
+    QCOMPARE(repositoryPtr->calls, 2);
+}
+
+void DictionaryServiceTest::disablesCacheWhenSizeIsZero() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository), 0);
+
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+
+    QCOMPARE(repositoryPtr->calls, 2);
+}
+
+void DictionaryServiceTest::negativeCacheSizeDisablesCache() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository), -10);
+
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+
+    QCOMPARE(repositoryPtr->calls, 2);
+}
+
+void DictionaryServiceTest::cacheReturnsFirstResultForRepeatedLookup() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+    repositoryPtr->result = DictionaryLookupResult::notFound();
+
+    QVERIFY(service.lookup(QStringLiteral("serendipity")).found());
+    QCOMPARE(repositoryPtr->calls, 1);
+}
+
+void DictionaryServiceTest::notFoundMessageQuotesWordWithoutBackslashes() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::notFound());
+    DictionaryService service(std::move(repository));
+
+    const DictionaryLookupResult result = service.lookup(QStringLiteral("missing"));
+
+    QCOMPARE(result.error.message, QStringLiteral("No entry found for \"missing\"."));
 }
 
 QTEST_GUILESS_MAIN(DictionaryServiceTest)

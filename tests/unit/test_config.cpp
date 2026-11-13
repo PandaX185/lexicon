@@ -42,6 +42,11 @@ class ConfigLoaderTest : public QObject {
     void defaultPathsHaveExpectedSuffixes();
     void toVariantMapExposesResolvedValues();
     void systemThemeFollowsPlatformColorScheme();
+    void saveRoundTripsValues();
+    void saveUsesConfigPath();
+    void saveCreatesParentDirectory();
+    void saveEscapesStringValues();
+    void saveBacksUpUnknownContent();
 
   private:
     static QString writeFile(const QString& path, const QString& contents) {
@@ -550,6 +555,109 @@ void ConfigLoaderTest::systemThemeFollowsPlatformColorScheme() {
     QVERIFY(!resolveDarkPalette(Theme::System, Qt::ColorScheme::Light));
     QVERIFY(resolveDarkPalette(Theme::System, Qt::ColorScheme::Dark));
     QVERIFY(resolveDarkPalette(Theme::System, Qt::ColorScheme::Unknown));
+}
+
+void ConfigLoaderTest::saveRoundTripsValues() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("config.toml"));
+
+    Config config;
+    config.general.startOnLogin = true;
+    config.general.offlineFirst = false;
+    config.interaction.dismissOnEscape = false;
+    config.hotkeys.lookup = QStringLiteral("CTRL+ALT+L");
+    config.appearance.theme = Theme::Light;
+    config.appearance.popupWidth = 520;
+    config.appearance.animation = Animation::None;
+    config.appearance.position = PopupPosition::Cursor;
+    config.dictionary.directory = QStringLiteral("/tmp/dictionaries");
+    config.dictionary.sourceLanguage = QStringLiteral("en");
+    config.dictionary.targetLanguage = QStringLiteral("de");
+    config.dictionary.showPronunciation = false;
+    config.dictionary.pronunciationStyle = PronunciationStyle::Ipa;
+    config.translation.catalogUrl = QStringLiteral("https://example.org/catalog.json");
+    config.performance.cacheEnabled = false;
+    config.performance.cacheSize = 16;
+    config.performance.lazyInitialize = false;
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(config, path));
+
+    const ConfigLoadResult result = loader.load(path);
+    QVERIFY(result.found);
+    QVERIFY(result.issues.isEmpty());
+    QCOMPARE(result.config.general.startOnLogin, true);
+    QCOMPARE(result.config.general.offlineFirst, false);
+    QCOMPARE(result.config.interaction.dismissOnEscape, false);
+    QCOMPARE(result.config.hotkeys.lookup, QStringLiteral("CTRL+ALT+L"));
+    QCOMPARE(result.config.appearance.theme, Theme::Light);
+    QCOMPARE(result.config.appearance.popupWidth, 520);
+    QCOMPARE(result.config.appearance.animation, Animation::None);
+    QCOMPARE(result.config.appearance.position, PopupPosition::Cursor);
+    QCOMPARE(result.config.dictionary.directory, QStringLiteral("/tmp/dictionaries"));
+    QCOMPARE(result.config.dictionary.targetLanguage, QStringLiteral("de"));
+    QCOMPARE(result.config.dictionary.showPronunciation, false);
+    QCOMPARE(result.config.dictionary.pronunciationStyle, PronunciationStyle::Ipa);
+    QCOMPARE(result.config.translation.catalogUrl, QStringLiteral("https://example.org/catalog.json"));
+    QCOMPARE(result.config.performance.cacheEnabled, false);
+    QCOMPARE(result.config.performance.cacheSize, 16);
+    QCOMPARE(result.config.performance.lazyInitialize, false);
+}
+
+void ConfigLoaderTest::saveUsesConfigPath() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("config.toml"));
+
+    Config config = Config{};
+    config.configPath = path;
+    config.appearance.popupWidth = 440;
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(config, QString()));
+    QCOMPARE(loader.load(path).config.appearance.popupWidth, 440);
+}
+
+void ConfigLoaderTest::saveCreatesParentDirectory() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("nested/dir/config.toml"));
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(Config{}, path));
+    QVERIFY(QFile::exists(path));
+}
+
+void ConfigLoaderTest::saveEscapesStringValues() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("config.toml"));
+    const QString tricky = QStringLiteral("https://example.org/a\"b\\c");
+
+    Config config = Config{};
+    config.translation.catalogUrl = tricky;
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(config, path));
+    QCOMPARE(loader.load(path).config.translation.catalogUrl, tricky);
+}
+
+void ConfigLoaderTest::saveBacksUpUnknownContent() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("config.toml"));
+    const QString original = QStringLiteral("# keep me\n[appearance]\npopup_width = 300\ncustom_flag = true\n");
+    QCOMPARE(writeConfig(directory, original), path);
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(Config{}, path));
+
+    const QString backup = path + QStringLiteral(".bak");
+    QVERIFY(QFile::exists(backup));
+    QFile file(backup);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QCOMPARE(QString::fromUtf8(file.readAll()), original);
 }
 
 QTEST_GUILESS_MAIN(ConfigLoaderTest)

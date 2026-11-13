@@ -10,7 +10,6 @@
 
 #include <QCoreApplication>
 #include <QFutureWatcher>
-#include <QStandardPaths>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <memory>
@@ -55,10 +54,10 @@ ApplicationController::ApplicationController(Config config, std::unique_ptr<Dict
                                              std::unique_ptr<SelectionProvider> selection,
                                              std::unique_ptr<ShortcutService> shortcuts,
                                              std::unique_ptr<TrayService> tray, PopupPresenter& presenter,
-                                             QObject* parent)
+                                             AutostartManager autostart, QObject* parent)
     : QObject(parent), m_config(std::move(config)), m_dictionary(std::move(dictionary)),
       m_translation(std::move(translation)), m_selection(std::move(selection)), m_shortcuts(std::move(shortcuts)),
-      m_tray(std::move(tray)), m_presenter(presenter) {
+      m_tray(std::move(tray)), m_presenter(presenter), m_autostart(std::move(autostart)) {
     connect(&m_watcher, &QFutureWatcherBase::finished, this, &ApplicationController::handleLookupFinished);
 }
 
@@ -73,9 +72,20 @@ ApplicationController::~ApplicationController() {
     }
 }
 
-QString ApplicationController::installedAutostartFilePath() {
-    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
-           QStringLiteral("/autostart/org.lexicon.Lexicon.desktop");
+void ApplicationController::setStartOnLogin(bool enabled) {
+    if (m_config.general.startOnLogin == enabled) {
+        return;
+    }
+    m_config.general.startOnLogin = enabled;
+    syncAutostart();
+}
+
+void ApplicationController::syncAutostart() {
+    const bool applied = m_config.general.startOnLogin ? m_autostart.install(QCoreApplication::applicationFilePath())
+                                                       : m_autostart.remove();
+    if (!applied) {
+        qCWarning(lexiconApp) << "event=autostart_sync_failed enabled=" << m_config.general.startOnLogin;
+    }
 }
 
 void ApplicationController::start() {
@@ -95,9 +105,9 @@ void ApplicationController::start() {
         .quit = [this] { quit(); },
     };
 
+    syncAutostart();
     if (m_config.general.startOnLogin) {
-        qCInfo(lexiconApp) << "event=start_on_login_requested action=install_autostart_entry"
-                           << "source=" << installedAutostartFilePath() << "stage=3 note=install_not_implemented";
+        qCInfo(lexiconApp) << "event=start_on_login_enabled path=" << m_autostart.targetPath();
     }
     const ServiceStatus trayStatus = m_tray->start(trayActions);
     if (!trayStatus.available) {

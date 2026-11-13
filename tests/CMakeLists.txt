@@ -19,6 +19,12 @@ lexicon_add_test(test_application_controller unit/test_application_controller.cp
     lexicon_controller
     Qt6::Concurrent
 )
+lexicon_add_test(test_autostart_manager unit/test_autostart_manager.cpp unit lexicon_controller)
+lexicon_add_test(test_dictionary_seeder unit/test_dictionary_seeder.cpp unit lexicon_app)
+lexicon_add_test(test_settings_controller unit/test_settings_controller.cpp unit
+    lexicon_app
+    Qt6::Gui
+)
 lexicon_add_test(test_argos_worker_protocol unit/test_argos_worker_protocol.cpp unit
     lexicon_infrastructure
     Qt6::Network
@@ -50,6 +56,7 @@ lexicon_add_test(test_wordnet_sqlite integration/test_wordnet_sqlite.cpp integra
     Qt6::Concurrent
 )
 lexicon_add_test(test_qml_views integration/test_qml_views.cpp qml
+    lexicon_app
     lexicon_config
     Qt6::Gui
     Qt6::Qml
@@ -58,4 +65,7 @@ lexicon_add_test(test_qml_views integration/test_qml_views.cpp qml
 )
 set_tests_properties(test_qml_views PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+)
+set_tests_properties(test_settings_controller PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )

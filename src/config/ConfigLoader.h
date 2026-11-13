@@ -33,6 +33,7 @@ struct ConfigLoadResult {
 class ConfigLoader {
   public:
     [[nodiscard]] ConfigLoadResult load(const QString& explicitPath = {}) const;
+    [[nodiscard]] bool save(const Config& config, const QString& path = {}) const;
 
     [[nodiscard]] static QString defaultConfigPath();
     [[nodiscard]] static QString defaultDataDir();

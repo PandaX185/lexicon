@@ -4,10 +4,13 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QSet>
 #include <QStandardPaths>
+#include <QStringList>
 #include <toml++/toml.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -138,6 +141,111 @@ bool readInt(const toml::table* table, const char* key, int& target, ConfigLoadR
     return false;
 }
 
+QSet<QString> knownKeysForSection(const QString& section) {
+    if (section == QStringLiteral("general")) {
+        return {QStringLiteral("start_on_login"), QStringLiteral("offline_first")};
+    }
+    if (section == QStringLiteral("interaction")) {
+        return {
+            QStringLiteral("activation"),
+            QStringLiteral("clipboard_fallback"),
+            QStringLiteral("dismiss_on_escape"),
+            QStringLiteral("dismiss_on_outside_click"),
+        };
+    }
+    if (section == QStringLiteral("hotkeys")) {
+        return {QStringLiteral("lookup")};
+    }
+    if (section == QStringLiteral("appearance")) {
+        return {
+            QStringLiteral("theme"),
+            QStringLiteral("popup_width"),
+            QStringLiteral("animation"),
+            QStringLiteral("position"),
+        };
+    }
+    if (section == QStringLiteral("dictionary")) {
+        return {
+            QStringLiteral("database_path"),      QStringLiteral("directory"),
+            QStringLiteral("source_language"),    QStringLiteral("target_language"),
+            QStringLiteral("show_pronunciation"), QStringLiteral("pronunciation_style"),
+        };
+    }
+    if (section == QStringLiteral("translation")) {
+        return {QStringLiteral("catalog_url")};
+    }
+    if (section == QStringLiteral("performance")) {
+        return {QStringLiteral("cache_enabled"), QStringLiteral("cache_size"), QStringLiteral("lazy_initialize")};
+    }
+    return {};
+}
+
+bool isKnownSection(const QString& section) {
+    static const QSet<QString> sections{
+        QStringLiteral("general"),     QStringLiteral("interaction"), QStringLiteral("hotkeys"),
+        QStringLiteral("appearance"),  QStringLiteral("dictionary"),  QStringLiteral("translation"),
+        QStringLiteral("performance"),
+    };
+    return sections.contains(section);
+}
+
+// Saving rewrites the whole document, so anything the schema does not know
+// about would be lost. Detect that first and keep a backup instead of silently
+// discarding the user's comments or hand-written keys.
+void reportUnsavedContent(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+    const QString text = QString::fromUtf8(file.readAll());
+    file.close();
+
+    QStringList discarded;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    for (const QString& line : lines) {
+        if (line.trimmed().startsWith(QLatin1Char('#'))) {
+            discarded.append(QStringLiteral("comments"));
+            break;
+        }
+    }
+
+    const toml::parse_result parsed = toml::parse_file(path.toStdString());
+    if (parsed) {
+        for (const auto& entry : parsed.table()) {
+            const QString key = fromStringView(entry.first.str());
+            if (!isKnownSection(key)) {
+                discarded.append(key);
+                continue;
+            }
+            const toml::table* section = entry.second.as_table();
+            if (!section) {
+                discarded.append(key);
+                continue;
+            }
+            const QSet<QString> known = knownKeysForSection(key);
+            for (const auto& sectionEntry : *section) {
+                const QString sectionKey = fromStringView(sectionEntry.first.str());
+                if (!known.contains(sectionKey)) {
+                    discarded.append(key + QLatin1Char('.') + sectionKey);
+                }
+            }
+        }
+    }
+
+    if (discarded.isEmpty()) {
+        return;
+    }
+
+    const QString backup = path + QStringLiteral(".bak");
+    QFile::remove(backup);
+    if (!QFile::copy(path, backup)) {
+        qCWarning(lexiconConfig) << "event=config_backup_failed path=" << path << "backup=" << backup;
+        return;
+    }
+    qCWarning(lexiconConfig) << "event=config_save_discards_content path=" << path << "backup=" << backup
+                             << "items=" << discarded.join(QStringLiteral(", "));
+}
+
 void warnUnknownKeys(const toml::table& table, const QString& prefix, const QSet<QString>& known,
                      ConfigLoadResult& result) {
     for (const auto& entry : table) {
@@ -249,6 +357,7 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
         path = defaultConfigPath();
     }
     result.sourcePath = path;
+    result.config.configPath = path;
 
     const QFileInfo configFile(path);
     if (!configFile.exists()) {
@@ -265,6 +374,7 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
     if (!configFile.isFile()) {
         addError(result, QStringLiteral("<file>"), QStringLiteral("Configuration path is not a regular file."));
         result.config = Config{};
+        result.config.configPath = path;
         result.usedDefaults = true;
         qCWarning(lexiconConfig) << "event=config_not_a_file path=" << path;
         return result;
@@ -277,6 +387,7 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
         const QString message = QString::fromUtf8(description.data(), static_cast<int>(description.size()));
         addError(result, QStringLiteral("<file>"), QStringLiteral("Could not parse configuration: %1").arg(message));
         result.config = Config{};
+        result.config.configPath = path;
         result.usedDefaults = true;
         qCWarning(lexiconConfig) << "event=config_parse_failed path=" << path << "detail=" << message;
     } else {
@@ -360,13 +471,19 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
 
         const toml::table* performance = readSection(root, "performance", QStringLiteral("performance"), result);
         if (performance) {
-            warnUnknownKeys(*performance, QStringLiteral("performance"),
-                            {QStringLiteral("cache_enabled"), QStringLiteral("lazy_initialize")}, result);
+            warnUnknownKeys(
+                *performance, QStringLiteral("performance"),
+                {QStringLiteral("cache_enabled"), QStringLiteral("cache_size"), QStringLiteral("lazy_initialize")},
+                result);
             readBool(performance, "cache_enabled", result.config.performance.cacheEnabled, result,
                      QStringLiteral("performance"));
+            readInt(performance, "cache_size", result.config.performance.cacheSize, result,
+                    QStringLiteral("performance"));
             readBool(performance, "lazy_initialize", result.config.performance.lazyInitialize, result,
                      QStringLiteral("performance"));
         }
+
+        result.config.performance.cacheSize = std::clamp(result.config.performance.cacheSize, 0, 4096);
 
         if (result.config.appearance.popupWidth < 240 || result.config.appearance.popupWidth > 1200) {
             addWarning(result, QStringLiteral("appearance.popup_width"),
@@ -406,6 +523,85 @@ ConfigLoadResult ConfigLoader::load(const QString& explicitPath) const {
     }
 
     return result;
+}
+
+bool ConfigLoader::save(const Config& config, const QString& path) const {
+    QString target = path;
+    if (target.isEmpty()) {
+        target = config.configPath.isEmpty() ? defaultConfigPath() : config.configPath;
+    }
+    QDir().mkpath(QFileInfo(target).absolutePath());
+
+    const auto quote = [](const QString& value) {
+        QString escaped = value;
+        escaped.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
+        escaped.replace(QStringLiteral("\""), QStringLiteral("\\\""));
+        escaped.replace(QStringLiteral("\n"), QStringLiteral("\\n"));
+        return QStringLiteral("\"%1\"").arg(escaped);
+    };
+    const auto boolStr = [](bool value) { return value ? QStringLiteral("true") : QStringLiteral("false"); };
+
+    QString out;
+    out += QStringLiteral("# Lexicon configuration\n\n");
+
+    out += QStringLiteral("[general]\n");
+    out += QStringLiteral("start_on_login = %1\n").arg(boolStr(config.general.startOnLogin));
+    out += QStringLiteral("offline_first = %1\n\n").arg(boolStr(config.general.offlineFirst));
+
+    out += QStringLiteral("[interaction]\n");
+    out += QStringLiteral("activation = %1\n").arg(quote(activationToString(config.interaction.activation)));
+    out += QStringLiteral("clipboard_fallback = %1\n").arg(boolStr(config.interaction.clipboardFallback));
+    out += QStringLiteral("dismiss_on_escape = %1\n").arg(boolStr(config.interaction.dismissOnEscape));
+    out += QStringLiteral("dismiss_on_outside_click = %1\n\n").arg(boolStr(config.interaction.dismissOnOutsideClick));
+
+    out += QStringLiteral("[hotkeys]\n");
+    out += QStringLiteral("lookup = %1\n\n").arg(quote(config.hotkeys.lookup));
+
+    out += QStringLiteral("[appearance]\n");
+    out += QStringLiteral("theme = %1\n").arg(quote(themeToString(config.appearance.theme)));
+    out += QStringLiteral("popup_width = %1\n").arg(config.appearance.popupWidth);
+    out += QStringLiteral("animation = %1\n").arg(quote(animationToString(config.appearance.animation)));
+    out += QStringLiteral("position = %1\n\n").arg(quote(popupPositionToString(config.appearance.position)));
+
+    out += QStringLiteral("[dictionary]\n");
+    out += QStringLiteral("database_path = %1\n").arg(quote(config.dictionary.databasePath));
+    out += QStringLiteral("directory = %1\n").arg(quote(config.dictionary.directory));
+    out += QStringLiteral("source_language = %1\n").arg(quote(config.dictionary.sourceLanguage));
+    out += QStringLiteral("target_language = %1\n").arg(quote(config.dictionary.targetLanguage));
+    out += QStringLiteral("show_pronunciation = %1\n").arg(boolStr(config.dictionary.showPronunciation));
+    out += QStringLiteral("pronunciation_style = %1\n\n")
+               .arg(quote(pronunciationStyleToString(config.dictionary.pronunciationStyle)));
+
+    out += QStringLiteral("[translation]\n");
+    out += QStringLiteral("catalog_url = %1\n\n").arg(quote(config.translation.catalogUrl));
+
+    out += QStringLiteral("[performance]\n");
+    out += QStringLiteral("cache_enabled = %1\n").arg(boolStr(config.performance.cacheEnabled));
+    out += QStringLiteral("cache_size = %1\n").arg(config.performance.cacheSize);
+    out += QStringLiteral("lazy_initialize = %1\n").arg(boolStr(config.performance.lazyInitialize));
+
+    if (QFileInfo::exists(target)) {
+        reportUnsavedContent(target);
+    }
+
+    // QSaveFile writes to a temporary file and renames on commit, so a failed
+    // or interrupted save never leaves a truncated configuration behind.
+    QSaveFile file(target);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qCWarning(lexiconConfig) << "event=config_save_failed path=" << target << "error=" << file.errorString();
+        return false;
+    }
+    if (file.write(out.toUtf8()) < 0) {
+        qCWarning(lexiconConfig) << "event=config_save_failed path=" << target << "error=" << file.errorString();
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        qCWarning(lexiconConfig) << "event=config_save_failed path=" << target << "error=" << file.errorString();
+        return false;
+    }
+    qCInfo(lexiconConfig) << "event=config_saved path=" << target;
+    return true;
 }
 
 QString ConfigLoader::defaultConfigPath() {

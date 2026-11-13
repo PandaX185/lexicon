@@ -45,6 +45,11 @@ class LanguagePackManager : public QObject {
     static QList<LanguagePackInfo> parseCatalogJson(const QByteArray& json);
     static bool verifyFileIntegrity(const QString& filePath, const QString& expectedSha256);
 
+    // Catalog and pack downloads must use HTTPS. The documentation promises an
+    // encrypted transport, so reject anything else instead of silently falling
+    // back to plain HTTP.
+    static bool isSecureUrl(const QUrl& url);
+
     void fetchCatalog(const QUrl& catalogUrl);
     void installPack(const LanguagePackInfo& pack);
     void cancelDownload(const QString& packId);

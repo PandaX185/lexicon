@@ -1,6 +1,7 @@
 #include "infrastructure/translation/LanguagePackManager.h"
 
 #include <QCryptographicHash>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QTest>
@@ -25,6 +26,11 @@ class LanguagePackManagerTest : public QObject {
     void verifiesMatchingChecksum();
     void rejectsMismatchedChecksum();
     void rejectsMissingFile();
+    void secureUrlPolicy_data();
+    void secureUrlPolicy();
+    void skipsCatalogEntriesWithInsecureUrls();
+    void rejectsInsecureCatalogUrl();
+    void rejectsInsecurePackUrl();
 };
 
 void LanguagePackManagerTest::parsesCatalogJson() {
@@ -107,6 +113,71 @@ void LanguagePackManagerTest::rejectsMissingFile() {
     const QString path = directory.filePath(QStringLiteral("absent.argosmodel"));
 
     QVERIFY(!LanguagePackManager::verifyFileIntegrity(path, QString::fromLatin1(sha256Of("model payload"))));
+}
+
+void LanguagePackManagerTest::secureUrlPolicy_data() {
+    QTest::addColumn<QString>("url");
+    QTest::addColumn<bool>("secure");
+
+    QTest::newRow("https") << QStringLiteral("https://example.org/catalog.json") << true;
+    QTest::newRow("https-upper") << QStringLiteral("HTTPS://example.org/catalog.json") << true;
+    QTest::newRow("http") << QStringLiteral("http://example.org/catalog.json") << false;
+    QTest::newRow("file") << QStringLiteral("file:///tmp/catalog.json") << false;
+    QTest::newRow("ftp") << QStringLiteral("ftp://example.org/catalog.json") << false;
+    QTest::newRow("empty") << QString() << false;
+    QTest::newRow("relative") << QStringLiteral("catalog.json") << false;
+}
+
+void LanguagePackManagerTest::secureUrlPolicy() {
+    QFETCH(QString, url);
+    QFETCH(bool, secure);
+
+    QCOMPARE(LanguagePackManager::isSecureUrl(QUrl(url)), secure);
+}
+
+void LanguagePackManagerTest::skipsCatalogEntriesWithInsecureUrls() {
+    const QByteArray catalog = R"({
+        "version": 1,
+        "packs": [
+            {"id": "http-pack", "source": "en", "target": "es", "url": "http://example.com/a", "sha256": "ab"},
+            {"id": "https-pack", "source": "en", "target": "fr", "url": "https://example.com/b", "sha256": "cd"}
+        ]
+    })";
+
+    const QList<LanguagePackInfo> packs = LanguagePackManager::parseCatalogJson(catalog);
+    QCOMPARE(packs.size(), 1);
+    QCOMPARE(packs.constFirst().id, QStringLiteral("https-pack"));
+}
+
+void LanguagePackManagerTest::rejectsInsecureCatalogUrl() {
+    LanguagePackManager manager;
+    QSignalSpy failures(&manager, &LanguagePackManager::catalogFailed);
+
+    manager.fetchCatalog(QUrl(QStringLiteral("http://example.org/catalog.json")));
+
+    QCOMPARE(failures.count(), 1);
+    QVERIFY(failures.constFirst().constFirst().toString().contains(QStringLiteral("HTTPS")));
+}
+
+void LanguagePackManagerTest::rejectsInsecurePackUrl() {
+    LanguagePackManager manager;
+    QSignalSpy failures(&manager, &LanguagePackManager::operationError);
+
+    const LanguagePackInfo pack{
+        .id = QStringLiteral("translate-en_es"),
+        .source = QStringLiteral("en"),
+        .target = QStringLiteral("es"),
+        .version = QStringLiteral("1"),
+        .url = QStringLiteral("http://example.org/pack.argosmodel"),
+        .sha256 = QStringLiteral("abcd"),
+        .description = {},
+        .size = 0,
+    };
+    manager.installPack(pack);
+
+    QCOMPARE(failures.count(), 1);
+    QCOMPARE(failures.constFirst().at(0).toString(), pack.id);
+    QVERIFY(failures.constFirst().at(1).toString().contains(QStringLiteral("HTTPS")));
 }
 
 QTEST_GUILESS_MAIN(LanguagePackManagerTest)
