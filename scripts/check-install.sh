@@ -22,9 +22,9 @@ forbid_path() {
 }
 
 require_file /usr/bin/lexicon
-require_file /usr/share/applications/org.lexicon.Lexicon.desktop
+require_file /usr/share/applications/io.github.PandaX185.Lexicon.desktop
 require_file /usr/share/icons/hicolor/scalable/apps/lexicon.svg
-require_file /usr/share/metainfo/org.lexicon.Lexicon.metainfo.xml
+require_file /usr/share/metainfo/io.github.PandaX185.Lexicon.metainfo.xml
 require_file /usr/share/lexicon/config.example.toml
 require_file /usr/share/lexicon/dictionaries/schema.sql
 require_file /usr/share/lexicon/dictionaries/en.sqlite

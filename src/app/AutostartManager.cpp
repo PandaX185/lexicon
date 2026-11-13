@@ -22,16 +22,6 @@ QString quoteExecArgument(const QString& value) {
     return QStringLiteral("\"%1\"").arg(escaped);
 }
 
-// Inside a sandbox the application path only exists in the runtime, so the
-// login session has to start the Flatpak instead of the sandboxed binary.
-QString execValueFor(const QString& executablePath) {
-    const QString flatpakId = qEnvironmentVariable("FLATPAK_ID");
-    if (!flatpakId.isEmpty()) {
-        return QStringLiteral("flatpak run %1").arg(flatpakId);
-    }
-    return quoteExecArgument(executablePath);
-}
-
 } // namespace
 
 AutostartManager::AutostartManager(QString targetPath, QString templatePath)
@@ -39,7 +29,7 @@ AutostartManager::AutostartManager(QString targetPath, QString templatePath)
 
 AutostartManager AutostartManager::forCurrentUser() {
     const QString target = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
-                           QStringLiteral("/autostart/org.lexicon.Lexicon.desktop");
+                           QStringLiteral("/autostart/%1.desktop").arg(QStringLiteral(LEXICON_APP_ID));
     const QStringList candidates = {
         QCoreApplication::applicationDirPath() + QStringLiteral("/../share/lexicon/lexicon-autostart.desktop"),
         QStringLiteral("/usr/share/lexicon/lexicon-autostart.desktop"),
@@ -69,7 +59,7 @@ bool AutostartManager::install(const QString& executablePath) const {
 
     // The login session may not have the same PATH as the shell that installed
     // the application, so write the absolute path into the entry.
-    const QString execLine = QStringLiteral("Exec=%1").arg(execValueFor(executablePath));
+    const QString execLine = QStringLiteral("Exec=%1").arg(quoteExecArgument(executablePath));
     content.replace(QRegularExpression(QStringLiteral("^Exec=.*$"), QRegularExpression::MultilineOption), execLine);
 
     QDir().mkpath(QFileInfo(m_targetPath).absolutePath());

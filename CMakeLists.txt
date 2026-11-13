@@ -11,8 +11,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(LEXICON_APP_ID "org.lexicon.Lexicon")
-set(LEXICON_COMPONENT_NAME "lexicon")
+set(LEXICON_APP_ID "io.github.PandaX185.Lexicon")
+
+# Identity shared by the desktop entry, tray item, autostart entry, and CLI.
+add_compile_definitions(
+    LEXICON_APP_ID="${LEXICON_APP_ID}"
+    LEXICON_VERSION="${PROJECT_VERSION}"
+)
 
 find_package(ECM 6.0 REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_MODULE_PATH})

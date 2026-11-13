@@ -93,8 +93,7 @@ See [selection retrieval](selection-retrieval.md).
   `QFutureWatcher`, so the GUI thread is never blocked by SQLite. It delegates autostart
   reconciliation to `AutostartManager`.
 - `AutostartManager` installs or removes the per-user XDG entry, writes an absolute
-  `Exec` path (or `flatpak run …` inside a sandbox), and is testable with temporary
-  paths.
+  `Exec` path, and is testable with temporary paths.
 - `SettingsController` exposes the editable configuration to QML, applies autostart
   changes immediately, and saves through `ConfigLoader`.
 - `QmlPresenter` owns the lazy `QQuickView` popup and maps domain models to QVariant

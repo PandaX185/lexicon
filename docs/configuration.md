@@ -23,7 +23,7 @@ is copied to `config.toml.bak` and the discarded items are listed in the log.
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `start_on_login` | boolean | `false` | Installs or removes a per-user XDG autostart entry under `$XDG_CONFIG_HOME/autostart/`. The system-wide template is never activated automatically. Inside a Flatpak the entry starts `flatpak run org.lexicon.Lexicon` and needs `--filesystem=xdg-config/autostart:create`. |
+| `start_on_login` | boolean | `false` | Installs or removes a per-user XDG autostart entry under `$XDG_CONFIG_HOME/autostart/`. The system-wide template is never activated automatically. |
 | `offline_first` | boolean | `true` | Reserved for future online providers. |
 
 ## `[interaction]`

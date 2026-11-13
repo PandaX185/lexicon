@@ -33,7 +33,7 @@ ServiceStatus KGlobalAccelShortcutService::registerShortcut(const ShortcutSpec& 
     action->setObjectName(spec.id);
     action->setText(spec.displayName);
     action->setIcon(QIcon::fromTheme(QStringLiteral("lexicon")));
-    action->setProperty("componentName", QStringLiteral("lexicon"));
+    action->setProperty("componentName", QStringLiteral(LEXICON_APP_ID));
     action->setProperty("componentDisplayName", QStringLiteral("Lexicon"));
 
     const QMetaObject::Connection connection =
