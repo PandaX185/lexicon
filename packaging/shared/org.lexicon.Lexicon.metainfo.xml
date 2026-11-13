@@ -11,12 +11,16 @@
       words in a local SQLite dictionary and presents definitions in a focused popup.
     </p>
     <p>
-      The application is offline-first, starts without a visible window, and is intended
-      to stay out of the way until invoked by a global shortcut or the tray icon.
+      The application is offline-first, starts without a visible window, and stays out of
+      the way until invoked by a global shortcut or the tray icon. Selected text is read
+      from the Wayland primary selection on KWin; X11 reports an explicit unsupported
+      error instead of falling back to the clipboard.
     </p>
     <p>
-      Stage 1 is a scaffold: global shortcut and command-line lookup work, while automatic
-      retrieval of selected text on Wayland is still a documented proof of concept.
+      Lexicon ships a WordNet 3.0 dictionary with CMUdict pronunciations, supports IPA or
+      respelling display, and can optionally translate through a local Argos Translate
+      pack that the user installs explicitly over HTTPS. The settings window edits
+      `config.toml`, manages opt-in autostart, and controls the bounded lookup cache.
     </p>
   </description>
   <launchable type="desktop-id">org.lexicon.Lexicon.desktop</launchable>

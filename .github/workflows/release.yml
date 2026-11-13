@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release artifact
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install git for checkout
+        run: pacman -Syu --needed --noconfirm git
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-arch
+      - name: Configure
+        run: cmake --preset dev-release
+      - name: Build
+        run: cmake --build --preset dev-release
+      - name: Test
+        run: ctest --preset dev-release
+      - name: Install check
+        run: PRESET=dev-release just install-check
+      - name: Package
+        run: |
+          tar -czf "lexicon-${GITHUB_REF_NAME}.tar.gz" -C build/install-root .
+          sha256sum "lexicon-${GITHUB_REF_NAME}.tar.gz" > "lexicon-${GITHUB_REF_NAME}.tar.gz.sha256"
+          tar -tzf "lexicon-${GITHUB_REF_NAME}.tar.gz" | grep -qx './usr/bin/lexicon'
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lexicon-${{ github.ref_name }}
+          path: lexicon-${{ github.ref_name }}.tar.gz*
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: lexicon-${{ github.ref_name }}.tar.gz*
+          generate_release_notes: true

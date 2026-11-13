@@ -1,0 +1,43 @@
+# Maintainer: Lexicon contributors
+pkgname=lexicon
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Native offline English dictionary daemon for KDE Plasma"
+arch=('x86_64')
+url="https://github.com/PandaX185/lexicon"
+license=('MIT')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'kglobalaccel'
+    'kstatusnotifieritem'
+    'kdbusaddons'
+    'wayland'
+)
+makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'pkgconf' 'clang' 'git')
+optdepends=(
+    'python: offline translation worker'
+    'argostranslate: offline translation models (install with pip or from the AUR)'
+)
+# The source is pinned to the release tag. A tag is immutable, so the VCS
+# checksum skip is acceptable; the commit hash recorded by makepkg identifies
+# exactly what was built.
+source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+build() {
+    cmake -S "$pkgname-$pkgver" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DLEXICON_WITH_WAYLAND=ON
+    cmake --build build
+}
+
+check() {
+    QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+        ctest --test-dir build --output-on-failure -LE kde
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build --prefix /usr
+}
