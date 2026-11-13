@@ -29,16 +29,22 @@ jobs:
         run: PRESET=dev-release just install-check
       - name: Package
         run: |
-          tar -czf "lexicon-${GITHUB_REF_NAME}.tar.gz" -C build/install-root .
-          sha256sum "lexicon-${GITHUB_REF_NAME}.tar.gz" > "lexicon-${GITHUB_REF_NAME}.tar.gz.sha256"
-          tar -tzf "lexicon-${GITHUB_REF_NAME}.tar.gz" | grep -qx './usr/bin/lexicon'
+          version="${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --prefix="lexicon-${version}/" \
+            -o "lexicon-${version}.tar.gz" HEAD
+          sha256sum "lexicon-${version}.tar.gz" > "lexicon-${version}.tar.gz.sha256"
+          tar -tzf "lexicon-${version}.tar.gz" | grep -qx "lexicon-${version}/CMakeLists.txt"
+
+          tar -czf "lexicon-${version}-x86_64-install.tar.gz" -C build/install-root .
+          sha256sum "lexicon-${version}-x86_64-install.tar.gz" > "lexicon-${version}-x86_64-install.tar.gz.sha256"
+          tar -tzf "lexicon-${version}-x86_64-install.tar.gz" | grep -qx './usr/bin/lexicon'
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lexicon-${{ github.ref_name }}
-          path: lexicon-${{ github.ref_name }}.tar.gz*
+          path: lexicon-*.tar.gz*
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: lexicon-${{ github.ref_name }}.tar.gz*
+          files: lexicon-*.tar.gz*
           generate_release_notes: true

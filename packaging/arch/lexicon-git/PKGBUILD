@@ -1,0 +1,50 @@
+# Maintainer: Lexicon contributors
+pkgname=lexicon-git
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc="Native offline English dictionary daemon for KDE Plasma (git)"
+arch=('x86_64')
+url="https://github.com/PandaX185/lexicon"
+license=('MIT')
+provides=('lexicon')
+conflicts=('lexicon')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'qt6-quickcontrols2'
+    'qt6-svg'
+    'kglobalaccel'
+    'kstatusnotifieritem'
+    'kdbusaddons'
+    'wayland'
+)
+makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'pkgconf' 'git')
+optdepends=(
+    'python: offline translation worker'
+    'python-argostranslate: offline translation models'
+)
+source=("$pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$pkgname"
+    printf '%s.r%s.g%s' "$(grep -m1 'VERSION ' CMakeLists.txt | sed 's/.*VERSION \([0-9.]*\).*/\1/')" \
+        "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cmake -S "$srcdir/$pkgname" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DLEXICON_WITH_WAYLAND=ON
+    cmake --build build
+}
+
+check() {
+    QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+        ctest --test-dir build --output-on-failure -LE kde
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build --prefix /usr
+}
