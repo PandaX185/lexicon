@@ -1,5 +1,7 @@
 #include "dictionary/DictionaryService.h"
 
+#include "core/text/LookupText.h"
+
 #include <algorithm>
 #include <utility>
 
@@ -13,10 +15,18 @@ DictionaryService::DictionaryService(std::unique_ptr<DictionaryRepository> repos
 }
 
 DictionaryLookupResult DictionaryService::lookup(const QString& rawWord) const {
-    const QString word = rawWord.trimmed();
+    const QString word = normalizeLookupText(rawWord);
     if (word.isEmpty()) {
         return DictionaryLookupResult::failure(
             AppError::make(ErrorCode::InvalidArgument, QStringLiteral("Enter a word to look up.")));
+    }
+
+    const int wordCount = countLookupWords(word);
+    if (wordCount > MaxLookupWords) {
+        return DictionaryLookupResult::failure(AppError::make(
+            ErrorCode::InvalidArgument,
+            QStringLiteral("Select a single word or a short phrase of at most %1 words.").arg(MaxLookupWords),
+            QStringLiteral("The selection contains %1 words.").arg(wordCount)));
     }
 
     if (!m_repository) {

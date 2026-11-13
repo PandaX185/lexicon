@@ -67,6 +67,9 @@ class SqliteRepositoryTest : public QObject {
 
   private Q_SLOTS:
     void looksUpEntryCaseInsensitively();
+    void looksUpInflectedForm();
+    void prefersHeadwordOverInflectedForm();
+    void toleratesDictionaryWithoutWordFormsTable();
     void returnsDefinitionsInSenseOrder();
     void returnsEntryMetadata();
     void returnsEntryWithoutDefinitions();
@@ -106,6 +109,67 @@ void SqliteRepositoryTest::looksUpEntryCaseInsensitively() {
     QCOMPARE(result.entry->pronunciation.respelling, QStringLiteral("ser-uhn-DIP-i-tee"));
     QCOMPARE(result.entry->definitions.size(), 1);
     QCOMPARE(result.entry->definitions.constFirst().partOfSpeech, PartOfSpeech::Noun);
+}
+
+void SqliteRepositoryTest::looksUpInflectedForm() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    insertEntry(fixture, 1, QStringLiteral("go"), {QStringLiteral("To move from one place to another.")});
+    QVERIFY(
+        fixture.exec(QStringLiteral("INSERT INTO word_forms (form, entry_id, kind) VALUES ('went', 1, 'irregular')")));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryLookupResult result = repository.findByWord(QStringLiteral("WENT"));
+
+    QVERIFY(result.found());
+    QCOMPARE(result.entry->word, QStringLiteral("go"));
+    QCOMPARE(result.entry->matchedForm, QStringLiteral("WENT"));
+    QCOMPARE(result.entry->definitions.size(), 1);
+}
+
+void SqliteRepositoryTest::prefersHeadwordOverInflectedForm() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    insertEntry(fixture, 1, QStringLiteral("run"), {QStringLiteral("To move quickly.")});
+    insertEntry(fixture, 2, QStringLiteral("running"), {QStringLiteral("The act of running.")});
+    QVERIFY(
+        fixture.exec(QStringLiteral("INSERT INTO word_forms (form, entry_id, kind) VALUES ('running', 1, 'gerund')")));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    const DictionaryLookupResult result = repository.findByWord(QStringLiteral("running"));
+
+    QVERIFY(result.found());
+    QCOMPARE(result.entry->word, QStringLiteral("running"));
+    QVERIFY(result.entry->matchedForm.isEmpty());
+}
+
+void SqliteRepositoryTest::toleratesDictionaryWithoutWordFormsTable() {
+    requireSqliteDriver();
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    SqliteFixture fixture(directory.filePath(QStringLiteral("dictionary.sqlite")));
+    QVERIFY2(fixture.isOpen(), qPrintable(fixture.lastError()));
+    QVERIFY(fixture.createSchema());
+    QVERIFY(fixture.exec(QStringLiteral("DROP TABLE word_forms")));
+    insertEntry(fixture, 1, QStringLiteral("go"));
+
+    SqliteDictionaryRepository repository(fixture.path());
+    QVERIFY(repository.findByWord(QStringLiteral("go")).found());
+
+    const DictionaryLookupResult missing = repository.findByWord(QStringLiteral("went"));
+    QVERIFY(!missing.found());
+    QVERIFY(!missing.error.isError());
 }
 
 void SqliteRepositoryTest::returnsDefinitionsInSenseOrder() {

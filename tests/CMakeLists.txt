@@ -11,6 +11,7 @@ function(lexicon_add_test name source label)
 endfunction()
 
 lexicon_add_test(test_core_types unit/test_core_types.cpp unit lexicon_dictionary)
+lexicon_add_test(test_lookup_text unit/test_lookup_text.cpp unit lexicon_core)
 lexicon_add_test(test_config unit/test_config.cpp unit lexicon_config)
 lexicon_add_test(test_dictionary_service unit/test_dictionary_service.cpp unit lexicon_dictionary)
 lexicon_add_test(test_dictionary_catalog unit/test_dictionary_catalog.cpp unit lexicon_dictionary)

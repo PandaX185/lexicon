@@ -23,6 +23,7 @@ QVariantMap entryToVariant(const Lexicon::WordEntry& entry, bool showPronunciati
     QVariantMap result;
     result.insert(QStringLiteral("word"), entry.word);
     result.insert(QStringLiteral("transliteration"), entry.transliteration);
+    result.insert(QStringLiteral("matchedForm"), entry.matchedForm);
 
     QVariantMap pronunciation;
     pronunciation.insert(QStringLiteral("respelling"), entry.pronunciation.respelling);

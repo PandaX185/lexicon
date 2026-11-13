@@ -3,6 +3,23 @@
 All notable changes to Lexicon are documented here. The format follows Keep a Changelog
 and the project uses semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- Inflected-form lookup: the dictionary schema now carries a `word_forms` table, built
+  from WordNet's exception lists plus conservative regular English rules, so `went`
+  resolves to `go`, `children` to `child`, and `walked` to `walk`. The popup shows the
+  matched form (`went → go`), and exact headwords still win.
+
+### Changed
+
+- Lookups trim surrounding quotes, brackets, and sentence punctuation, collapse repeated
+  whitespace, and reject selections longer than four words as sentences instead of
+  querying the dictionary for the whole string.
+- Dictionary schema version is now 3. Older databases without `word_forms` keep working
+  with exact lookup.
+
 ## [0.1.0] - 2026-11-13
 
 ### Added

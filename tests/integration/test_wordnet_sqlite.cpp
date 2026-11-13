@@ -3,6 +3,8 @@
 #include <QFile>
 #include <QTest>
 
+#include <array>
+
 using namespace Lexicon;
 
 class WordNetSqliteTest : public QObject {
@@ -12,6 +14,7 @@ class WordNetSqliteTest : public QObject {
     void databaseExistsAndHasMetadata();
     void headwordHasDefinitionsAndIpa();
     void multipleSensesAndPosPreserved();
+    void resolvesInflectedForms();
     void lookupIsFastUnderThreshold();
 };
 
@@ -65,6 +68,35 @@ void WordNetSqliteTest::multipleSensesAndPosPreserved() {
     }
     QVERIFY(hasVerb);
     QVERIFY(hasNoun);
+}
+
+void WordNetSqliteTest::resolvesInflectedForms() {
+    const QString dbPath = QStringLiteral(LEXICON_SOURCE_DIR "/data/dictionaries/en.sqlite");
+    if (!QFile::exists(dbPath)) {
+        QSKIP("Bundled en.sqlite not present yet.");
+    }
+    SqliteDictionaryRepository repo(dbPath);
+
+    struct FormCase {
+        const char* form;
+        const char* headword;
+    };
+    const std::array<FormCase, 5> cases = {
+        {
+            {.form = "went", .headword = "go"},
+            {.form = "ran", .headword = "run"},
+            {.form = "children", .headword = "child"},
+            {.form = "walked", .headword = "walk"},
+            {.form = "jumped", .headword = "jump"},
+        },
+    };
+
+    for (const auto& item : cases) {
+        const DictionaryLookupResult result = repo.findByWord(QString::fromLatin1(item.form));
+        QVERIFY2(result.found(), item.form);
+        QCOMPARE(result.entry->word.toLower(), QString::fromLatin1(item.headword));
+        QCOMPARE(result.entry->matchedForm, QString::fromLatin1(item.form));
+    }
 }
 
 void WordNetSqliteTest::lookupIsFastUnderThreshold() {

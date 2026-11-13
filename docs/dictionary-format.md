@@ -1,6 +1,6 @@
 # Dictionary format
 
-Lexicon reads a local SQLite database with this schema (currently `PRAGMA user_version = 2`):
+Lexicon reads a local SQLite database with this schema (currently `PRAGMA user_version = 3`):
 
 - `dictionary_info`: exactly one row describing the dictionary and the language pair it
   covers.
@@ -9,6 +9,7 @@ Lexicon reads a local SQLite database with this schema (currently `PRAGMA user_v
 - `definitions`: one row per sense, linked to an entry, with part of speech, text,
   optional label, and sense order.
 - `entry_metadata`: arbitrary key/value metadata for an entry.
+- `word_forms`: optional inflected surface forms that resolve to a headword.
 
 The schema is in [`data/dictionaries/schema.sql`](../data/dictionaries/schema.sql).
 
@@ -58,13 +59,38 @@ so a word typed in Latin letters finds an entry it would otherwise miss. The pop
 the transliteration under the headword. Generating transliterations belongs to the import
 step that builds a dictionary, not to the daemon: Lexicon only indexes and reads them.
 
+## Inflected forms
+
+`word_forms` maps an inflected surface form to the headword it belongs to, so a lookup of
+`went` can return the entry for `go`:
+
+```sql
+INSERT INTO word_forms (form, entry_id, kind) VALUES ('went', 1, 'irregular');
+```
+
+- `form` is compared case-insensitively and is unique per entry.
+- `kind` is informational (`irregular`, `past`, `gerund`, `plural`, …).
+- Exact headword matches always win. The table is only consulted after `entries.word` and
+  `entries.transliteration` miss.
+- The table is optional: dictionaries that do not have it still work with exact lookup,
+  as do older databases created before schema version 3.
+
+Generating inflected forms belongs to the import step. The bundled dictionary uses
+WordNet's exception files plus conservative regular English inflection rules, and drops
+any form that would resolve to more than one headword rather than guessing. Other
+dictionaries can populate the table from their own morphology data or leave it empty.
+
 ## Lookup behavior
 
-- Lookup is case-insensitive (`COLLATE NOCASE`) on `word`, then on `transliteration`.
-- The first matching entry is used.
+- Lookup is case-insensitive (`COLLATE NOCASE`) on `word`, then `transliteration`, then
+  `word_forms.form`.
+- The first matching entry is used. An exact headword therefore shadows an inflected form
+  with the same spelling, such as `running`.
 - Definitions are ordered by `sense_order`, then `id`.
 - A missing database, a file that is not a dictionary, and a missing word are distinct
   errors.
+- The application accepts a single word or a phrase of at most four words. Longer
+  selections are rejected before the database is queried.
 
 ## Development fixture
 

@@ -1,5 +1,5 @@
 PRAGMA foreign_keys = ON;
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 
 -- One row per database: what this dictionary is, and which language pair it
 -- covers. `source_language` is the language of the headwords and
@@ -31,6 +31,17 @@ CREATE TABLE IF NOT EXISTS entries (
 
 CREATE INDEX IF NOT EXISTS idx_entries_word ON entries (word COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_entries_transliteration ON entries (transliteration COLLATE NOCASE);
+
+-- Inflected surface forms that resolve to a headword, generated when the
+-- dictionary is built (for example "went" to "go"). Exact headword matches
+-- always win over this table. Dictionaries without it keep working with exact
+-- lookup only.
+CREATE TABLE IF NOT EXISTS word_forms (
+    form TEXT NOT NULL COLLATE NOCASE,
+    entry_id INTEGER NOT NULL REFERENCES entries (id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (form, entry_id)
+);
 
 CREATE TABLE IF NOT EXISTS definitions (
     id INTEGER PRIMARY KEY,

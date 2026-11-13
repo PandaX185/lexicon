@@ -29,7 +29,10 @@ class DictionaryServiceTest : public QObject {
   private Q_SLOTS:
     void trimsLookupWord();
     void trimsTabsAndNewlines();
-    void preservesInternalWhitespace();
+    void collapsesInternalWhitespace();
+    void stripsTrailingPunctuation();
+    void acceptsFourWordPhrase();
+    void rejectsSentenceLengthInput();
     void rejectsEmptyWord();
     void rejectsWhitespaceOnlyWord();
     void reportsMissingEntry();
@@ -73,7 +76,7 @@ void DictionaryServiceTest::trimsTabsAndNewlines() {
     QCOMPARE(repositoryPtr->lastWord, QStringLiteral("serendipity"));
 }
 
-void DictionaryServiceTest::preservesInternalWhitespace() {
+void DictionaryServiceTest::collapsesInternalWhitespace() {
     auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
     FakeRepository* repositoryPtr = repository.get();
     DictionaryService service(std::move(repository));
@@ -81,7 +84,41 @@ void DictionaryServiceTest::preservesInternalWhitespace() {
     const DictionaryLookupResult result = service.lookup(QStringLiteral("  ice   cream  "));
 
     QVERIFY(result.found());
-    QCOMPARE(repositoryPtr->lastWord, QStringLiteral("ice   cream"));
+    QCOMPARE(repositoryPtr->lastWord, QStringLiteral("ice cream"));
+}
+
+void DictionaryServiceTest::stripsTrailingPunctuation() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    const DictionaryLookupResult result = service.lookup(QStringLiteral("  \"serendipity\",  "));
+
+    QVERIFY(result.found());
+    QCOMPARE(repositoryPtr->lastWord, QStringLiteral("serendipity"));
+}
+
+void DictionaryServiceTest::acceptsFourWordPhrase() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    const DictionaryLookupResult result = service.lookup(QStringLiteral("one two three four"));
+
+    QVERIFY(result.found());
+    QCOMPARE(repositoryPtr->lastWord, QStringLiteral("one two three four"));
+}
+
+void DictionaryServiceTest::rejectsSentenceLengthInput() {
+    auto repository = std::make_unique<FakeRepository>(DictionaryLookupResult::success(makeEntry()));
+    FakeRepository* repositoryPtr = repository.get();
+    DictionaryService service(std::move(repository));
+
+    const DictionaryLookupResult result = service.lookup(QStringLiteral("one two three four five"));
+
+    QVERIFY(!result.found());
+    QCOMPARE(result.error.code, ErrorCode::InvalidArgument);
+    QCOMPARE(repositoryPtr->calls, 0);
 }
 
 void DictionaryServiceTest::rejectsEmptyWord() {

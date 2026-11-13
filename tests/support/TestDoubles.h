@@ -33,6 +33,7 @@ struct PresenterEvent {
     QString title;
     QString message;
     QString translation;
+    QString matchedForm;
     int definitionCount = 0;
 };
 
@@ -44,6 +45,7 @@ class RecordingPresenter final : public PopupPresenter {
             .title = word,
             .message = {},
             .translation = {},
+            .matchedForm = {},
             .definitionCount = 0,
         });
     }
@@ -54,6 +56,7 @@ class RecordingPresenter final : public PopupPresenter {
             .title = entry.word,
             .message = {},
             .translation = entry.metadata.value(QStringLiteral("translation")),
+            .matchedForm = entry.matchedForm,
             .definitionCount = static_cast<int>(entry.definitions.size()),
         });
     }
@@ -64,6 +67,7 @@ class RecordingPresenter final : public PopupPresenter {
             .title = title,
             .message = message,
             .translation = {},
+            .matchedForm = {},
             .definitionCount = 0,
         });
     }
@@ -74,6 +78,7 @@ class RecordingPresenter final : public PopupPresenter {
             .title = {},
             .message = {},
             .translation = {},
+            .matchedForm = {},
             .definitionCount = 0,
         });
     }
@@ -84,6 +89,7 @@ class RecordingPresenter final : public PopupPresenter {
             .title = {},
             .message = {},
             .translation = {},
+            .matchedForm = {},
             .definitionCount = 0,
         });
     }

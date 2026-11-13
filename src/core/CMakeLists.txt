@@ -3,6 +3,7 @@ add_library(lexicon_core STATIC
     selection/PrimarySelectionProvider.cpp
     selection/SelectionTextPolicy.cpp
     selection/UnsupportedPrimarySelectionSource.cpp
+    text/LookupText.cpp
 )
 
 target_include_directories(lexicon_core PUBLIC ${CMAKE_SOURCE_DIR}/src)

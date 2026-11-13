@@ -78,6 +78,9 @@ class ApplicationControllerTest : public QObject {
     void lookupWordRejectsEmptyInput();
     void lookupWordReportsMissingEntry();
     void lookupWordReportsRepositoryFailure();
+    void lookupWordNormalizesPunctuation();
+    void lookupWordPassesMatchedFormToPresenter();
+    void lookupWordRejectsSentenceBeforeLookup();
     void lookupSelectionReportsUnavailable();
     void lookupSelectionIncludesErrorDetail();
     void lookupSelectionRejectsWhitespaceFallback();
@@ -161,6 +164,43 @@ void ApplicationControllerTest::lookupWordReportsMissingEntry() {
     QCOMPARE(harness.presenter.events.at(1).type, PresenterEvent::Type::Message);
     QCOMPARE(harness.presenter.events.at(1).title, QStringLiteral("No entry found"));
     QVERIFY(harness.presenter.events.at(1).message.contains(QStringLiteral("missing")));
+}
+
+void ApplicationControllerTest::lookupWordNormalizesPunctuation() {
+    Harness harness;
+    harness.repositoryPtr->result = DictionaryLookupResult::success(makeEntry());
+
+    harness.controller->lookupWord(QStringLiteral("  \"serendipity\",  "));
+
+    QTRY_COMPARE_WITH_TIMEOUT(harness.presenter.events.size(), 2, 5000);
+    QCOMPARE(harness.presenter.events.at(0).title, QStringLiteral("serendipity"));
+    QCOMPARE(harness.repositoryPtr->lastWord, QStringLiteral("serendipity"));
+}
+
+void ApplicationControllerTest::lookupWordPassesMatchedFormToPresenter() {
+    Harness harness;
+    WordEntry entry = makeEntry(QStringLiteral("go"));
+    entry.matchedForm = QStringLiteral("went");
+    harness.repositoryPtr->result = DictionaryLookupResult::success(std::move(entry));
+
+    harness.controller->lookupWord(QStringLiteral("went"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(harness.presenter.events.size(), 2, 5000);
+    QCOMPARE(harness.presenter.events.at(1).type, PresenterEvent::Type::Entry);
+    QCOMPARE(harness.presenter.events.at(1).title, QStringLiteral("go"));
+    QCOMPARE(harness.presenter.events.at(1).matchedForm, QStringLiteral("went"));
+}
+
+void ApplicationControllerTest::lookupWordRejectsSentenceBeforeLookup() {
+    Harness harness;
+
+    harness.controller->lookupWord(QStringLiteral("one two three four five"));
+
+    QCOMPARE(harness.presenter.events.size(), 1);
+    QCOMPARE(harness.presenter.events.constFirst().type, PresenterEvent::Type::Message);
+    QCOMPARE(harness.presenter.events.constFirst().title, QStringLiteral("Select a word or phrase"));
+    QVERIFY(harness.presenter.events.constFirst().message.contains(QStringLiteral("5 words")));
+    QCOMPARE(harness.repositoryPtr->calls, 0);
 }
 
 void ApplicationControllerTest::lookupWordReportsRepositoryFailure() {
