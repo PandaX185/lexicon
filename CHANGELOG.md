@@ -65,7 +65,6 @@ and the project uses semantic versioning.
 
 - The popup shows `pronunciation.text`, so the pronunciation style is chosen by the
   presenter rather than toggled inside the view.
-
 - The dictionary schema is now version 2 with `dictionary_info` and
   `entries.transliteration`. Databases without metadata are ignored by the catalog.
 - A missing dictionary now reports the requested language pair instead of only the path.
@@ -84,6 +83,8 @@ and the project uses semantic versioning.
   platform does not report one.
 - Unit tests now cover settings persistence, autostart, first-run seeding, the lookup
   cache, and the HTTPS policy; QML tests receive the real `SettingsController`.
+- The Flatpak manifest renames the icon to the application ID, so the desktop entry and
+  exported icon resolve inside the sandbox.
 
 ## [0.1.0] - 2026-11-06
 

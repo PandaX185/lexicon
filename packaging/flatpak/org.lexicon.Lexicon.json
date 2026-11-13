@@ -4,6 +4,7 @@
   "runtime-version": "6.10",
   "sdk": "org.kde.Sdk",
   "command": "lexicon",
+  "rename-icon": "lexicon",
   "finish-args": [
     "--socket=wayland",
     "--device=dri",
