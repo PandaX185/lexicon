@@ -56,8 +56,8 @@ std::unique_ptr<SelectionProvider> waylandProvider() {
 }
 
 std::unique_ptr<SelectionProvider> x11Provider() {
-    // Decision (Stage 2): X11 is not implemented yet. It reports an explicit
-    // unsupported error instead of falling back to the clipboard. A future
+    // Decision: X11 is not implemented. It reports an explicit unsupported
+    // error instead of falling back to the clipboard. A future
     // X11PrimarySelectionSource only needs to implement PrimarySelectionSource
     // and be selected here; nothing above this factory changes.
     return unsupportedProvider(

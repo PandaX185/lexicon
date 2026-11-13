@@ -1,6 +1,6 @@
 # Selection retrieval
 
-Stage 2 implements automatic selected-text retrieval on Wayland (KWin,
+Lexicon implements automatic selected-text retrieval on Wayland (KWin,
 `ext_data_control_manager_v1`) behind platform-neutral interfaces. X11 and any
 other desktop report an explicit unsupported error.
 
@@ -62,17 +62,16 @@ Details that matter:
   `SelectionTooLong` (over the policy limit).
 
 The protocol XML is vendored in
-[`third_party/wayland-protocols`](../third_party/wayland-protocols/README.md)
+[`third_party/wayland-protocols`](../../third_party/wayland-protocols/README.md)
 and generated at build time with `wayland-scanner`.
 
 ## X11 decision
 
-Automatic selection retrieval is **not** implemented on X11 in Stage 2.
+Automatic selection retrieval is **not** implemented on X11. An X11 session
+reports an explicit unsupported error instead of reading the clipboard.
 
 - An X11 session gets an explicit `SelectionUnsupported` result whose detail
   says the clipboard is not used as a fallback.
-- Reading the clipboard would return whatever was last copied, which is not the
-  current selection.
 - A future `X11PrimarySelectionSource` can implement `PrimarySelectionSource`
   with `XGetSelectionOwner`/`XConvertSelection` (including INCR transfers) and
   be selected in the factory without touching anything else.
@@ -124,18 +123,16 @@ making Wayland a hard dependency of the whole application.
   `wl-copy`, and verifies a real selection, no selection, a non-text selection,
   and an over-long selection. Run it with `just test-kde`.
 
-## Acceptance criteria for Stage 2
+## Behavior guarantees
 
-- [x] A single word selected in Kate, Firefox, and a Qt application is
-  retrieved on KWin Wayland. The live test above covers a real selection; the
-  three-application matrix was confirmed on the target session (see
-  [ROADMAP](../../ROADMAP.md)).
-- [x] A clipboard-only copy does not trigger a lookup: only the primary
-  selection is read.
-- [x] No selection, non-text selection, unsupported protocol, and over-long
+- A single word selected in Kate, Firefox, or a Qt application is retrieved on
+  KWin Wayland; the live test covers a real selection.
+- A clipboard-only copy does not trigger a lookup: only the primary selection is
+  read.
+- No selection, non-text selection, unsupported protocol, and over-long
   selection each produce a distinct error.
-- [x] X11 degrades to the same explicit error, with a documented decision.
-- [x] Selected text is absent from debug logs.
+- X11 degrades to the same explicit error, with a documented decision.
+- Selected text is absent from debug logs.
 
 ## Known gaps
 

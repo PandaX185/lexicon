@@ -144,7 +144,7 @@ install(FILES packaging/shared/lexicon-autostart.desktop
 # rather than being looked up in PATH.
 install(FILES scripts/argos_worker.py
         DESTINATION ${KDE_INSTALL_DATADIR}/lexicon/scripts)
-install(FILES README.md LICENSE CHANGELOG.md ROADMAP.md CONTRIBUTING.md SECURITY.md SUPPORT.md
+install(FILES README.md LICENSE CHANGELOG.md CONTRIBUTING.md SECURITY.md SUPPORT.md
         licenses/WORDNET.txt licenses/CMUDICT.txt
     DESTINATION ${KDE_INSTALL_DATADIR}/doc/lexicon
 )

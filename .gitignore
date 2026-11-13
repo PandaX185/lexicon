@@ -34,3 +34,7 @@ __pycache__/
 result
 result-*
 .freebuff/
+.flatpak-builder/
+
+# Local planning notes
+ROADMAP.md

@@ -68,18 +68,18 @@ step that builds a dictionary, not to the daemon: Lexicon only indexes and reads
 
 ## Development fixture
 
-[`dev-seed.sql`](../data/dictionaries/dev-seed.sql) contains a small CC0 fixture for
-smoke tests only. It is not a dictionary and must not be presented as one.
+[`dev-seed.sql`](../data/dictionaries/dev-seed.sql) contains a tiny, original CC0-1.0
+fixture written for this project. It covers multiple parts of speech, multiple senses,
+and metadata, and exists only for tests and fast smoke runs; it is not a dictionary
+dataset and must not be shipped or presented as one. Tests build a temporary SQLite
+database from `schema.sql` and `dev-seed.sql`, and `just seed-db` creates a local
+development database at `build/dev/lexicon.sqlite`.
 
-```sh
-just seed-db
-```
+## Additional content
 
-## Production content
-
-The catalog, the metadata, and the transliteration index are in place, but no dictionary
-content ships with Lexicon yet. A production dictionary needs a compatible license,
-an attribution recorded in `dictionary_info`, and a redistribution route. The repository
-must not silently download dictionary content or merge incompatibly licensed data; any
-future download has to be an explicit user action with a checksum and the attribution
-shown before it is installed.
+The bundled English dictionary is installed read-only. Additional languages are separate
+SQLite files in the dictionary directory; they are discovered by the catalog. Any new
+dataset needs a compatible license, an attribution recorded in `dictionary_info`, and a
+redistribution route. Lexicon must not silently download dictionary content or merge
+incompatibly licensed data: a future download has to be an explicit user action with a
+checksum and the attribution shown before it is installed.

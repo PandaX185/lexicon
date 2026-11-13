@@ -1,6 +1,6 @@
 # AGENTS.md — Lexicon Development Guide
 
-Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. Currently at **Stage 3** (editable settings, dictionary catalog, pronunciation, optional offline translation, lookup cache, autostart, and packaging; Wayland primary-selection lookup implemented, X11 explicitly unsupported).
+Lexicon is a native, offline-first English dictionary daemon for KDE Plasma (C++20, Qt 6, KF6). It runs in the background, registers a global shortcut and tray icon, and displays definitions in a focused QML popup. It ships a WordNet 3.0 dictionary with CMUdict pronunciations, supports multi-dictionary catalogs, editable settings, a bounded lookup cache, opt-in autostart, and optional offline translation through user-installed Argos packs. Wayland primary-selection lookup is implemented; X11 reports an explicit unsupported error.
 
 ## Essential Commands
 
@@ -33,11 +33,12 @@ Strict inward-only dependencies are enforced:
 - `src/infrastructure/`: Operational adapters:
   - `database/`: `SqliteDictionaryRepository` implementing `DictionaryRepository`.
   - `logging/`: Structured category logging (`lexiconApp`, `lexiconConfig`, `lexiconDictionary`, `lexiconDatabase`, `lexiconKde`, `lexiconUi`).
+  - `translation/`: `LanguagePackManager` for HTTPS catalog/download handling plus the local Argos `QProcess` worker and service.
   - `UnixSignalHandler`: POSIX signal translation to Qt signals.
 - `src/config/`: TOML configuration loading via `toml++`, schema validation, fallback defaults, and XDG path resolution (`ConfigLoader`).
 - `src/platform/`: Optional, per-platform selection backends implementing `PrimarySelectionSource`. `wayland/` uses `ext_data_control_manager_v1`. A future `x11/` backend implements the same interface. Backends must stay optional (`LEXICON_WITH_WAYLAND`) and must not be included above `src/app`.
 - `src/kde/`: KDE Frameworks 6 adapters (`KGlobalAccelShortcutService`, `KStatusNotifierTrayService`, `KdeSession`).
-- `src/app/`: Composition root (`Application`, `main.cpp`), async orchestrator (`ApplicationController` via `QtConcurrent`), presenter (`QmlPresenter`), and `SelectionProviderFactory` — the only platform-aware code.
+- `src/app/`: Composition root (`Application`, `main.cpp`), async orchestrator (`ApplicationController` via `QtConcurrent`), presenter (`QmlPresenter`), settings bridge (`SettingsController`, `AutostartManager`), first-run seeding (`DictionarySeeder`), and `SelectionProviderFactory` — the only platform-aware code.
 - `ui/`: Purely declarative QML (Qt Quick Controls 2, custom theme). Business logic remains in C++ presenters.
 
 ## Critical Design Rules & Gotchas
@@ -53,7 +54,8 @@ Strict inward-only dependencies are enforced:
 - Model expected domain outcomes (such as `WordNotFound` and `SelectionUnavailable`) as explicit results.
 
 ### Privacy & Security Guardrails
-- Offline-only: Do not add network calls or remote telemetry.
+- Offline-first: Do not add network calls or remote telemetry. The only network access is an explicit, user-initiated language pack download over HTTPS.
+- Language packs: Require HTTPS for the catalog and archives; reject insecure downloads and ignore insecure catalog entries.
 - Selection privacy: Never log selected text, clipboard contents, or sensitive data.
 - Selection integrity: Do not fall back to the clipboard or inject synthetic keystrokes (`Ctrl+C`) when selected text is unavailable. Return an explicit error (`SelectionUnavailable`, `SelectionUnsupported`, `SelectionNotText`, or `SelectionTooLong`).
 - Platform seams: keep platform code in `src/platform` behind `PrimarySelectionSource`; `SelectionProviderFactory` is the only place that may branch on the session. Adding X11 or another desktop must not require changes to core, the controller, or the UI.
@@ -69,8 +71,8 @@ Strict inward-only dependencies are enforced:
   `qCWarning(lexiconDatabase) << "event=database_open_failed path=" << path << "detail=" << detail;`
 
 ### Testing
-- Unit tests live in `tests/unit/` (`test_config.cpp`, `test_dictionary_service.cpp`).
-- Integration tests live in `tests/integration/` (`test_sqlite_repository.cpp`).
+- Unit tests live in `tests/unit/` and cover config loading/saving, dictionary service and cache, settings persistence, autostart, seeding, language pack HTTPS policy, selection logic, and the Argos protocol.
+- Integration tests live in `tests/integration/`; QML smoke tests use `QT_QPA_PLATFORM=offscreen` and `QT_QUICK_BACKEND=software`.
 - Label any test requiring a live Plasma/Wayland session with `kde` (the default CTest preset excludes `kde`; run them with `just test-kde`).
 - Selection logic is tested without a compositor through `PrimarySelectionSource` fakes; the live Wayland path is covered by `tests/integration/test_wayland_selection.cpp` using `wl-copy`.
 
@@ -79,7 +81,8 @@ Strict inward-only dependencies are enforced:
 Consult these references when working on specific areas:
 
 - Architecture, subsystem wiring, and application lifecycle: [docs/architecture/overview.md](docs/architecture/overview.md)
-- Wayland primary selection protocol (`ext_data_control_manager_v1`) and Stage 2 design: [docs/architecture/selection-retrieval.md](docs/architecture/selection-retrieval.md)
+- Wayland primary selection protocol (`ext_data_control_manager_v1`): [docs/architecture/selection-retrieval.md](docs/architecture/selection-retrieval.md)
 - Configuration options, TOML schema, and defaults: [docs/configuration.md](docs/configuration.md)
 - Database schema, dictionary tables, and fixture rules: [docs/dictionary-format.md](docs/dictionary-format.md)
-- Milestone progression and roadmap stages: [ROADMAP.md](ROADMAP.md)
+- Packaging, installation, and release artifacts: [README.md](README.md)
+- User-visible release history: [CHANGELOG.md](CHANGELOG.md)

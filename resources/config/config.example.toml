@@ -8,7 +8,7 @@ start_on_login = false
 offline_first = true
 
 [interaction]
-# Stage 1 supports only "global_shortcut".
+# Only "global_shortcut" is currently supported.
 activation = "global_shortcut"
 # Clipboard fallback is reserved for a later release and is currently unused.
 clipboard_fallback = false

@@ -1,6 +1,6 @@
 # Support
 
-This is a Stage 3 build. Before reporting an issue:
+Before reporting an issue:
 
 1. Confirm the build steps in the README.
 2. Run `ctest --preset dev-debug`.
