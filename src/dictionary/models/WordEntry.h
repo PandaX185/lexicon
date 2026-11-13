@@ -14,6 +14,9 @@ struct WordEntry {
     // Latin-script romanization of `word`, set for headwords written in another
     // script. A lookup may have matched this instead of the headword itself.
     QString transliteration;
+    // Inflected form that resolved to this headword, for example "went" for
+    // "go". Empty when the lookup matched the headword directly.
+    QString matchedForm;
     QList<Definition> definitions;
     Pronunciation pronunciation;
     QHash<QString, QString> metadata;

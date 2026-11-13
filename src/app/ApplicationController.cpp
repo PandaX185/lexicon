@@ -5,6 +5,7 @@
 #include "core/interfaces/ShortcutService.h"
 #include "core/interfaces/TranslationService.h"
 #include "core/interfaces/TrayService.h"
+#include "core/text/LookupText.h"
 #include "dictionary/DictionaryService.h"
 #include "infrastructure/logging/Logging.h"
 
@@ -137,10 +138,22 @@ void ApplicationController::lookupSelection() {
 }
 
 void ApplicationController::lookupWord(const QString& word) {
-    const QString trimmed = word.trimmed();
+    const QString trimmed = normalizeLookupText(word);
     if (trimmed.isEmpty()) {
         m_presenter.showMessage(QStringLiteral("Nothing to look up"),
                                 QStringLiteral("Select a word or enter one to look up."));
+        return;
+    }
+
+    const int wordCount = countLookupWords(trimmed);
+    if (wordCount > MaxLookupWords) {
+        m_presenter.showMessage(
+            QStringLiteral("Select a word or phrase"),
+            QStringLiteral("The selection contains %1 words. Lexicon looks up a single word or a short phrase of at "
+                           "most %2 words.")
+                .arg(wordCount)
+                .arg(MaxLookupWords));
+        qCInfo(lexiconApp) << "event=lookup_ignored reason=selection_too_many_words words=" << wordCount;
         return;
     }
 
@@ -188,6 +201,11 @@ void ApplicationController::handleLookupFinished() {
         qCInfo(lexiconApp) << "event=lookup_completed found=false error=" << errorCodeToString(result.error.code);
         if (result.error.code == ErrorCode::WordNotFound) {
             m_presenter.showMessage(QStringLiteral("No entry found"), result.error.message);
+            return;
+        }
+
+        if (result.error.code == ErrorCode::InvalidArgument) {
+            m_presenter.showMessage(QStringLiteral("Select a word or phrase"), result.error.message);
             return;
         }
 

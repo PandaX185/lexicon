@@ -126,6 +126,20 @@ Item {
                 }
             }
 
+            // The selected word was an inflected form and the dictionary
+            // resolved it to its base headword, for example went -> go.
+            Label {
+                Layout.fillWidth: true
+                visible: !root.loading && !root.hasMessage && root.entry !== null && root.entry !== undefined
+                         && root.entry.matchedForm !== undefined && root.entry.matchedForm !== ""
+                text: root.entry && root.entry.matchedForm
+                      ? qsTr("%1 → %2").arg(root.entry.matchedForm).arg(root.entry.word) : ""
+                color: theme.textSecondary
+                font.pixelSize: 12
+                elide: Text.ElideRight
+                textFormat: Text.PlainText
+            }
+
             // Romanization of a headword written in another script, so the
             // lookup result is readable when it was typed in Latin letters.
             Label {

@@ -9,7 +9,8 @@ first-run setup, lookups, settings, configuration, translation, and troubleshoot
 
 ## Features
 
-- Offline WordNet 3.0 dictionary with CMUdict-derived IPA or respelling pronunciation.
+- Offline WordNet 3.0 dictionary with CMUdict-derived IPA or respelling pronunciation,
+  including inflected forms (`went` resolves to `go`) with the substitution shown.
 - Multi-dictionary catalog with language-pair metadata and romanized lookup.
 - Selected-text lookup on Wayland (KWin, `ext_data_control_manager_v1`) through a
   configurable global shortcut. X11 reports an explicit unsupported error; there is no
@@ -200,7 +201,8 @@ packaging/           Arch PKGBUILD and shared desktop files
 - Selected-text retrieval works on Wayland (`ext_data_control_manager_v1`) only. X11
   returns an explicit `SelectionUnsupported` error, and nothing ever falls back to the
   clipboard or reuses stale text.
-- Selections longer than 128 characters are rejected rather than looked up.
+- Selections longer than 128 characters, or longer than four words, are rejected rather
+  than looked up; the latter is treated as a sentence, not a headword.
 - Settings are saved immediately, but shortcut, dictionary, cache, and theme changes
   take effect after restart unless the UI says otherwise.
 - Language pack downloads require HTTPS. Offline translation additionally needs

@@ -57,9 +57,10 @@ QString newConnectionName() {
     return QStringLiteral("lexicon_lookup_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
 }
 
-// Shared by the headword and the transliteration query so both read the same
-// columns in the same order.
-DictionaryLookupResult readEntry(QSqlDatabase& database, QSqlQuery& entryQuery, const QString& word) {
+// Shared by the headword, transliteration, and inflected-form queries so all of
+// them read the same columns in the same order.
+DictionaryLookupResult readEntry(QSqlDatabase& database, QSqlQuery& entryQuery, const QString& word,
+                                 const QString& matchedForm = {}) {
     if (!entryQuery.exec()) {
         const QString detail = entryQuery.lastError().text();
         qCWarning(lexiconDatabase) << "event=entry_query_failed word_length=" << word.size() << "detail=" << detail;
@@ -75,6 +76,7 @@ DictionaryLookupResult readEntry(QSqlDatabase& database, QSqlQuery& entryQuery, 
     const qint64 entryId = entryQuery.value(0).toLongLong();
     entry.word = entryQuery.value(1).toString();
     entry.transliteration = entryQuery.value(2).toString();
+    entry.matchedForm = matchedForm;
     entry.pronunciation.respelling = entryQuery.value(3).toString();
     entry.pronunciation.ipa = entryQuery.value(4).toString();
 
@@ -173,7 +175,28 @@ DictionaryLookupResult SqliteDictionaryRepository::findByWord(const QString& wor
         return DictionaryLookupResult::notFound();
     }
 
-    return readEntry(connection.database(), transliterationQuery, word);
+    DictionaryLookupResult transliterationResult = readEntry(connection.database(), transliterationQuery, word);
+    if (transliterationResult.error.isError() || transliterationResult.found()) {
+        return transliterationResult;
+    }
+
+    // Inflected surface forms ("went", "walked", "children") generated at build
+    // time. A dictionary without the table, or one that predates it, keeps
+    // working with exact lookup only.
+    QSqlQuery formQuery(connection.database());
+    formQuery.prepare(QStringLiteral("SELECT e.id, e.word, e.transliteration, e.pronunciation_respelling, "
+                                     "e.pronunciation_ipa, e.source, e.license FROM word_forms f "
+                                     "JOIN entries e ON e.id = f.entry_id WHERE f.form = ? COLLATE NOCASE "
+                                     "ORDER BY e.id LIMIT 1"));
+    formQuery.addBindValue(word);
+
+    if (!formQuery.exec()) {
+        qCDebug(lexiconDatabase) << "event=word_form_query_unavailable detail=" << formQuery.lastError().text();
+        formQuery.finish();
+        return DictionaryLookupResult::notFound();
+    }
+
+    return readEntry(connection.database(), formQuery, word, word);
 }
 
 DictionaryDescription SqliteDictionaryRepository::describe() const {

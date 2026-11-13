@@ -100,8 +100,26 @@ default.
 1. Select a word or short phrase in any application.
 2. Press the global shortcut, **`Super+Shift+D`** by default.
 
-The popup appears near the cursor with the definition. Selections longer than 128
-characters are rejected instead of looked up.
+The popup appears near the cursor with the definition. Surrounding quotes, brackets, and
+sentence punctuation are ignored, and runs of whitespace are collapsed. Selections longer
+than 128 characters are rejected instead of looked up.
+
+A selection of more than four words is treated as a sentence, not a headword, and is
+rejected with a message. Select a single word or a short phrase instead.
+
+### Inflected forms
+
+Past tense, past participle, gerund, plural, and comparative forms resolve to their
+base word automatically. Selecting `went` shows the entry for `go`, and the popup makes
+the substitution visible:
+
+```text
+went → go
+```
+
+Exact headwords still win: `running` has its own noun entry, so it is shown as `running`
+rather than redirected to `run`. A form that could belong to more than one base word is
+not guessed.
 
 The shortcut is registered with KGlobalAccel and appears under **Lexicon** in
 **System Settings → Shortcuts**. If another application already owns the combination,
