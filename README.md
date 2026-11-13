@@ -4,6 +4,9 @@ Lexicon is a small, native, offline-first English dictionary for KDE Plasma. It 
 quietly in the background behind a global shortcut and tray icon, and shows definitions
 in a focused popup.
 
+New to Lexicon? The [user guide](docs/user-guide.md) walks through installation,
+first-run setup, lookups, settings, configuration, translation, and troubleshooting.
+
 ## Features
 
 - Offline WordNet 3.0 dictionary with CMUdict-derived IPA or respelling pronunciation.
@@ -65,8 +68,8 @@ machine; live Plasma tests remain available through `just test-kde`.
 Optional dependencies:
 
 - `python` runs `share/lexicon/scripts/argos_worker.py`.
-- `argostranslate` provides the offline translation models. It is not in the official
-  repositories; install it with `pip` or from the AUR.
+- `python-argostranslate` provides the offline translation models. It is not in the
+  official repositories; install it with `pip` or from the AUR.
 
 ### From source
 
@@ -80,12 +83,17 @@ sudo cmake --install build/dev-release --prefix /usr
 ### Release tarball
 
 Tagged `v*` pushes run `.github/workflows/release.yml`, which builds and tests in an Arch
-container, stages an install tree, and publishes a tarball plus a SHA-256 checksum. The
-tarball contains the staged tree, so extract it at the filesystem root:
+container and publishes two archives with SHA-256 checksums:
 
-```sh
-sudo tar -C / -xzf lexicon-v0.1.0.tar.gz
-```
+- `lexicon-<version>-x86_64-install.tar.gz` contains the staged install tree. This is the
+  one to use for a manual install; extract it at the filesystem root:
+
+  ```sh
+  sha256sum -c lexicon-0.1.0-x86_64-install.tar.gz.sha256
+  sudo tar -C / -xzf lexicon-0.1.0-x86_64-install.tar.gz
+  ```
+
+- `lexicon-<version>.tar.gz` contains the source tree and is intended for packagers.
 
 ## Usage
 
@@ -138,6 +146,7 @@ just seed-db
 
 ## Documentation
 
+- [User guide](docs/user-guide.md) — install, first run, lookups, settings, troubleshooting
 - [Configuration reference](docs/configuration.md)
 - [Architecture overview](docs/architecture/overview.md)
 - [Selection retrieval](docs/architecture/selection-retrieval.md)
