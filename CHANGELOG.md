@@ -3,14 +3,17 @@
 All notable changes to Lexicon are documented here. The format follows Keep a Changelog
 and the project uses semantic versioning.
 
-## [Unreleased]
+## [0.1.0] - 2026-11-13
 
 ### Added
 
-- Bundled offline English dictionary built from Princeton WordNet 3.0 (147,806
-  headwords, 206,918 senses) with pronunciations converted from the CMU Pronouncing
-  Dictionary; the importer and licenses ship with the source, and the database is
-  installed to the dictionaries directory and treated as read-only.
+- Initial C++20/Qt 6/KF6 application: TOML configuration with XDG defaults, validation,
+  warnings, and clear fallbacks; a hidden settings window and a lazy QML lookup popup;
+  KGlobalAccel shortcut registration and KStatusNotifierItem tray integration; and
+  command-line lookup with configuration and database overrides.
+- Bundled offline English dictionary built from Princeton WordNet 3.0 (147,806 headwords,
+  206,918 senses) with pronunciations converted from the CMU Pronouncing Dictionary. The
+  importer and licenses ship with the source, and the installed database is read-only.
 - IPA pronunciations: `dictionary.pronunciation_style = "ipa"` shows IPA with a fallback
   to the respelling field, and the popup renders whichever the presenter selected.
 - Optional offline translation through a local Argos Translate worker subprocess. Lookups
@@ -21,7 +24,7 @@ and the project uses semantic versioning.
   and SHA-256 verification before the runtime ever sees an archive.
 - Dictionary catalog: every `*.sqlite` file in the dictionary directory is inspected, and
   the configured language pair selects which one answers a lookup. Language pairs live in
-  the new `dictionary_info` table, so a new language is installed content rather than code.
+  the `dictionary_info` table, so a new language is installed content rather than code.
 - `entries.transliteration` indexes a Latin-script romanization of non-Latin headwords.
   Lookups fall back to it after the headword, and the popup shows it under the word.
 - `--list-dictionaries` prints the installed dictionaries with their language pair, entry
@@ -41,8 +44,8 @@ and the project uses semantic versioning.
 - Live `kde`-labelled selection tests using `wl-copy`, plus unit tests for the provider,
   policy, and backend factory.
 - Unit, integration, and QML smoke tests covering core types, configuration, dictionary
-  lookup, controller orchestration, SQLite access, and QML loading.
-- Header-only test fakes plus SQLite and scoped-environment fixtures under `tests/support/`.
+  lookup, controller orchestration, SQLite access, and QML loading, with header-only test
+  fakes plus SQLite and scoped-environment fixtures under `tests/support/`.
 - Coverage-instrumented builds (`coverage` preset and `just coverage`) with gcovr XML and
   HTML reports.
 - Qt 6 `qmllint` target, clang-format check, and clang-tidy gate with warnings as errors.
@@ -52,23 +55,25 @@ and the project uses semantic versioning.
   `config.toml` atomically, and `config.toml.bak` preserves comments or unknown keys the
   rewrite would otherwise drop.
 - Opt-in per-user autostart management for `start_on_login`, with an absolute `Exec`
-  path and a Flatpak-aware `flatpak run …` entry.
+  path and a target entry named after the application ID.
 - First-run dictionary seeding that copies the installed database into the user data
   directory without overwriting existing content.
 - Bounded lookup cache wired to `performance.cache_enabled` and
   `performance.cache_size`.
 - HTTPS is required for the language pack catalog and downloads; insecure catalog
   entries are ignored and insecure downloads are rejected.
-- Arch `PKGBUILD`, Flatpak manifest, packaging guide, and tagged release workflow.
+- Arch `PKGBUILD` built from the released source tarball with a real checksum, and a
+  tagged release workflow that publishes a source tarball plus SHA-256 checksum.
 
 ### Changed
 
+- The application ID is `io.github.PandaX185.Lexicon` across the desktop entry,
+  metainfo, tray item, autostart entry, global-shortcut component, and CLI desktop name.
 - The popup shows `pronunciation.text`, so the pronunciation style is chosen by the
   presenter rather than toggled inside the view.
 - The dictionary schema is now version 2 with `dictionary_info` and
   `entries.transliteration`. Databases without metadata are ignored by the catalog.
 - A missing dictionary now reports the requested language pair instead of only the path.
-
 - Replaced the `KdeSelectionProvider` stub with the layered selection design; the KDE
   directory now holds only KDE Frameworks adapters.
 - Fixed the CTest presets so `kde`-labelled tests are actually excluded from the default
@@ -83,28 +88,13 @@ and the project uses semantic versioning.
   platform does not report one.
 - Unit tests now cover settings persistence, autostart, first-run seeding, the lookup
   cache, and the HTTPS policy; QML tests receive the real `SettingsController`.
-- The Flatpak manifest renames the icon to the application ID, so the desktop entry and
-  exported icon resolve inside the sandbox.
-
-## [0.1.0] - 2026-11-06
-
-### Added
-
-- Initial C++20/Qt 6/KF6 scaffold.
-- TOML configuration with XDG defaults, validation, warnings, and clear fallback.
-- SQLite dictionary schema, development fixture, and read-only repository.
-- Asynchronous dictionary lookup service.
-- KGlobalAccel shortcut registration and KStatusNotifierItem tray integration.
-- Hidden settings window and lazy QML lookup popup.
-- Command-line lookup with configuration and database overrides.
-- Unit and integration tests.
-- Architecture, configuration, and selection-retrieval documentation.
 
 ### Known limitations
 
-- Selected-text retrieval on Wayland is not implemented.
-- The settings window is read-only.
-- `start_on_login` is accepted but does not install an autostart entry until Stage 3.
-- The bundled dictionary data is a test fixture only.
-- `cache_enabled` and `offline_first` are reserved for future stages and are not wired to behavior yet.
-- Coverage is reported but no minimum threshold is enforced yet.
+- Selected-text retrieval works on Wayland (`ext_data_control_manager_v1`) only. X11
+  returns an explicit `SelectionUnsupported` error, and nothing ever falls back to the
+  clipboard or reuses stale text.
+- Selections longer than 128 characters are rejected rather than looked up.
+- Settings are saved immediately, but shortcut, dictionary, cache, and theme changes take
+  effect after restart unless the UI says otherwise.
+- Offline translation requires `python3` and `argostranslate` installed on the host.

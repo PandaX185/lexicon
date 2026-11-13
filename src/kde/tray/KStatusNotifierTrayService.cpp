@@ -23,7 +23,7 @@ ServiceStatus KStatusNotifierTrayService::start(const TrayActions& actions) {
             ErrorCode::TrayUnavailable, QStringLiteral("No system tray host is available in this session.")));
     }
 
-    m_item = std::make_unique<KStatusNotifierItem>(QStringLiteral("org.lexicon.Lexicon"), nullptr);
+    m_item = std::make_unique<KStatusNotifierItem>(QStringLiteral(LEXICON_APP_ID), nullptr);
     m_item->setTitle(QStringLiteral("Lexicon"));
     m_item->setCategory(KStatusNotifierItem::ApplicationStatus);
     m_item->setStatus(KStatusNotifierItem::Active);

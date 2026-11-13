@@ -9,24 +9,25 @@ license=('MIT')
 depends=(
     'qt6-base'
     'qt6-declarative'
+    'qt6-quickcontrols2'
+    'qt6-svg'
     'kglobalaccel'
     'kstatusnotifieritem'
     'kdbusaddons'
     'wayland'
 )
-makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'pkgconf' 'clang' 'git')
+makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'pkgconf')
 optdepends=(
     'python: offline translation worker'
-    'argostranslate: offline translation models (install with pip or from the AUR)'
+    'python-argostranslate: offline translation models'
 )
-# The source is pinned to the release tag. A tag is immutable, so the VCS
-# checksum skip is acceptable; the commit hash recorded by makepkg identifies
-# exactly what was built.
-source=("$pkgname-$pkgver::git+$url.git#tag=v$pkgver")
-sha256sums=('SKIP')
+# The release workflow publishes this source tarball together with its SHA-256
+# checksum. Regenerate both when bumping pkgver.
+source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('34cc283ca7bd3400525340998e666f0f3a0de714be4ac8d8f5916366f3ce7c64')
 
 build() {
-    cmake -S "$pkgname-$pkgver" -B build -G Ninja \
+    cmake -S "$srcdir/$pkgname-$pkgver" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DLEXICON_WITH_WAYLAND=ON

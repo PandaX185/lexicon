@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.lexicon.Lexicon</id>
+  <id>io.github.PandaX185.Lexicon</id>
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <name>Lexicon</name>
@@ -23,7 +23,7 @@
       `config.toml`, manages opt-in autostart, and controls the bounded lookup cache.
     </p>
   </description>
-  <launchable type="desktop-id">org.lexicon.Lexicon.desktop</launchable>
+  <launchable type="desktop-id">io.github.PandaX185.Lexicon.desktop</launchable>
   <url type="homepage">https://github.com/PandaX185/lexicon</url>
   <url type="bugtracker">https://github.com/PandaX185/lexicon/issues</url>
   <developer_name>Lexicon contributors</developer_name>
@@ -40,9 +40,9 @@
   </keywords>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.1.0" date="2026-11-06">
+    <release version="0.1.0" date="2026-11-13">
       <description>
-        <p>Initial scaffold with configuration, SQLite lookup, KGlobalAccel registration, tray integration, and QML popup.</p>
+        <p>First release: offline WordNet dictionary, Wayland primary selection, editable settings, opt-in autostart, bounded lookup cache, and Arch packaging.</p>
       </description>
     </release>
   </releases>

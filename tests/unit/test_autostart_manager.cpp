@@ -1,5 +1,4 @@
 #include "app/AutostartManager.h"
-#include "support/ScopedEnvironment.h"
 
 #include <QDir>
 #include <QFile>
@@ -7,7 +6,6 @@
 #include <QTest>
 
 using namespace Lexicon;
-using Lexicon::Test::ScopedEnvironment;
 
 namespace {
 
@@ -45,7 +43,6 @@ class AutostartManagerTest : public QObject {
     void installsEntryAndRewritesExec();
     void createsParentDirectory();
     void quotesExecutablePathWithSpaces();
-    void usesFlatpakCommandInsideSandbox();
     void overwritesExistingEntry();
     void failsWhenTemplateIsMissing();
     void removesEntry();
@@ -89,18 +86,6 @@ void AutostartManagerTest::quotesExecutablePathWithSpaces() {
     const AutostartManager manager(targetPath, templatePath);
     QVERIFY(manager.install(QStringLiteral("/opt/Lexicon App/lexicon")));
     QVERIFY(readFile(targetPath).contains(QStringLiteral("Exec=\"/opt/Lexicon App/lexicon\"")));
-}
-
-void AutostartManagerTest::usesFlatpakCommandInsideSandbox() {
-    QTemporaryDir directory;
-    QVERIFY(directory.isValid());
-    const QString templatePath = writeFile(directory.filePath(QStringLiteral("template.desktop")), TemplateContents);
-    const QString targetPath = directory.filePath(QStringLiteral("lexicon.desktop"));
-    const ScopedEnvironment flatpakId("FLATPAK_ID", QByteArrayLiteral("org.lexicon.Lexicon"));
-
-    const AutostartManager manager(targetPath, templatePath);
-    QVERIFY(manager.install(QStringLiteral("/app/bin/lexicon")));
-    QVERIFY(readFile(targetPath).contains(QStringLiteral("Exec=flatpak run org.lexicon.Lexicon")));
 }
 
 void AutostartManagerTest::overwritesExistingEntry() {

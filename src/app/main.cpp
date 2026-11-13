@@ -15,9 +15,9 @@
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("lexicon"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(LEXICON_VERSION));
     QCoreApplication::setOrganizationName(QStringLiteral("Lexicon"));
-    QGuiApplication::setDesktopFileName(QStringLiteral("org.lexicon.Lexicon"));
+    QGuiApplication::setDesktopFileName(QStringLiteral(LEXICON_APP_ID));
     QGuiApplication::setQuitOnLastWindowClosed(false);
 
     QCommandLineParser parser;

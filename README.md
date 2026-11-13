@@ -45,9 +45,8 @@ The build uses the vendored toml++ header when the system package is unavailable
 
 ## Installation
 
-All packaging paths produce the same install layout: `bin/lexicon`,
-`share/lexicon/`, `share/applications/`, and the autostart template in
-`share/lexicon/`.
+The package produces the install layout `bin/lexicon`, `share/lexicon/`,
+`share/applications/`, and the autostart template in `share/lexicon/`.
 
 ### Arch Linux
 
@@ -58,8 +57,8 @@ cd packaging/arch
 makepkg -si
 ```
 
-The PKGBUILD tracks the release tag `v$pkgver` as a VCS source, so `makepkg` records the
-exact commit it built. Bump `pkgver` (and `pkgrel`) when preparing a release. `check()`
+The PKGBUILD consumes the released source tarball and verifies its SHA-256 checksum.
+Bump `pkgver`, `sha256sums`, and `.SRCINFO` together when preparing a release. `check()`
 runs the CTest suite with the `kde` label excluded, so the package builds on a headless
 machine; live Plasma tests remain available through `just test-kde`.
 
@@ -68,29 +67,6 @@ Optional dependencies:
 - `python` runs `share/lexicon/scripts/argos_worker.py`.
 - `argostranslate` provides the offline translation models. It is not in the official
   repositories; install it with `pip` or from the AUR.
-
-### Flatpak
-
-Build against the KDE 6.10 runtime and install into the user installation:
-
-```sh
-flatpak-builder --user --install --force-clean build/flatpak \
-    packaging/flatpak/org.lexicon.Lexicon.json
-```
-
-Without `flatpak-builder` on the host, use the Flathub `org.flatpak.Builder`
-application. Invoke its wrapper (not `--command=flatpak-builder`, which skips the
-environment that points it at the host installation):
-
-```sh
-flatpak run org.flatpak.Builder --user --install --force-clean build/flatpak \
-    packaging/flatpak/org.lexicon.Lexicon.json
-```
-
-The manifest requests Wayland, network access for explicit language pack downloads, and
-write access to `xdg-config/autostart`. X11 is not requested because selections are only
-read through the Wayland data-control protocol. `argostranslate` is not bundled in the
-runtime, so translation is unavailable inside the Flatpak unless the runtime is extended.
 
 ### From source
 
@@ -206,7 +182,7 @@ src/app/             composition root, controller, QML presenter, selection fact
 ui/                  QML settings window and popup
 data/dictionaries/   WordNet 3.0 database, schema, and test fixture
 docs/                architecture and reference documentation
-packaging/           Arch PKGBUILD, Flatpak manifest, and shared desktop files
+packaging/           Arch PKGBUILD and shared desktop files
 .github/workflows/   CI and tagged release automation
 ```
 
@@ -219,7 +195,7 @@ packaging/           Arch PKGBUILD, Flatpak manifest, and shared desktop files
 - Settings are saved immediately, but shortcut, dictionary, cache, and theme changes
   take effect after restart unless the UI says otherwise.
 - Language pack downloads require HTTPS. Offline translation additionally needs
-  `python3` and `argostranslate`; the Flatpak runtime does not bundle them.
+  `python3` and `argostranslate`.
 
 ## License
 
