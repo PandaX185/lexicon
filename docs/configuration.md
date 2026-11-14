@@ -45,10 +45,51 @@ is copied to `config.toml.bak` and the discarded items are listed in the log.
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `theme` | string | `"dark"` | `dark`, `light`, or `system`. `system` follows the platform color scheme and falls back to dark when the platform does not report one. |
+| `theme` | string | `"dark"` | `dark`, `light`, or `system`. `system` uses the desktop palette and light/dark preference, and falls back to dark when the platform reports neither. Explicit `dark` and `light` keep the built-in palette. |
 | `popup_width` | integer | `360` | Clamped to 240–1200. |
 | `animation` | string | `"subtle"` | `none` or `subtle`. |
 | `position` | string | `"near_selection"` | `near_selection`, `center`, or `cursor`. Selection coordinates are not available yet, so near-selection uses cursor placement. |
+| `font_family` | string | `""` | Application font family for the popup and settings window. Empty keeps the Qt default. |
+| `radius` | integer | `14` | Popup and settings-card corner radius, clamped to 0–64. Set `0` for square corners. |
+
+### Theming and ricing
+
+Every color defaults to the built-in dark or light palette. Override only the tokens you want
+in `[appearance.colors]`; omitted or empty values keep the default. Colors accept Qt color
+strings, including names (`steelblue`), `#RRGGBB`, and `#AARRGGBB` for transparency.
+
+```toml
+[appearance]
+theme = "dark"
+font_family = "JetBrains Mono"
+radius = 4
+
+[appearance.colors]
+background = "#0b0e14"
+surface = "#11151f"
+surface_raised = "#1b2230"
+border = "#2a3242"
+text_primary = "#e6edf3"
+text_secondary = "#8b949e"
+accent = "#7aa2f7"
+danger = "#f7768e"
+```
+
+| Color key | Used for |
+| --- | --- |
+| `background` | Settings window background. |
+| `surface` | Popup card and settings cards. |
+| `surface_raised` | Hovered controls and raised surfaces. |
+| `border` | Card borders, dividers, and the resize grip. |
+| `text_primary` | Headwords, definitions, and labels. |
+| `text_secondary` | Pronunciation, source, status, and helper text. |
+| `accent` | Part-of-speech labels, focus rings, and translation highlights. |
+| `danger` | Reserved for destructive/error states. |
+
+Color, radius, and font changes take effect after restarting Lexicon. With
+`theme = "system"`, desktop palette changes (including Plasma accent colors) are applied
+while Lexicon is running. The settings window rewrites `config.toml` from the live schema,
+so it preserves these values but does not expose editors for them yet.
 
 ## `[dictionary]`
 

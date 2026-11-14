@@ -3,6 +3,7 @@
 #include "app/ApplicationController.h"
 
 #include <QGuiApplication>
+#include <QPalette>
 #include <QStyleHints>
 
 namespace Lexicon {
@@ -229,7 +230,8 @@ bool SettingsController::save() {
     setSaving(false);
     if (ok) {
         setStatus(QStringLiteral("Saved. Restart Lexicon to apply all changes."));
-        Q_EMIT configSaved(m_config.toVariantMap(QGuiApplication::styleHints()->colorScheme()));
+        const QPalette palette = QGuiApplication::palette();
+        Q_EMIT configSaved(m_config.toVariantMap(QGuiApplication::styleHints()->colorScheme(), &palette));
     } else {
         setStatus(QStringLiteral("Failed to save configuration."));
     }

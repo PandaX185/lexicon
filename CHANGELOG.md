@@ -7,6 +7,27 @@ and the project uses semantic versioning.
 
 ### Added
 
+- Theme tokens in `config.toml`: `[appearance.colors]` overrides every popup and settings
+  color, and `appearance.font_family` plus `appearance.radius` make the UI easy to rice
+  without touching QML.
+- Keyboard and accessibility pass for the lookup popup: the dialog exposes an accessible
+  role and name, the close button is in the Tab order, keyboard focus is trapped there,
+  and a visible focus ring shows where keys will act.
+- Keyboard and accessibility pass for the settings window: controls expose accessible
+  names and roles, section cards are announced as groups, and every control participates
+  in the Tab order.
+- Plasma theming: `theme = "system"` maps the desktop palette (window, base, button, text,
+  highlight, and border colors) to the popup and settings windows, and refreshes when the
+  palette changes. Explicit `dark` and `light` themes keep the built-in palette, and
+  `[appearance.colors]` overrides always win.
+- Multi-monitor and high-DPI popup placement uses logical screen geometry, so popups open
+  on the monitor under the cursor, clamp on monitors with negative origins, and are not
+  displaced by display scaling.
+- Local-only crash reports under `~/.local/state/lexicon/`, containing the version, signal,
+  process ID, and stack trace. Reports are owner-readable and never include selected text
+  or configuration; see [Privacy](docs/privacy.md).
+- Enforced coverage thresholds in CI: the build fails below 58% line or 52% branch
+  coverage.
 - Inflected-form lookup: the dictionary schema now carries a `word_forms` table, built
   from WordNet's exception lists plus conservative regular English rules, so `went`
   resolves to `go`, `children` to `child`, and `walked` to `walk`. The popup shows the

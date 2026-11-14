@@ -49,11 +49,16 @@ coverage:
     cmake --build --preset coverage
     ctest --preset coverage
     cmake -E make_directory build/coverage-report
+    # Baseline on GCC 16: 58.6% lines, 52.5% branches. The gate keeps a small
+    # margin so a different GCC minor version cannot fail the build by itself,
+    # while still blocking meaningful coverage regressions.
     gcovr --root . \
         --filter 'src/' \
         --exclude 'third_party/' \
         --exclude-unreachable-branches \
         --exclude-throw-branches \
+        --fail-under-line 58 \
+        --fail-under-branch 52 \
         --print-summary \
         --xml-pretty --output build/coverage-report/coverage.xml \
         --html-details build/coverage-report/index.html

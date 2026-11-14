@@ -11,10 +11,8 @@ ColumnLayout {
 
     spacing: 12
 
-    Theme {
+    AppTheme {
         id: theme
-        // `system` follows the platform color scheme.
-        darkMode: config.themeUsesDarkPalette !== false
     }
 
     Repeater {

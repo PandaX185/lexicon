@@ -181,6 +181,15 @@ Saving rewrites `config.toml` from the known schema. If the previous file contai
 comments or keys Lexicon does not recognize, they cannot be preserved: the original is
 copied to `config.toml.bak` first and the discarded items are listed in the log.
 
+### Keyboard and screen readers
+
+- **Tab** and **Shift+Tab** move through the settings controls; the focused control shows
+  a focus ring.
+- In the popup, **Escape** closes it and the close button is reachable with **Tab**.
+- Both windows expose accessible roles, names, and descriptions. Settings sections are
+  announced as groups so a screen reader can navigate them by heading.
+- `theme = "system"` uses the desktop palette, including high-contrast color schemes.
+
 ## Configuration file
 
 The default location is:
@@ -271,11 +280,14 @@ without the translation. See [offline translation](argos-translation.md) and
 | `~/.config/lexicon/config.toml` | Configuration. |
 | `~/.config/lexicon/config.toml.bak` | Backup written when a save would drop comments or unknown keys. |
 | `~/.local/share/lexicon/dictionaries/` | Installed dictionaries. |
+| `~/.local/state/lexicon/` | Local crash reports, written only after a fatal crash. |
 | `~/.config/autostart/io.github.PandaX185.Lexicon.desktop` | Per-user autostart entry, when enabled. |
 | `/usr/share/lexicon/dictionaries/en.sqlite` | Dictionary installed by the package. |
 | `/usr/share/lexicon/scripts/argos_worker.py` | Translation worker used by the optional Argos runtime. |
 
-`XDG_CONFIG_HOME` and `XDG_DATA_HOME` change the two base directories.
+`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME` change the base
+directories. See [Privacy](privacy.md) for what is stored and what is never
+recorded.
 
 ## Troubleshooting
 
@@ -323,14 +335,23 @@ journal, for example:
 journalctl --user -b | grep -i lexicon
 ```
 
+### Lexicon crashed
+
+A fatal crash writes a local report to `~/.local/state/lexicon/`. The report
+contains only the Lexicon version, the signal, the process ID, and a stack
+trace; it never includes the selected text or your configuration. Attach it to a
+bug report if you want help diagnosing the crash. See [Privacy](privacy.md) for
+details.
+
 ## Uninstall
 
 Remove the package with your package manager, then optionally delete user data:
 
 ```sh
-rm -rf ~/.config/lexicon ~/.local/share/lexicon
+rm -rf ~/.config/lexicon ~/.local/share/lexicon ~/.local/state/lexicon
 rm -f ~/.config/autostart/io.github.PandaX185.Lexicon.desktop
 ```
 
 Removing `~/.config/lexicon` also removes your configuration; removing
 `~/.local/share/lexicon` deletes the copied dictionary and any downloaded language packs.
+`~/.local/state/lexicon` only holds crash reports.

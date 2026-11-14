@@ -6,7 +6,7 @@ import QtQuick.Window
 import "../components"
 import "../themes"
 
-Item {
+FocusScope {
     id: root
 
     property int preferredWidth: 360
@@ -36,6 +36,21 @@ Item {
     readonly property int minimumPopupHeight: 120
     readonly property real naturalHeight: card.implicitHeight + 20
 
+    focus: true
+    Accessible.role: Accessible.Dialog
+    Accessible.name: root.hasMessage
+                     ? (root.messageTitle.length > 0 ? root.messageTitle : qsTr("Lexicon"))
+                     : (root.loading ? qsTr("Looking up %1").arg(root.word)
+                                     : (root.word.length > 0 ? qsTr("Dictionary entry for %1").arg(root.word)
+                                                             : qsTr("Lexicon")))
+    Accessible.description: root.hasMessage ? root.message : ""
+
+    onVisibleChanged: {
+        if (visible) {
+            root.forceActiveFocus();
+        }
+    }
+
     function clampWidth(candidate) {
         const upper = root.maxPopupWidth > 0 ? Math.max(root.maxPopupWidth, root.minimumPopupWidth) : candidate;
         return Math.min(Math.max(candidate, root.minimumPopupWidth), upper);
@@ -51,9 +66,8 @@ Item {
             ? root.clampHeight(root.manualHeight, root.maxPopupHeight)
             : root.clampHeight(root.naturalHeight, root.autoPopupHeight)
 
-    Theme {
+    AppTheme {
         id: theme
-        darkMode: config.themeUsesDarkPalette !== false
     }
 
     MouseArea {
@@ -118,11 +132,25 @@ Item {
                 }
 
                 ToolButton {
+                    id: closeButton
+                    objectName: "closeButton"
                     text: qsTr("×")
                     font.pixelSize: 22
                     implicitWidth: 34
                     implicitHeight: 34
+                    activeFocusOnTab: true
+                    KeyNavigation.tab: closeButton
+                    KeyNavigation.backtab: closeButton
+                    Accessible.name: qsTr("Close")
+                    Accessible.description: qsTr("Close the dictionary popup")
                     onClicked: Window.window.close()
+
+                    background: Rectangle {
+                        radius: Math.max(0, theme.radius - 6)
+                        color: closeButton.hovered ? theme.surfaceRaised : "transparent"
+                        border.width: closeButton.visualFocus ? 2 : 0
+                        border.color: theme.accent
+                    }
                 }
             }
 

@@ -2,6 +2,7 @@
 
 #include "infrastructure/logging/Logging.h"
 
+#include <QColor>
 #include <QDir>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -20,6 +21,7 @@
 namespace {
 
 using Lexicon::Animation;
+using Lexicon::AppearanceColors;
 using Lexicon::ConfigIssue;
 using Lexicon::ConfigIssueSeverity;
 using Lexicon::ConfigLoadResult;
@@ -116,6 +118,28 @@ bool readString(const toml::table* table, const char* key, QString& target, Conf
     return false;
 }
 
+// Colors are kept as strings so QML can use them directly; QColor validates the
+// same formats QML accepts. An empty string means "use the built-in color".
+bool readColor(const toml::table* table, const char* key, QString& target, ConfigLoadResult& result,
+               const QString& prefix) {
+    QString value;
+    if (!readString(table, key, value, result, prefix)) {
+        return false;
+    }
+    value = value.trimmed();
+    if (value.isEmpty()) {
+        target.clear();
+        return true;
+    }
+    if (!QColor::fromString(value).isValid()) {
+        addWarning(result, prefix + QLatin1Char('.') + QString::fromLatin1(key),
+                   QStringLiteral("Expected a color name or #RRGGBB/#AARRGGBB value; keeping default."));
+        return false;
+    }
+    target = std::move(value);
+    return true;
+}
+
 bool readInt(const toml::table* table, const char* key, int& target, ConfigLoadResult& result, const QString& prefix) {
     if (!table) {
         return false;
@@ -158,10 +182,9 @@ QSet<QString> knownKeysForSection(const QString& section) {
     }
     if (section == QStringLiteral("appearance")) {
         return {
-            QStringLiteral("theme"),
-            QStringLiteral("popup_width"),
-            QStringLiteral("animation"),
-            QStringLiteral("position"),
+            QStringLiteral("theme"),    QStringLiteral("popup_width"), QStringLiteral("animation"),
+            QStringLiteral("position"), QStringLiteral("font_family"), QStringLiteral("radius"),
+            QStringLiteral("colors"),
         };
     }
     if (section == QStringLiteral("dictionary")) {
@@ -178,6 +201,14 @@ QSet<QString> knownKeysForSection(const QString& section) {
         return {QStringLiteral("cache_enabled"), QStringLiteral("cache_size"), QStringLiteral("lazy_initialize")};
     }
     return {};
+}
+
+QSet<QString> knownAppearanceColorKeys() {
+    return {
+        QStringLiteral("background"), QStringLiteral("surface"),      QStringLiteral("surface_raised"),
+        QStringLiteral("border"),     QStringLiteral("text_primary"), QStringLiteral("text_secondary"),
+        QStringLiteral("accent"),     QStringLiteral("danger"),
+    };
 }
 
 bool isKnownSection(const QString& section) {
@@ -227,6 +258,23 @@ void reportUnsavedContent(const QString& path) {
                 const QString sectionKey = fromStringView(sectionEntry.first.str());
                 if (!known.contains(sectionKey)) {
                     discarded.append(key + QLatin1Char('.') + sectionKey);
+                }
+            }
+            if (key == QStringLiteral("appearance")) {
+                const toml::node* colorsNode = section->get("colors");
+                if (colorsNode) {
+                    const toml::table* colors = colorsNode->as_table();
+                    if (!colors) {
+                        discarded.append(QStringLiteral("appearance.colors"));
+                    } else {
+                        const QSet<QString> knownColors = knownAppearanceColorKeys();
+                        for (const auto& colorEntry : *colors) {
+                            const QString colorKey = fromStringView(colorEntry.first.str());
+                            if (!knownColors.contains(colorKey)) {
+                                discarded.append(QStringLiteral("appearance.colors.") + colorKey);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -287,6 +335,24 @@ void readInteraction(const toml::table* table, ConfigLoadResult& result) {
              QStringLiteral("interaction"));
 }
 
+void readAppearanceColors(const toml::table& appearance, ConfigLoadResult& result) {
+    const toml::table* colors = readSection(appearance, "colors", QStringLiteral("appearance.colors"), result);
+    if (!colors) {
+        return;
+    }
+    warnUnknownKeys(*colors, QStringLiteral("appearance.colors"), knownAppearanceColorKeys(), result);
+
+    AppearanceColors& target = result.config.appearance.colors;
+    readColor(colors, "background", target.background, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "surface", target.surface, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "surface_raised", target.surfaceRaised, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "border", target.border, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "text_primary", target.textPrimary, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "text_secondary", target.textSecondary, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "accent", target.accent, result, QStringLiteral("appearance.colors"));
+    readColor(colors, "danger", target.danger, result, QStringLiteral("appearance.colors"));
+}
+
 void readAppearance(const toml::table* table, ConfigLoadResult& result) {
     if (!table) {
         return;
@@ -297,6 +363,9 @@ void readAppearance(const toml::table* table, ConfigLoadResult& result) {
                         QStringLiteral("popup_width"),
                         QStringLiteral("animation"),
                         QStringLiteral("position"),
+                        QStringLiteral("font_family"),
+                        QStringLiteral("radius"),
+                        QStringLiteral("colors"),
                     },
                     result);
 
@@ -340,6 +409,20 @@ void readAppearance(const toml::table* table, ConfigLoadResult& result) {
                        QStringLiteral("Unsupported position; keeping near_selection."));
         }
     }
+
+    QString fontFamily;
+    if (readString(table, "font_family", fontFamily, result, QStringLiteral("appearance"))) {
+        result.config.appearance.fontFamily = fontFamily.trimmed();
+    }
+
+    readInt(table, "radius", result.config.appearance.cornerRadius, result, QStringLiteral("appearance"));
+    if (result.config.appearance.cornerRadius < 0 || result.config.appearance.cornerRadius > 64) {
+        addWarning(result, QStringLiteral("appearance.radius"),
+                   QStringLiteral("radius must be between 0 and 64; clamping."));
+        result.config.appearance.cornerRadius = qBound(0, result.config.appearance.cornerRadius, 64);
+    }
+
+    readAppearanceColors(*table, result);
 }
 
 } // namespace
@@ -561,7 +644,19 @@ bool ConfigLoader::save(const Config& config, const QString& path) const {
     out += QStringLiteral("theme = %1\n").arg(quote(themeToString(config.appearance.theme)));
     out += QStringLiteral("popup_width = %1\n").arg(config.appearance.popupWidth);
     out += QStringLiteral("animation = %1\n").arg(quote(animationToString(config.appearance.animation)));
-    out += QStringLiteral("position = %1\n\n").arg(quote(popupPositionToString(config.appearance.position)));
+    out += QStringLiteral("position = %1\n").arg(quote(popupPositionToString(config.appearance.position)));
+    out += QStringLiteral("font_family = %1\n").arg(quote(config.appearance.fontFamily));
+    out += QStringLiteral("radius = %1\n\n").arg(config.appearance.cornerRadius);
+
+    out += QStringLiteral("[appearance.colors]\n");
+    out += QStringLiteral("background = %1\n").arg(quote(config.appearance.colors.background));
+    out += QStringLiteral("surface = %1\n").arg(quote(config.appearance.colors.surface));
+    out += QStringLiteral("surface_raised = %1\n").arg(quote(config.appearance.colors.surfaceRaised));
+    out += QStringLiteral("border = %1\n").arg(quote(config.appearance.colors.border));
+    out += QStringLiteral("text_primary = %1\n").arg(quote(config.appearance.colors.textPrimary));
+    out += QStringLiteral("text_secondary = %1\n").arg(quote(config.appearance.colors.textSecondary));
+    out += QStringLiteral("accent = %1\n").arg(quote(config.appearance.colors.accent));
+    out += QStringLiteral("danger = %1\n\n").arg(quote(config.appearance.colors.danger));
 
     out += QStringLiteral("[dictionary]\n");
     out += QStringLiteral("database_path = %1\n").arg(quote(config.dictionary.databasePath));

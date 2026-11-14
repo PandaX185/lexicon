@@ -1,5 +1,6 @@
 #include "app/QmlPresenter.h"
 
+#include "app/PopupPlacement.h"
 #include "dictionary/models/WordEntry.h"
 #include "infrastructure/logging/Logging.h"
 
@@ -214,34 +215,15 @@ void QmlPresenter::positionPopup() {
     const QSize requested = QSize(m_config.appearance.popupWidth, 180);
     const QSize size = m_popup->size().expandedTo(requested);
 
-    // If the popup is already larger than the available geometry, do not try to
-    // place it with qBound(min, x, max) where max can be less than min.
-    if (size.width() > available.width() || size.height() > available.height()) {
+    const std::optional<QPoint> position = placePopup(available, QCursor::pos(), size, m_config.appearance.position);
+    if (!position) {
         qCWarning(lexiconUi) << "event=popup_too_large_for_screen"
                              << "width=" << size.width() << "height=" << size.height()
                              << "available_width=" << available.width() << "available_height=" << available.height();
         return;
     }
 
-    const QPoint cursor = QCursor::pos();
-
-    QPoint position;
-    switch (m_config.appearance.position) {
-    case PopupPosition::Center:
-        position = available.center() - QPoint(size.width() / 2, size.height() / 2);
-        break;
-    case PopupPosition::Cursor:
-    case PopupPosition::NearSelection:
-        position = cursor + QPoint(16, 16);
-        break;
-    }
-
-    const int maxX = std::max(available.left(), available.right() - size.width());
-    const int maxY = std::max(available.top(), available.bottom() - size.height());
-
-    position.setX(qBound(available.left(), position.x(), maxX));
-    position.setY(qBound(available.top(), position.y(), maxY));
-    m_popup->setPosition(position);
+    m_popup->setPosition(*position);
 }
 
 void QmlPresenter::presentPopup() {
