@@ -18,6 +18,7 @@ add_library(lexicon_app STATIC
     Application.cpp
     DictionarySeeder.cpp
     LanguagePackController.cpp
+    PopupPlacement.cpp
     QmlPresenter.cpp
     SelectionProviderFactory.cpp
     SettingsController.cpp

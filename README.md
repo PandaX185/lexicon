@@ -20,6 +20,8 @@ first-run setup, lookups, settings, configuration, translation, and troubleshoot
   installs explicitly over HTTPS.
 - Editable settings written atomically to `config.toml`, a bounded lookup cache,
   per-user autostart, and first-run dictionary seeding.
+- No telemetry or network crash reporting. Fatal crashes write a local report without the
+  selected text; see the [privacy policy](docs/privacy.md).
 
 ## Requirements
 

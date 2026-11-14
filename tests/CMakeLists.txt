@@ -21,6 +21,8 @@ lexicon_add_test(test_application_controller unit/test_application_controller.cp
     Qt6::Concurrent
 )
 lexicon_add_test(test_autostart_manager unit/test_autostart_manager.cpp unit lexicon_controller)
+lexicon_add_test(test_popup_placement unit/test_popup_placement.cpp unit lexicon_app Qt6::Gui)
+lexicon_add_test(test_crash_reporter unit/test_crash_reporter.cpp unit lexicon_infrastructure)
 lexicon_add_test(test_dictionary_seeder unit/test_dictionary_seeder.cpp unit lexicon_app)
 lexicon_add_test(test_settings_controller unit/test_settings_controller.cpp unit
     lexicon_app

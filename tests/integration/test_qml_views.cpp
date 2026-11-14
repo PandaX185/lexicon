@@ -1,6 +1,7 @@
 #include "app/SettingsController.h"
 #include "config/Config.h"
 
+#include <QAccessible>
 #include <QColor>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
@@ -63,12 +64,16 @@ class QmlViewsTest : public QObject {
     void mainWindowLoadsHidden();
     void mainWindowUsesLightPaletteWhenConfigured();
     void lookupPopupLoads();
+    void lookupPopupCloseButtonIsKeyboardFocusable();
     void lookupPopupShowsEntry();
     void lookupPopupShowsMessage();
     void lookupPopupRendersIpaAndTranslation();
     void settingsViewLoads();
     void settingsViewShowsLanguageSection();
+    void settingsViewExposesAccessibility();
+    void settingsViewSupportsKeyboardNavigation();
     void themeRespondsToDarkMode();
+    void themeAppliesConfigOverrides();
 };
 
 void QmlViewsTest::mainWindowLoadsHidden() {
@@ -110,6 +115,23 @@ void QmlViewsTest::lookupPopupLoads() {
     QCOMPARE(view.status(), QQuickView::Ready);
     QVERIFY(view.errors().isEmpty());
     QVERIFY(view.rootObject() != nullptr);
+}
+
+void QmlViewsTest::lookupPopupCloseButtonIsKeyboardFocusable() {
+    SettingsController settings{Config{}};
+    QQuickView view;
+    configureView(view, settings);
+    view.setSource(sourceUrl(QStringLiteral("ui/popup/LookupPopup.qml")));
+    QCOMPARE(view.status(), QQuickView::Ready);
+
+    QVERIFY(view.rootObject()->property("focus").toBool());
+    auto* closeButton = view.rootObject()->findChild<QQuickItem*>(QStringLiteral("closeButton"));
+    QVERIFY(closeButton != nullptr);
+    QVERIFY(closeButton->property("activeFocusOnTab").toBool());
+
+    QAccessibleInterface* closeInterface = QAccessible::queryAccessibleInterface(closeButton);
+    QVERIFY(closeInterface != nullptr);
+    QCOMPARE(closeInterface->text(QAccessible::Name), QStringLiteral("Close"));
 }
 
 void QmlViewsTest::lookupPopupShowsEntry() {
@@ -222,6 +244,70 @@ void QmlViewsTest::settingsViewLoads() {
     QVERIFY(view.rootObject()->property("darkMode").toBool());
 }
 
+void QmlViewsTest::settingsViewExposesAccessibility() {
+    SettingsController settings{Config{}};
+    QQuickView view;
+    configureView(view, settings);
+    view.setSource(sourceUrl(QStringLiteral("ui/settings/SettingsView.qml")));
+    QCOMPARE(view.status(), QQuickView::Ready);
+
+    auto* root = view.rootObject();
+    QVERIFY(root != nullptr);
+
+    QAccessibleInterface* rootInterface = QAccessible::queryAccessibleInterface(root);
+    QVERIFY(rootInterface != nullptr);
+    QCOMPARE(rootInterface->role(), QAccessible::Pane);
+    QCOMPARE(rootInterface->text(QAccessible::Name), QStringLiteral("Lexicon settings"));
+
+    const QList<QPair<QString, QString>> controls{
+        {QStringLiteral("dismissEscapeSwitch"), QStringLiteral("Dismiss on Escape")},
+        {QStringLiteral("dismissOutsideSwitch"), QStringLiteral("Dismiss on outside click")},
+        {QStringLiteral("themeCombo"), QStringLiteral("Theme")},
+        {QStringLiteral("popupWidthSpin"), QStringLiteral("Popup width")},
+        {QStringLiteral("animationCombo"), QStringLiteral("Animation")},
+        {QStringLiteral("positionCombo"), QStringLiteral("Popup position")},
+        {QStringLiteral("refreshCatalogButton"), QStringLiteral("Refresh language pack catalog")},
+        {QStringLiteral("catalogUrlField"), QStringLiteral("Language pack catalog URL")},
+        {QStringLiteral("showPronunciationSwitch"), QStringLiteral("Show pronunciation")},
+        {QStringLiteral("pronunciationStyleCombo"), QStringLiteral("Pronunciation style")},
+        {QStringLiteral("startOnLoginSwitch"), QStringLiteral("Start on login")},
+        {QStringLiteral("cacheEnabledSwitch"), QStringLiteral("Lookup cache")},
+        {QStringLiteral("cacheSizeSpin"), QStringLiteral("Cache size")},
+        {QStringLiteral("saveButton"), QStringLiteral("Save settings")},
+    };
+
+    for (const auto& [objectName, accessibleName] : controls) {
+        auto* item = root->findChild<QQuickItem*>(objectName);
+        QVERIFY2(item != nullptr, qPrintable(objectName));
+
+        QAccessibleInterface* interface = QAccessible::queryAccessibleInterface(item);
+        QVERIFY2(interface != nullptr, qPrintable(objectName));
+        QCOMPARE(interface->text(QAccessible::Name), accessibleName);
+    }
+}
+
+void QmlViewsTest::settingsViewSupportsKeyboardNavigation() {
+    SettingsController settings{Config{}};
+    QQuickView view;
+    configureView(view, settings);
+    view.setSource(sourceUrl(QStringLiteral("ui/settings/SettingsView.qml")));
+    QCOMPARE(view.status(), QQuickView::Ready);
+
+    auto* root = view.rootObject();
+    QVERIFY(root != nullptr);
+    QVERIFY(root->isFocusScope());
+    QVERIFY(root->property("focus").toBool());
+
+    auto* first = root->findChild<QQuickItem*>(QStringLiteral("dismissEscapeSwitch"));
+    auto* second = root->findChild<QQuickItem*>(QStringLiteral("dismissOutsideSwitch"));
+    QVERIFY(first != nullptr);
+    QVERIFY(second != nullptr);
+    QVERIFY(first->property("activeFocusOnTab").toBool());
+    QVERIFY(second->property("activeFocusOnTab").toBool());
+    QCOMPARE(first->nextItemInFocusChain(), second);
+    QCOMPARE(second->nextItemInFocusChain(false), first);
+}
+
 void QmlViewsTest::themeRespondsToDarkMode() {
     QQmlEngine engine;
     QQmlComponent component(&engine, sourceUrl(QStringLiteral("ui/themes/Theme.qml")));
@@ -235,6 +321,33 @@ void QmlViewsTest::themeRespondsToDarkMode() {
 
     theme->setProperty("darkMode", false);
     QCOMPARE(theme->property("background").value<QColor>(), QColor(QStringLiteral("#f4f5f8")));
+}
+
+void QmlViewsTest::themeAppliesConfigOverrides() {
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("config"),
+                                             QVariantMap{
+                                                 {QStringLiteral("themeUsesDarkPalette"), true},
+                                                 {QStringLiteral("cornerRadius"), 4},
+                                                 {
+                                                     QStringLiteral("themeColors"),
+                                                     QVariantMap{
+                                                         {QStringLiteral("background"), QStringLiteral("#112233")},
+                                                         {QStringLiteral("accent"), QStringLiteral("#ff00aa")},
+                                                     },
+                                                 },
+                                             });
+
+    QQmlComponent component(&engine, sourceUrl(QStringLiteral("ui/themes/AppTheme.qml")));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+
+    std::unique_ptr<QObject> theme(component.create());
+    QVERIFY(theme != nullptr);
+
+    QCOMPARE(theme->property("background").value<QColor>(), QColor(QStringLiteral("#112233")));
+    QCOMPARE(theme->property("accent").value<QColor>(), QColor(QStringLiteral("#ff00aa")));
+    QCOMPARE(theme->property("surface").value<QColor>(), QColor(QStringLiteral("#191c24")));
+    QCOMPARE(theme->property("radius").toInt(), 4);
 }
 
 QTEST_MAIN(QmlViewsTest)

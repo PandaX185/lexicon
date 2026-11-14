@@ -112,6 +112,7 @@ set(LEXICON_QML_FILES
     ui/components/DefinitionList.qml
     ui/components/SectionCard.qml
     ui/themes/Theme.qml
+    ui/themes/AppTheme.qml
 )
 
 qt_add_resources(lexicon "lexicon_resources"

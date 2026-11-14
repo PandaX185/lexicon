@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QPalette>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -18,6 +19,10 @@ class ConfigLoaderTest : public QObject {
   private Q_SLOTS:
     void defaultsWhenMissing();
     void loadsValues();
+    void loadsThemeOverrides();
+    void rejectsInvalidThemeColor();
+    void clampsCornerRadius();
+    void reportsUnknownAppearanceColorKey();
     void reportsUnknownKeys();
     void reportsTopLevelUnknownKey();
     void clampsPopupWidth();
@@ -42,11 +47,15 @@ class ConfigLoaderTest : public QObject {
     void defaultPathsHaveExpectedSuffixes();
     void toVariantMapExposesResolvedValues();
     void systemThemeFollowsPlatformColorScheme();
+    void systemThemeUsesDesktopPalette();
+    void explicitThemeKeepsBuiltInPalette();
+    void systemThemeWithoutPaletteOnlySendsOverrides();
     void saveRoundTripsValues();
     void saveUsesConfigPath();
     void saveCreatesParentDirectory();
     void saveEscapesStringValues();
     void saveBacksUpUnknownContent();
+    void saveBacksUpUnknownColorKey();
 
   private:
     static QString writeFile(const QString& path, const QString& contents) {
@@ -151,6 +160,96 @@ lazy_initialize = false
     QCOMPARE(result.config.performance.lazyInitialize, false);
     QCOMPARE(result.config.lookupKeySequence().toString(QKeySequence::PortableText), QStringLiteral("Ctrl+Alt+L"));
     QCOMPARE(result.config.dictionary.databasePath, directory.filePath(QStringLiteral("relative.sqlite")));
+}
+
+void ConfigLoaderTest::loadsThemeOverrides() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = writeConfig(directory, QStringLiteral(R"(
+[appearance]
+font_family = "Inter"
+radius = 4
+
+[appearance.colors]
+background = "#112233"
+surface_raised = "#80191c24"
+accent = "steelblue"
+)"));
+    QVERIFY(!path.isEmpty());
+
+    ConfigLoader loader;
+    const ConfigLoadResult result = loader.load(path);
+
+    QVERIFY(result.issues.isEmpty());
+    QCOMPARE(result.config.appearance.fontFamily, QStringLiteral("Inter"));
+    QCOMPARE(result.config.appearance.cornerRadius, 4);
+    QCOMPARE(result.config.appearance.colors.background, QStringLiteral("#112233"));
+    QCOMPARE(result.config.appearance.colors.surfaceRaised, QStringLiteral("#80191c24"));
+    QCOMPARE(result.config.appearance.colors.accent, QStringLiteral("steelblue"));
+    QVERIFY(result.config.appearance.colors.surface.isEmpty());
+
+    const QVariantMap map = result.config.toVariantMap();
+    QCOMPARE(map.value(QStringLiteral("fontFamily")).toString(), QStringLiteral("Inter"));
+    QCOMPARE(map.value(QStringLiteral("cornerRadius")).toInt(), 4);
+    const QVariantMap colors = map.value(QStringLiteral("themeColors")).toMap();
+    QCOMPARE(colors.value(QStringLiteral("background")).toString(), QStringLiteral("#112233"));
+    QCOMPARE(colors.value(QStringLiteral("surfaceRaised")).toString(), QStringLiteral("#80191c24"));
+    QCOMPARE(colors.value(QStringLiteral("accent")).toString(), QStringLiteral("steelblue"));
+    QVERIFY(!colors.contains(QStringLiteral("surface")));
+}
+
+void ConfigLoaderTest::rejectsInvalidThemeColor() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = writeConfig(directory, QStringLiteral(R"(
+[appearance.colors]
+background = "not-a-color"
+accent = "#abcdef"
+)"));
+    QVERIFY(!path.isEmpty());
+
+    ConfigLoader loader;
+    const ConfigLoadResult result = loader.load(path);
+
+    QVERIFY(result.config.appearance.colors.background.isEmpty());
+    QCOMPARE(result.config.appearance.colors.accent, QStringLiteral("#abcdef"));
+    QVERIFY(hasIssue(result, QStringLiteral("appearance.colors.background")));
+}
+
+void ConfigLoaderTest::clampsCornerRadius() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const QString highPath =
+        writeConfig(directory, QStringLiteral("[appearance]\nradius = 999\n"), QStringLiteral("high.toml"));
+    const QString lowPath =
+        writeConfig(directory, QStringLiteral("[appearance]\nradius = -3\n"), QStringLiteral("low.toml"));
+    QVERIFY(!highPath.isEmpty());
+    QVERIFY(!lowPath.isEmpty());
+
+    ConfigLoader loader;
+    const ConfigLoadResult high = loader.load(highPath);
+    const ConfigLoadResult low = loader.load(lowPath);
+
+    QCOMPARE(high.config.appearance.cornerRadius, 64);
+    QCOMPARE(low.config.appearance.cornerRadius, 0);
+    QVERIFY(hasIssue(high, QStringLiteral("appearance.radius")));
+    QVERIFY(hasIssue(low, QStringLiteral("appearance.radius")));
+}
+
+void ConfigLoaderTest::reportsUnknownAppearanceColorKey() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = writeConfig(directory, QStringLiteral(R"(
+[appearance.colors]
+mystery = "#ffffff"
+)"));
+    QVERIFY(!path.isEmpty());
+
+    ConfigLoader loader;
+    const ConfigLoadResult result = loader.load(path);
+
+    QVERIFY(hasIssue(result, QStringLiteral("appearance.colors.mystery")));
 }
 
 void ConfigLoaderTest::reportsUnknownKeys() {
@@ -534,6 +633,9 @@ void ConfigLoaderTest::toVariantMapExposesResolvedValues() {
     config.hotkeys.lookup = QStringLiteral("CTRL+ALT+L");
     config.appearance.theme = Theme::System;
     config.appearance.popupWidth = 500;
+    config.appearance.fontFamily = QStringLiteral("Inter");
+    config.appearance.cornerRadius = 6;
+    config.appearance.colors.accent = QStringLiteral("#ff00aa");
     config.dictionary.databasePath = QStringLiteral("/tmp/en.sqlite");
 
     const QVariantMap lightMap = config.toVariantMap(Qt::ColorScheme::Light);
@@ -543,6 +645,10 @@ void ConfigLoaderTest::toVariantMapExposesResolvedValues() {
     QCOMPARE(lightMap.value(QStringLiteral("theme")).toString(), QStringLiteral("system"));
     QCOMPARE(lightMap.value(QStringLiteral("themeUsesDarkPalette")).toBool(), false);
     QCOMPARE(lightMap.value(QStringLiteral("popupWidth")).toInt(), 500);
+    QCOMPARE(lightMap.value(QStringLiteral("fontFamily")).toString(), QStringLiteral("Inter"));
+    QCOMPARE(lightMap.value(QStringLiteral("cornerRadius")).toInt(), 6);
+    QCOMPARE(lightMap.value(QStringLiteral("themeColors")).toMap().value(QStringLiteral("accent")).toString(),
+             QStringLiteral("#ff00aa"));
     QCOMPARE(lightMap.value(QStringLiteral("databasePath")).toString(), QStringLiteral("/tmp/en.sqlite"));
 
     const QVariantMap darkMap = config.toVariantMap(Qt::ColorScheme::Dark);
@@ -555,6 +661,59 @@ void ConfigLoaderTest::systemThemeFollowsPlatformColorScheme() {
     QVERIFY(!resolveDarkPalette(Theme::System, Qt::ColorScheme::Light));
     QVERIFY(resolveDarkPalette(Theme::System, Qt::ColorScheme::Dark));
     QVERIFY(resolveDarkPalette(Theme::System, Qt::ColorScheme::Unknown));
+}
+
+void ConfigLoaderTest::systemThemeUsesDesktopPalette() {
+    Config config;
+    config.appearance.theme = Theme::System;
+    config.appearance.colors.accent = QStringLiteral("#abcdef");
+
+    QPalette palette;
+    palette.setColor(QPalette::Window, QColor(QStringLiteral("#101010")));
+    palette.setColor(QPalette::Base, QColor(QStringLiteral("#202020")));
+    palette.setColor(QPalette::Button, QColor(QStringLiteral("#303030")));
+    palette.setColor(QPalette::Mid, QColor(QStringLiteral("#404040")));
+    palette.setColor(QPalette::Text, QColor(QStringLiteral("#f0f0f0")));
+    palette.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#909090")));
+    palette.setColor(QPalette::Highlight, QColor(QStringLiteral("#0088cc")));
+
+    const QVariantMap colors =
+        config.toVariantMap(Qt::ColorScheme::Dark, &palette).value(QStringLiteral("themeColors")).toMap();
+
+    QCOMPARE(colors.value(QStringLiteral("background")).toString(), QStringLiteral("#101010"));
+    QCOMPARE(colors.value(QStringLiteral("surface")).toString(), QStringLiteral("#202020"));
+    QCOMPARE(colors.value(QStringLiteral("surfaceRaised")).toString(), QStringLiteral("#303030"));
+    QCOMPARE(colors.value(QStringLiteral("border")).toString(), QStringLiteral("#404040"));
+    QCOMPARE(colors.value(QStringLiteral("textPrimary")).toString(), QStringLiteral("#f0f0f0"));
+    QCOMPARE(colors.value(QStringLiteral("textSecondary")).toString(), QStringLiteral("#909090"));
+    QCOMPARE(colors.value(QStringLiteral("accent")).toString(), QStringLiteral("#abcdef"));
+    QVERIFY(!colors.contains(QStringLiteral("danger")));
+}
+
+void ConfigLoaderTest::explicitThemeKeepsBuiltInPalette() {
+    Config config;
+    config.appearance.theme = Theme::Dark;
+    config.appearance.colors.accent = QStringLiteral("#abcdef");
+
+    QPalette palette;
+    palette.setColor(QPalette::Window, QColor(QStringLiteral("#101010")));
+
+    const QVariantMap colors =
+        config.toVariantMap(Qt::ColorScheme::Dark, &palette).value(QStringLiteral("themeColors")).toMap();
+
+    QVERIFY(!colors.contains(QStringLiteral("background")));
+    QCOMPARE(colors.value(QStringLiteral("accent")).toString(), QStringLiteral("#abcdef"));
+}
+
+void ConfigLoaderTest::systemThemeWithoutPaletteOnlySendsOverrides() {
+    Config config;
+    config.appearance.theme = Theme::System;
+    config.appearance.colors.background = QStringLiteral("#112233");
+
+    const QVariantMap colors = config.toVariantMap(Qt::ColorScheme::Dark).value(QStringLiteral("themeColors")).toMap();
+
+    QCOMPARE(colors.size(), 1);
+    QCOMPARE(colors.value(QStringLiteral("background")).toString(), QStringLiteral("#112233"));
 }
 
 void ConfigLoaderTest::saveRoundTripsValues() {
@@ -571,6 +730,10 @@ void ConfigLoaderTest::saveRoundTripsValues() {
     config.appearance.popupWidth = 520;
     config.appearance.animation = Animation::None;
     config.appearance.position = PopupPosition::Cursor;
+    config.appearance.fontFamily = QStringLiteral("Inter");
+    config.appearance.cornerRadius = 6;
+    config.appearance.colors.background = QStringLiteral("#112233");
+    config.appearance.colors.textPrimary = QStringLiteral("#eeeeee");
     config.dictionary.directory = QStringLiteral("/tmp/dictionaries");
     config.dictionary.sourceLanguage = QStringLiteral("en");
     config.dictionary.targetLanguage = QStringLiteral("de");
@@ -595,6 +758,10 @@ void ConfigLoaderTest::saveRoundTripsValues() {
     QCOMPARE(result.config.appearance.popupWidth, 520);
     QCOMPARE(result.config.appearance.animation, Animation::None);
     QCOMPARE(result.config.appearance.position, PopupPosition::Cursor);
+    QCOMPARE(result.config.appearance.fontFamily, QStringLiteral("Inter"));
+    QCOMPARE(result.config.appearance.cornerRadius, 6);
+    QCOMPARE(result.config.appearance.colors.background, QStringLiteral("#112233"));
+    QCOMPARE(result.config.appearance.colors.textPrimary, QStringLiteral("#eeeeee"));
     QCOMPARE(result.config.dictionary.directory, QStringLiteral("/tmp/dictionaries"));
     QCOMPARE(result.config.dictionary.targetLanguage, QStringLiteral("de"));
     QCOMPARE(result.config.dictionary.showPronunciation, false);
@@ -648,6 +815,23 @@ void ConfigLoaderTest::saveBacksUpUnknownContent() {
     QVERIFY(directory.isValid());
     const QString path = directory.filePath(QStringLiteral("config.toml"));
     const QString original = QStringLiteral("# keep me\n[appearance]\npopup_width = 300\ncustom_flag = true\n");
+    QCOMPARE(writeConfig(directory, original), path);
+
+    ConfigLoader loader;
+    QVERIFY(loader.save(Config{}, path));
+
+    const QString backup = path + QStringLiteral(".bak");
+    QVERIFY(QFile::exists(backup));
+    QFile file(backup);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QCOMPARE(QString::fromUtf8(file.readAll()), original);
+}
+
+void ConfigLoaderTest::saveBacksUpUnknownColorKey() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("config.toml"));
+    const QString original = QStringLiteral("[appearance.colors]\naccent = \"#7aa2f7\"\nmystery = \"#ffffff\"\n");
     QCOMPARE(writeConfig(directory, original), path);
 
     ConfigLoader loader;

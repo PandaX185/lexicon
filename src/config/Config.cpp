@@ -1,6 +1,22 @@
 #include "config/Config.h"
 
+#include <QColor>
+#include <QPalette>
 #include <QStandardPaths>
+
+namespace {
+
+QString colorString(const QColor& color) {
+    return color.alpha() == 255 ? color.name(QColor::HexRgb) : color.name(QColor::HexArgb);
+}
+
+void addPaletteColor(QVariantMap& colors, const char* name, const QColor& color) {
+    if (color.isValid()) {
+        colors.insert(QString::fromLatin1(name), colorString(color));
+    }
+}
+
+} // namespace
 
 namespace Lexicon {
 
@@ -114,7 +130,7 @@ bool resolveDarkPalette(Theme theme, Qt::ColorScheme systemScheme) {
     return true;
 }
 
-QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
+QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme, const QPalette* systemPalette) const {
     QVariantMap map;
     map.insert(QStringLiteral("startOnLogin"), general.startOnLogin);
     map.insert(QStringLiteral("offlineFirst"), general.offlineFirst);
@@ -131,6 +147,34 @@ QVariantMap Config::toVariantMap(Qt::ColorScheme systemScheme) const {
     map.insert(QStringLiteral("popupWidth"), appearance.popupWidth);
     map.insert(QStringLiteral("animation"), animationToString(appearance.animation));
     map.insert(QStringLiteral("position"), popupPositionToString(appearance.position));
+    map.insert(QStringLiteral("fontFamily"), appearance.fontFamily);
+    map.insert(QStringLiteral("cornerRadius"), appearance.cornerRadius);
+
+    QVariantMap themeColors;
+    if (appearance.theme == Theme::System && systemPalette != nullptr) {
+        addPaletteColor(themeColors, "background", systemPalette->color(QPalette::Window));
+        addPaletteColor(themeColors, "surface", systemPalette->color(QPalette::Base));
+        addPaletteColor(themeColors, "surfaceRaised", systemPalette->color(QPalette::Button));
+        addPaletteColor(themeColors, "border", systemPalette->color(QPalette::Mid));
+        addPaletteColor(themeColors, "textPrimary", systemPalette->color(QPalette::Text));
+        addPaletteColor(themeColors, "textSecondary", systemPalette->color(QPalette::PlaceholderText));
+        addPaletteColor(themeColors, "accent", systemPalette->color(QPalette::Highlight));
+    }
+
+    const auto addColor = [&themeColors](const char* name, const QString& value) {
+        if (!value.isEmpty()) {
+            themeColors.insert(QString::fromLatin1(name), value);
+        }
+    };
+    addColor("background", appearance.colors.background);
+    addColor("surface", appearance.colors.surface);
+    addColor("surfaceRaised", appearance.colors.surfaceRaised);
+    addColor("border", appearance.colors.border);
+    addColor("textPrimary", appearance.colors.textPrimary);
+    addColor("textSecondary", appearance.colors.textSecondary);
+    addColor("accent", appearance.colors.accent);
+    addColor("danger", appearance.colors.danger);
+    map.insert(QStringLiteral("themeColors"), themeColors);
 
     map.insert(QStringLiteral("databasePath"), resolvedDatabasePath());
     map.insert(QStringLiteral("dictionaryDirectory"), resolvedDictionaryDirectory());

@@ -5,6 +5,8 @@
 #include <QVariantMap>
 #include <Qt>
 
+class QPalette;
+
 namespace Lexicon {
 
 enum class Activation {
@@ -49,11 +51,28 @@ struct HotkeysConfig {
     QString lookup = QStringLiteral("SUPER+SHIFT+D");
 };
 
+// Empty values keep the built-in palette entry, so a user only overrides the
+// colors they care about. Values accept any color format QColor understands,
+// including #AARRGGBB for translucent surfaces.
+struct AppearanceColors {
+    QString background;
+    QString surface;
+    QString surfaceRaised;
+    QString border;
+    QString textPrimary;
+    QString textSecondary;
+    QString accent;
+    QString danger;
+};
+
 struct AppearanceConfig {
     Theme theme = Theme::Dark;
     int popupWidth = 360;
     Animation animation = Animation::Subtle;
     PopupPosition position = PopupPosition::NearSelection;
+    QString fontFamily;
+    int cornerRadius = 14;
+    AppearanceColors colors;
 };
 
 struct DictionaryConfig {
@@ -96,7 +115,12 @@ struct Config {
     [[nodiscard]] QStringList resolvedDictionaryDirectories() const;
     [[nodiscard]] bool usesDictionaryDirectory() const;
     [[nodiscard]] QKeySequence lookupKeySequence() const;
-    [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown) const;
+    /// `systemPalette` supplies the desktop colors when the configured theme is
+    /// `system`. Explicit dark/light themes keep the built-in palette so the
+    /// user's choice is not overridden by the desktop. Passing no palette is
+    /// useful in tests and in contexts without a GUI application.
+    [[nodiscard]] QVariantMap toVariantMap(Qt::ColorScheme systemScheme = Qt::ColorScheme::Unknown,
+                                           const QPalette* systemPalette = nullptr) const;
 };
 
 // Resolves the configured theme against the platform color scheme. `system` follows

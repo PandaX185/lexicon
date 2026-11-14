@@ -16,10 +16,13 @@ Rectangle {
     border.width: 1
     border.color: theme.border
 
-    Theme {
+    // Screen readers announce each settings group by its heading instead of
+    // reading one flat list of controls.
+    Accessible.role: Accessible.Grouping
+    Accessible.name: card.title
+
+    AppTheme {
         id: theme
-        // `system` follows the platform color scheme.
-        darkMode: config.themeUsesDarkPalette !== false
     }
 
     ColumnLayout {

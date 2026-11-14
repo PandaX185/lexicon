@@ -15,10 +15,8 @@ ApplicationWindow {
     title: qsTr("Lexicon Settings")
     color: theme.background
 
-    Theme {
+    AppTheme {
         id: theme
-        // `system` follows the platform color scheme.
-        darkMode: config.themeUsesDarkPalette !== false
     }
 
     SettingsView {

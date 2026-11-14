@@ -10,6 +10,7 @@
 #include "dictionary/CatalogDictionaryRepository.h"
 #include "dictionary/DictionaryCatalog.h"
 #include "dictionary/DictionaryService.h"
+#include "infrastructure/CrashReporter.h"
 #include "infrastructure/UnixSignalHandler.h"
 #include "infrastructure/database/SqliteDictionaryRepository.h"
 #include "infrastructure/logging/Logging.h"
@@ -18,17 +19,44 @@
 #include "kde/shortcuts/KGlobalAccelShortcutService.h"
 #include "kde/tray/KStatusNotifierTrayService.h"
 
+#include <QEvent>
+#include <QFont>
 #include <QGuiApplication>
+#include <QObject>
+#include <QPalette>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QStyleHints>
 #include <QTimer>
 
+#include <functional>
+#include <utility>
+
 namespace {
 
 QVariantMap buildConfigMap(const Lexicon::Config& config) {
-    return config.toVariantMap(QGuiApplication::styleHints()->colorScheme());
+    const QPalette palette = QGuiApplication::palette();
+    return config.toVariantMap(QGuiApplication::styleHints()->colorScheme(), &palette);
 }
+
+// The desktop palette can change even when the light/dark preference does not
+// (for example, a new Plasma accent color), so `colorSchemeChanged` alone is
+// not enough to keep the QML theme in sync.
+class PaletteChangeFilter final : public QObject {
+  public:
+    explicit PaletteChangeFilter(std::function<void()> callback) : m_callback(std::move(callback)) {}
+
+  protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() == QEvent::ApplicationPaletteChange) {
+            m_callback();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+  private:
+    std::function<void()> m_callback;
+};
 
 // A dictionary can be pointed at explicitly, which keeps single-file setups and
 // the test fixture working; otherwise the installed dictionaries are searched
@@ -52,6 +80,18 @@ std::unique_ptr<Lexicon::DictionaryRepository> buildDictionaryRepository(const L
 namespace Lexicon {
 
 Application::Application(Config config) : m_config(std::move(config)) {
+    // Local-only crash reports; nothing is sent over the network and the
+    // selected text is never captured.
+    installCrashHandler(crashReportDirectory());
+
+    // QML controls inherit the application font, so a configured family applies
+    // to the popup and settings window without per-label bindings.
+    if (!m_config.appearance.fontFamily.isEmpty()) {
+        QFont font = QGuiApplication::font();
+        font.setFamily(m_config.appearance.fontFamily);
+        QGuiApplication::setFont(font);
+    }
+
     m_engine = std::make_unique<QQmlApplicationEngine>();
     m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config));
     m_engine->rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral("0.1.0"));
@@ -59,6 +99,10 @@ Application::Application(Config config) : m_config(std::move(config)) {
     QObject::connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, m_engine.get(), [this] {
         m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config));
     });
+
+    m_paletteWatcher = std::make_unique<PaletteChangeFilter>(
+        [this] { m_engine->rootContext()->setContextProperty(QStringLiteral("config"), buildConfigMap(m_config)); });
+    QGuiApplication::instance()->installEventFilter(m_paletteWatcher.get());
 
     // The settings window drives language packs through this object; it only
     // downloads when the user presses install. It has to exist before the QML

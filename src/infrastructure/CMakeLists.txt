@@ -8,6 +8,7 @@ target_compile_features(lexicon_logging PUBLIC cxx_std_20)
 lexicon_enable_warnings(lexicon_logging)
 
 add_library(lexicon_infrastructure STATIC
+    CrashReporter.cpp
     database/SqliteDictionaryRepository.cpp
     translation/ArgosProcessWorker.cpp
     translation/ArgosTranslationService.cpp

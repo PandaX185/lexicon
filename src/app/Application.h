@@ -7,6 +7,7 @@
 #include <memory>
 
 class QQmlApplicationEngine;
+class QObject;
 
 namespace Lexicon {
 
@@ -32,6 +33,9 @@ class Application final {
     std::unique_ptr<LanguagePackController> m_languagePacks;
     std::unique_ptr<SettingsController> m_settings;
     std::unique_ptr<QQmlApplicationEngine> m_engine;
+    // Refreshes the QML theme when Plasma's palette changes without a
+    // light/dark switch (for example, a new accent color).
+    std::unique_ptr<QObject> m_paletteWatcher;
     std::unique_ptr<QmlPresenter> m_presenter;
     std::unique_ptr<ApplicationController> m_controller;
     bool m_dictionaryAvailable = true;
