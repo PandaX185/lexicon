@@ -1,0 +1,25 @@
+[Unit]
+Description=Lexicon selection lookup daemon
+Documentation=https://github.com/PandaX185/lexicon
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/lexicon-daemon
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%t/lexicon
+
+# The daemon reads the Wayland primary selection through wl-paste and launches
+# the popup. A user manager may not inherit the graphical session environment;
+# import it first:
+#   systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
+Environment=XDG_RUNTIME_DIR=%t
+
+[Install]
+WantedBy=graphical-session.target
