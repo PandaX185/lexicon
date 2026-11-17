@@ -223,3 +223,40 @@ func TestOpenRejectsMissingFile(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestValidateLookupSchema(t *testing.T) {
+	store := openFixture(t)
+	if err := store.ValidateLookupSchema(); err != nil {
+		t.Fatalf("validate fixture: %v", err)
+	}
+}
+
+func TestValidateLookupSchemaRejectsMissingEntries(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "metadata-only.sqlite")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE dictionary_info (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		name TEXT NOT NULL,
+		source_language TEXT NOT NULL,
+		target_language TEXT NOT NULL,
+		license TEXT NOT NULL DEFAULT '',
+		attribution TEXT NOT NULL DEFAULT ''
+	)`); err != nil {
+		t.Fatalf("create metadata table: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+
+	store, err := Open(path)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+	if err := store.ValidateLookupSchema(); err == nil {
+		t.Fatal("expected a missing entries table error")
+	}
+}

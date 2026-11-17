@@ -15,6 +15,8 @@ func main() {
 	options := installer.Options{}
 	flag.StringVar(&options.ConfigPath, "config", "", "configuration path (default $XDG_CONFIG_HOME/lexicon/config.toml)")
 	flag.StringVar(&options.Dictionary, "dictionary", "", "dictionary .sqlite file to install")
+	flag.StringVar(&options.DictionaryURL, "dictionary-url", "", "explicit HTTPS URL of a dictionary asset (requires --dictionary-sha256)")
+	flag.StringVar(&options.DictionarySHA256, "dictionary-sha256", "", "expected SHA-256 of --dictionary or --dictionary-url")
 	flag.StringVar(&options.DaemonBinary, "daemon", "", "lexicon-daemon binary for the systemd unit")
 	flag.StringVar(&options.SourceLang, "source-lang", "en", "headword language tag")
 	flag.StringVar(&options.TargetLang, "target-lang", "en", "definition language tag")

@@ -11,6 +11,11 @@
 coverage.*
 *.prof
 
+# makepkg
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+
 # Frontend
 node_modules/
 popup/frontend/dist/*

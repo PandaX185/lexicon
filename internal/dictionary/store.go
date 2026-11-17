@@ -321,6 +321,15 @@ func (s *Store) Describe(ctx context.Context) (Info, error) {
 	return info, nil
 }
 
+// ValidateLookupSchema checks the minimum shape needed for a lookup: an entries
+// table with id and word. Optional tables and metadata are not required here.
+func (s *Store) ValidateLookupSchema() error {
+	if !s.schema.entryColumns["id"] || !s.schema.entryColumns["word"] {
+		return errors.New("dictionary is missing an entries table with id and word columns")
+	}
+	return nil
+}
+
 // baseColumn strips a table alias from a qualified column name.
 func baseColumn(column string) string {
 	if dot := strings.LastIndexByte(column, '.'); dot >= 0 {

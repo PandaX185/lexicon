@@ -193,6 +193,26 @@ BSD 2-Clause license. Both notices ship in `licenses/` (`WORDNET.txt`,
 `CMUDICT.txt`) and must be included wherever the generated dictionary is
 redistributed.
 
+### Release assets
+
+`just dict-release WordNet-3.0/dict cmudict.dict` builds the database plus
+`manifest.json` and copies both license notices into
+`build/dictionaries`. The manifest records the asset name, dictionary version,
+byte size, SHA-256, row counts, language pair, and license files. It is
+generated from the built file, so the checksum cannot drift from the asset.
+
+The release directory is published as a GitHub release under the
+`dictionary-3.0` tag, independently of application tags. Distribution packages
+install it to `/usr/share/lexicon/dictionaries/en.sqlite` together with
+`manifest.json` and the licenses; see `packaging/README.md`.
+
+When the installer discovers a packaged copy, it verifies the manifest's size
+and checksum before writing the configuration. It points
+`dictionary.database_path` at the packaged file instead of copying 47 MB into
+each user's home directory. A user-supplied file is still copied to the per-user
+data directory, and an explicit `--dictionary-url` requires an explicit
+checksum.
+
 ## Output
 
 The CLI prints definitions, pronunciation (when enabled), an inflected form when

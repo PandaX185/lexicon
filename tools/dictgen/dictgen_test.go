@@ -323,6 +323,43 @@ func TestBuild(t *testing.T) {
 	}
 }
 
+func TestWriteManifest(t *testing.T) {
+	dir := t.TempDir()
+	output := filepath.Join(dir, "en.sqlite")
+	stats, err := Build(context.Background(), Options{
+		WordNetDir:  filepath.Join("testdata", "wordnet"),
+		CMUDictFile: filepath.Join("testdata", "cmudict.dict"),
+		OutputPath:  output,
+		Progress:    io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	path := filepath.Join(dir, "manifest.json")
+	if err := writeManifest(path, output, stats); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	manifest, err := dictionary.ReadManifest(path)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if manifest.Name != dictionaryName || manifest.Version != dictionaryVersion ||
+		manifest.File != "en.sqlite" || manifest.SourceLanguage != "en" || manifest.TargetLanguage != "en" {
+		t.Fatalf("manifest = %+v", manifest)
+	}
+	if manifest.Entries != stats.Entries || manifest.Definitions != stats.Definitions ||
+		manifest.Forms != stats.Forms || manifest.ExceptionForms != stats.ExceptionForms {
+		t.Fatalf("manifest counts = %+v, want %+v", manifest, stats)
+	}
+	if len(manifest.Licenses) != 2 || manifest.Licenses[0] != "WORDNET.txt" || manifest.Licenses[1] != "CMUDICT.txt" {
+		t.Fatalf("manifest licenses = %v", manifest.Licenses)
+	}
+	if err := manifest.Verify(output); err != nil {
+		t.Fatalf("verify manifest: %v", err)
+	}
+}
+
 func TestBuildRequiresInputs(t *testing.T) {
 	if _, err := Build(context.Background(), Options{}); err == nil {
 		t.Fatal("expected an error for missing --wordnet-dir")

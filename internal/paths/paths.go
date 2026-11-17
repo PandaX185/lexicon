@@ -51,6 +51,18 @@ func DefaultDictionaryPath() (string, error) {
 	return filepath.Join(data, "dictionary.sqlite"), nil
 }
 
+// PackagedDictionaryDirs returns the distribution directories that may hold a
+// bundled dictionary, in priority order. The first two match the layout used by
+// the earlier Lexicon packages.
+func PackagedDictionaryDirs() []string {
+	return []string{
+		"/usr/share/lexicon/dictionaries",
+		"/usr/share/lexicon",
+		"/usr/local/share/lexicon/dictionaries",
+		"/usr/local/share/lexicon",
+	}
+}
+
 // DefaultModelDir returns where optional translation models live.
 func DefaultModelDir() (string, error) {
 	data, err := DataDir()

@@ -7,10 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/PandaX185/lexicon/internal/dictionary"
@@ -20,16 +23,24 @@ import (
 
 // Options carries flags and process streams.
 type Options struct {
-	ConfigPath   string
-	Dictionary   string
-	DaemonBinary string
-	SourceLang   string
-	TargetLang   string
-	Translation  bool
-	SkipService  bool
-	Force        bool
-	Yes          bool
-	DryRun       bool
+	ConfigPath       string
+	Dictionary       string
+	DictionaryURL    string
+	DictionarySHA256 string
+	DaemonBinary     string
+	SourceLang       string
+	TargetLang       string
+	Translation      bool
+	SkipService      bool
+	Force            bool
+	Yes              bool
+	DryRun           bool
+
+	// DictionarySearchDirs overrides the packaged dictionary locations. Tests
+	// use it; the command line leaves it empty for paths.PackagedDictionaryDirs.
+	DictionarySearchDirs []string
+	// HTTPClient overrides the client used for --dictionary-url.
+	HTTPClient *http.Client
 
 	Stdin  io.Reader
 	Stdout io.Writer
@@ -38,14 +49,16 @@ type Options struct {
 
 // Plan is the resolved set of actions, also useful in dry-run mode.
 type Plan struct {
-	ConfigPath       string
-	DictionarySource string
-	DictionaryTarget string
-	CopyDictionary   bool
-	UnitPath         string
-	Unit             string
-	InstallUnit      bool
-	EnableUnit       bool
+	ConfigPath         string
+	DictionarySource   string
+	DictionaryTarget   string
+	DictionaryPackaged bool
+	DictionaryVersion  string
+	CopyDictionary     bool
+	UnitPath           string
+	Unit               string
+	InstallUnit        bool
+	EnableUnit         bool
 }
 
 // Run performs the wizard and applies the plan.
@@ -89,22 +102,24 @@ func Run(ctx context.Context, options Options) error {
 		}
 	}
 
-	dictionarySource, err := prompter.ask("Dictionary .sqlite path (leave empty to configure later)", options.Dictionary, options.Yes)
+	dictionarySource, downloadedPath, packaged, err := resolveDictionarySource(ctx, options, prompter)
 	if err != nil {
 		return err
+	}
+	if downloadedPath != "" {
+		defer func() { _ = os.Remove(downloadedPath) }()
 	}
 	dictionaryTarget, err := paths.DefaultDictionaryPath()
 	if err != nil {
 		return err
 	}
-	if dictionarySource != "" {
-		dictionarySource, err = paths.ExpandHome(dictionarySource)
-		if err != nil {
-			return err
-		}
-		if err := validateDictionary(ctx, dictionarySource); err != nil {
-			return fmt.Errorf("dictionary %s: %w", dictionarySource, err)
-		}
+	packagedPath := ""
+	if packaged != nil {
+		packagedPath = packaged.path
+	}
+	usePackaged := packagedPath != "" && samePath(dictionarySource, packagedPath)
+	if usePackaged {
+		dictionaryTarget = packagedPath
 	}
 
 	sourceLang, err := prompter.ask("Headword language (BCP 47)", options.SourceLang, options.Yes)
@@ -151,12 +166,16 @@ func Run(ctx context.Context, options Options) error {
 	cfg.Translation.Enabled = translation
 
 	plan := Plan{
-		ConfigPath:       options.ConfigPath,
-		DictionarySource: dictionarySource,
-		DictionaryTarget: dictionaryTarget,
-		CopyDictionary:   dictionarySource != "" && !samePath(dictionarySource, dictionaryTarget),
-		InstallUnit:      installService,
-		EnableUnit:       installService,
+		ConfigPath:         options.ConfigPath,
+		DictionarySource:   dictionarySource,
+		DictionaryTarget:   dictionaryTarget,
+		DictionaryPackaged: usePackaged,
+		CopyDictionary:     dictionarySource != "" && !usePackaged && !samePath(dictionarySource, dictionaryTarget),
+		InstallUnit:        installService,
+		EnableUnit:         installService,
+	}
+	if usePackaged && packaged.manifest != nil {
+		plan.DictionaryVersion = packaged.manifest.Version
 	}
 	if plan.CopyDictionary {
 		if info, err := os.Stat(dictionaryTarget); err == nil && info.Mode().IsRegular() && !options.Force {
@@ -177,6 +196,12 @@ func Run(ctx context.Context, options Options) error {
 	fmt.Fprintln(options.Stdout, "Summary")
 	fmt.Fprintf(options.Stdout, "  config:      %s\n", plan.ConfigPath)
 	switch {
+	case plan.DictionaryPackaged:
+		version := ""
+		if plan.DictionaryVersion != "" {
+			version = " " + plan.DictionaryVersion
+		}
+		fmt.Fprintf(options.Stdout, "  dictionary:  %s (packaged%s, no copy)\n", plan.DictionaryTarget, version)
 	case plan.CopyDictionary:
 		fmt.Fprintf(options.Stdout, "  dictionary:  %s -> %s\n", plan.DictionarySource, plan.DictionaryTarget)
 	case dictionarySource != "":
@@ -253,17 +278,176 @@ func apply(ctx context.Context, plan Plan, cfg config.Config, options Options) e
 	return nil
 }
 
+type packagedDictionary struct {
+	path     string
+	manifest *dictionary.Manifest
+}
+
+// resolveDictionarySource selects the dictionary the user asked for, falling
+// back to a distribution-installed copy. It only uses the network when
+// --dictionary-url was passed explicitly.
+func resolveDictionarySource(ctx context.Context, options Options, prompter *prompter) (source, downloadedPath string, packaged *packagedDictionary, err error) {
+	if options.Dictionary == "" && options.DictionaryURL == "" {
+		searchDirs := options.DictionarySearchDirs
+		if searchDirs == nil {
+			searchDirs = paths.PackagedDictionaryDirs()
+		}
+		packaged, err = findPackagedDictionary(searchDirs)
+		if err != nil {
+			return "", "", nil, err
+		}
+	}
+
+	if options.DictionaryURL != "" {
+		if options.Dictionary != "" {
+			return "", "", nil, errors.New("--dictionary and --dictionary-url are mutually exclusive")
+		}
+		if options.DryRun {
+			return "", "", nil, errors.New("--dry-run cannot verify --dictionary-url; download the file first")
+		}
+		downloadedPath, err = downloadDictionary(ctx, options)
+		if err != nil {
+			return "", "", nil, err
+		}
+	}
+
+	defaultSource := options.Dictionary
+	switch {
+	case downloadedPath != "":
+		defaultSource = downloadedPath
+	case defaultSource == "" && packaged != nil:
+		defaultSource = packaged.path
+	}
+	source, err = prompter.ask("Dictionary .sqlite path (leave empty to configure later)", defaultSource, options.Yes)
+	if err != nil {
+		return "", "", nil, err
+	}
+	if source == "" {
+		return "", downloadedPath, packaged, nil
+	}
+	source, err = paths.ExpandHome(source)
+	if err != nil {
+		return "", "", nil, err
+	}
+	if err := validateDictionary(ctx, source); err != nil {
+		return "", "", nil, fmt.Errorf("dictionary %s: %w", source, err)
+	}
+	if options.DictionarySHA256 != "" {
+		if err := dictionary.VerifySHA256(source, options.DictionarySHA256); err != nil {
+			return "", "", nil, fmt.Errorf("dictionary %s: %w", source, err)
+		}
+	}
+	return source, downloadedPath, packaged, nil
+}
+
+// findPackagedDictionary returns the first distribution-installed dictionary.
+// When a manifest is present its size and checksum must match; a broken package
+// is an error rather than a silent fallback.
+func findPackagedDictionary(dirs []string) (*packagedDictionary, error) {
+	for _, dir := range dirs {
+		path := filepath.Join(dir, "en.sqlite")
+		info, err := os.Stat(path)
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			continue
+		case err != nil:
+			return nil, fmt.Errorf("inspect packaged dictionary %s: %w", path, err)
+		case !info.Mode().IsRegular():
+			continue
+		}
+		manifest, err := dictionary.ReadManifest(filepath.Join(dir, "manifest.json"))
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			return &packagedDictionary{path: path}, nil
+		case err != nil:
+			return nil, fmt.Errorf("read packaged dictionary manifest: %w", err)
+		}
+		if err := manifest.Verify(path); err != nil {
+			return nil, fmt.Errorf("verify packaged dictionary %s: %w", path, err)
+		}
+		return &packagedDictionary{path: path, manifest: &manifest}, nil
+	}
+	return nil, nil
+}
+
+// downloadDictionary fetches an explicit --dictionary-url into a temporary file
+// and verifies its checksum before anything is installed.
+func downloadDictionary(ctx context.Context, options Options) (string, error) {
+	if strings.TrimSpace(options.DictionarySHA256) == "" {
+		return "", errors.New("--dictionary-url requires --dictionary-sha256")
+	}
+	parsed, err := url.Parse(options.DictionaryURL)
+	if err != nil {
+		return "", fmt.Errorf("parse --dictionary-url: %w", err)
+	}
+	if parsed.Scheme != "https" {
+		return "", errors.New("--dictionary-url must use https")
+	}
+
+	client := options.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: 5 * time.Minute}
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, options.DictionaryURL, nil)
+	if err != nil {
+		return "", err
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return "", fmt.Errorf("download dictionary: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("download dictionary: %s", response.Status)
+	}
+
+	temp, err := os.CreateTemp("", "lexicon-dictionary-*.sqlite")
+	if err != nil {
+		return "", err
+	}
+	tempName := temp.Name()
+	fail := func(cause error) (string, error) {
+		_ = temp.Close()
+		_ = os.Remove(tempName)
+		return "", cause
+	}
+
+	const maxBytes = 512 << 20
+	written, err := io.Copy(temp, io.LimitReader(response.Body, maxBytes+1))
+	if err != nil {
+		return fail(fmt.Errorf("download dictionary: %w", err))
+	}
+	if written > maxBytes {
+		return fail(errors.New("downloaded dictionary exceeds 512 MiB"))
+	}
+	if err := temp.Sync(); err != nil {
+		return fail(err)
+	}
+	if err := temp.Close(); err != nil {
+		_ = os.Remove(tempName)
+		return "", err
+	}
+	if err := dictionary.VerifySHA256(tempName, options.DictionarySHA256); err != nil {
+		_ = os.Remove(tempName)
+		return "", fmt.Errorf("downloaded dictionary: %w", err)
+	}
+	return tempName, nil
+}
+
 func validateDictionary(ctx context.Context, path string) error {
 	store, err := dictionary.Open(path)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = store.Close() }()
+	if err := store.ValidateLookupSchema(); err != nil {
+		return err
+	}
 	info, err := store.Describe(ctx)
 	if err != nil {
 		return err
 	}
-	if info.Name == "" {
+	if strings.TrimSpace(info.Name) == "" {
 		return errors.New("dictionary metadata has no name")
 	}
 	return nil

@@ -90,15 +90,18 @@ shortcuts.
 ## Quick start
 
 1. Build and install the binaries.
-2. Run the installer with a dictionary:
+2. Run the installer. A distribution package places the dictionary under
+   `/usr/share/lexicon`; the installer verifies it and references it in place.
+   Otherwise pass a local file:
 
    ```sh
    lexicon-installer --dictionary /path/to/en.sqlite
    ```
 
-   The installer validates the database, copies it to
-   `$XDG_DATA_HOME/lexicon/dictionary.sqlite`, writes the TOML configuration, and
-   optionally installs and starts `lexicon.service` as a systemd user unit.
+   A local file is validated and copied to
+   `$XDG_DATA_HOME/lexicon/dictionary.sqlite`. The installer writes the TOML
+   configuration and optionally installs and starts `lexicon.service` as a
+   systemd user unit.
 
 3. Import the graphical environment into the user manager so the daemon can
    launch the popup:

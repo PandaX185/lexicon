@@ -56,15 +56,23 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	if storeErr != nil {
 		add("fail", "dictionary", storeErr.Error())
 	} else {
+		schemaErr := store.ValidateLookupSchema()
 		describeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		info, describeErr := store.Describe(describeCtx)
 		cancel()
 		_ = store.Close()
-		if describeErr != nil {
+		switch {
+		case schemaErr != nil:
+			add("fail", "dictionary", effective.Dictionary.DatabasePath+" ("+schemaErr.Error()+")")
+		case describeErr != nil:
 			add("warn", "dictionary", effective.Dictionary.DatabasePath+" ("+describeErr.Error()+")")
-		} else {
-			add("ok", "dictionary", fmt.Sprintf("%s [%s→%s] %s",
-				info.Name, info.SourceLanguage, info.TargetLanguage, effective.Dictionary.DatabasePath))
+		default:
+			detail := fmt.Sprintf("%s [%s→%s] %s",
+				info.Name, info.SourceLanguage, info.TargetLanguage, effective.Dictionary.DatabasePath)
+			if attribution := strings.TrimSpace(info.Attribution); attribution != "" {
+				detail += " — " + attribution
+			}
+			add("ok", "dictionary", detail)
 		}
 	}
 
@@ -119,7 +127,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	if binary, ok := findPopupBinary(effective); ok {
 		add("ok", "popup", binary)
 	} else {
-		add("warn", "popup", "lexicon-popup not found; build it with `make popup-build`")
+		add("warn", "popup", "lexicon-popup not found; build it with `just build-popup`")
 	}
 
 	failures := 0

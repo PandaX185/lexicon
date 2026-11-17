@@ -96,6 +96,12 @@ test-core:
 dict-build wordnet_dir cmudict_file output="build/dictionaries/en.sqlite":
     {{ go }} run ./tools/dictgen --wordnet-dir "{{ wordnet_dir }}" --cmudict-file "{{ cmudict_file }}" --output "{{ output }}"
 
+# Build a complete dictionary release directory: asset, manifest, and licenses.
+dict-release wordnet_dir cmudict_file output_dir="build/dictionaries":
+    {{ go }} run ./tools/dictgen --wordnet-dir "{{ wordnet_dir }}" --cmudict-file "{{ cmudict_file }}" --output "{{ output_dir }}/en.sqlite" --manifest "{{ output_dir }}/manifest.json"
+    cp licenses/WORDNET.txt "{{ output_dir }}/WORDNET.txt"
+    cp licenses/CMUDICT.txt "{{ output_dir }}/CMUDICT.txt"
+
 # Run popup Go tests.
 test-popup:
     cd popup && {{ go }} test {{ popup_tags_flag }} ./...

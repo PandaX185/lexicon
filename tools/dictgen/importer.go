@@ -19,6 +19,7 @@ var schemaSQL string
 
 const (
 	dictionaryName    = "WordNet English Dictionary"
+	dictionaryVersion = "3.0"
 	sourceLanguage    = "en"
 	targetLanguage    = "en"
 	dictionaryLicense = "WordNet 3.0"
@@ -26,6 +27,9 @@ const (
 		"Pronunciation data from the CMU Pronouncing Dictionary."
 	maxSynonyms = 8
 )
+
+// dictionaryLicenses are the notices that must ship with the asset.
+var dictionaryLicenses = []string{"WORDNET.txt", "CMUDICT.txt"}
 
 // Options configures a dictionary build.
 type Options struct {

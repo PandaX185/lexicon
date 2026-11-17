@@ -65,6 +65,7 @@ falls back to `npm install`.
 ## Run the installer
 
 ```sh
+lexicon-installer                 # uses a packaged dictionary when present
 lexicon-installer --dictionary /path/to/en.sqlite
 ```
 
@@ -74,6 +75,8 @@ Flags:
 | --- | --- |
 | `--config PATH` | Configuration file to write |
 | `--dictionary PATH` | Source `.sqlite` file to validate and install |
+| `--dictionary-url URL` | Explicit HTTPS dictionary asset (requires `--dictionary-sha256`) |
+| `--dictionary-sha256 HEX` | Expected SHA-256 of the local or downloaded dictionary |
 | `--daemon PATH` | `lexicon-daemon` binary used in the systemd unit |
 | `--source-lang TAG` | Headword language (default `en`) |
 | `--target-lang TAG` | Definition language (default `en`) |
@@ -85,14 +88,22 @@ Flags:
 
 The installer:
 
-1. validates the dictionary by opening it read-only and reading
-   `dictionary_info`;
-2. writes `$XDG_CONFIG_HOME/lexicon/config.toml`;
-3. copies the dictionary to `$XDG_DATA_HOME/lexicon/dictionary.sqlite` unless it
-   is already there or a target exists without `--force`;
-4. writes a user unit to `$XDG_CONFIG_HOME/systemd/user/lexicon.service`, runs
+1. looks for a packaged dictionary under `/usr/share/lexicon` and
+   `/usr/local/share/lexicon`; when `manifest.json` is present, its size and
+   SHA-256 must match before the copy is used;
+2. validates the dictionary by opening it read-only, checking the `entries`
+   schema, and reading `dictionary_info`;
+3. writes `$XDG_CONFIG_HOME/lexicon/config.toml`;
+4. references a packaged dictionary in place; an explicit local file is copied
+   to `$XDG_DATA_HOME/lexicon/dictionary.sqlite` unless it is already there or a
+   target exists without `--force`;
+5. writes a user unit to `$XDG_CONFIG_HOME/systemd/user/lexicon.service`, runs
    `systemctl --user daemon-reload`, and enables/starts it when `systemctl` and
    the `lexicon-daemon` binary are available.
+
+`--dictionary-url` is the only network path. It is never used implicitly,
+requires HTTPS and an explicit checksum, and is rejected with `--dry-run`
+because a dry run must not download anything.
 
 It never writes system-wide files.
 
