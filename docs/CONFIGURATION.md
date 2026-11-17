@@ -1,0 +1,117 @@
+# Configuration
+
+Lexicon uses one TOML file. The CLI is the only supported editing interface; the
+popup has no settings screen.
+
+## Location and precedence
+
+1. `--config PATH` (global option)
+2. `LEXICON_CONFIG` environment variable
+3. `$XDG_CONFIG_HOME/lexicon/config.toml`, falling back to
+   `~/.config/lexicon/config.toml`
+
+A missing file is valid and yields the defaults. An existing file must parse and
+pass validation, and unknown keys are rejected. The layout is additive: missing
+keys take their defaults, so there is no schema version stored in the file.
+
+The path values in the file are not shell-expanded (`~`, `$VAR`). Use absolute
+paths. `popup.binary` additionally accepts a leading `~/`.
+
+## Commands
+
+```sh
+lex config path          # print the resolved path
+lex config show          # canonical TOML with effective XDG values
+lex config get KEY       # print one effective value
+lex config set KEY VALUE # validate, write, and notify a running daemon
+lex config reset [--yes] # restore defaults
+lex config edit          # open the raw file in $VISUAL/$EDITOR
+```
+
+`set` and `reset` rewrite the file canonically, so comments are not preserved.
+Use `config edit` when comments or hand formatting matter. After a successful
+write, the CLI asks the daemon to reload. If the daemon is not running, the
+change applies on its next start. A changed `daemon.socket` cannot be applied by
+reload; restart the service with `systemctl --user restart lexicon.service`.
+
+## Keys
+
+| Key | Type | Default | Validation |
+| --- | --- | --- | --- |
+| `general.max_query_words` | integer | `4` | 1–16 |
+| `general.max_query_chars` | integer | `128` | 1–512 |
+| `daemon.socket` | string | empty → `$XDG_RUNTIME_DIR/lexicon/daemon.sock` | non-empty effective path; absolute recommended |
+| `daemon.log_level` | string | `info` | `debug`, `info`, `warn`/`warning`, or `error` |
+| `selection.provider` | string | `auto` | `auto`, `wl-paste`, or `none` |
+| `selection.timeout_ms` | integer | `400` | 50–5000 |
+| `selection.max_chars` | integer | `128` | 1–512 |
+| `dictionary.database_path` | string | empty → `$XDG_DATA_HOME/lexicon/dictionary.sqlite` | readable regular SQLite file at use time |
+| `dictionary.source_language` | string | `en` | lowercase BCP 47-shaped tag |
+| `dictionary.target_language` | string | `en` | lowercase BCP 47-shaped tag |
+| `dictionary.show_pronunciation` | boolean | `true` | — |
+| `translation.enabled` | boolean | `false` | — |
+| `translation.model_directory` | string | empty → `$XDG_DATA_HOME/lexicon/models` | directory scanned at use time |
+| `translation.timeout_seconds` | integer | `30` | 5–300 |
+| `popup.auto_launch` | boolean | `true` | — |
+| `popup.binary` | string | empty → next to `lexicon-daemon`, then `PATH` | executable path checked at launch |
+| `popup.width` | integer | `420` | 240–1200 logical pixels |
+| `popup.height` | integer | `320` | 160–1200 logical pixels |
+| `popup.hide_on_blur` | boolean | `true` | — |
+
+Notes:
+
+- `selection.provider = "auto"` uses `wl-paste` when it is installed and
+  degrades to a reported runtime error otherwise. `"none"` disables selection
+  lookups; explicit text lookups still work.
+- `selection.max_chars` is the rune limit for primary-selection text.
+  `general.max_query_chars` is the separate limit after normalization.
+- Language tags are stored lowercase. Common aliases (`jp`, `ger`, `fre`, …) are
+  canonicalized when translation runs, but the config validation expects a
+  lowercase tag.
+- `translation.enabled = true` on a default build is accepted; the daemon
+  reports the translator as unavailable and lookups still return definitions.
+- `popup.*` display values are read when the popup process starts. A running
+  popup does not hot-reload them; the next popup launch uses the new values.
+- With the generated systemd unit, the only writable path is `%t/lexicon`. A
+  custom `daemon.socket` outside that directory needs a matching
+  `ReadWritePaths=` entry, or the service cannot create the socket.
+
+## Example
+
+```toml
+# Lexicon configuration. Edit with `lex config set` or `lex config edit`.
+
+[general]
+max_query_words = 4
+max_query_chars = 128
+
+[daemon]
+socket = ""
+log_level = "info"
+
+[selection]
+provider = "auto"
+timeout_ms = 400
+max_chars = 128
+
+[dictionary]
+database_path = ""
+source_language = "en"
+target_language = "en"
+show_pronunciation = true
+
+[translation]
+enabled = false
+model_directory = ""
+timeout_seconds = 30
+
+[popup]
+auto_launch = true
+binary = ""
+width = 420
+height = 320
+hide_on_blur = true
+```
+
+An empty string means "use the XDG default". `lex config show` prints the
+effective values instead of the empty placeholders.

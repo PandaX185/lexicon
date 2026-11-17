@@ -1,0 +1,131 @@
+# Architecture
+
+This document describes the Go rewrite's runtime structure and the boundaries
+that keep it testable on machines without desktop libraries.
+
+## Components
+
+| Component | Module | Responsibility |
+| --- | --- | --- |
+| `lex` CLI | core | Parse commands, resolve config/socket, render results |
+| Daemon (`lexicon-daemon`) | core | Own resources, serve IPC, perform lookups, reload config, launch popup |
+| `lexicon-installer` | core | Terminal wizard, validate/copy dictionary, write config, install user unit |
+| `lexicon-popup` | `popup/` | Wails window and React UI; subscribes to lookup events |
+| Shared packages | core `internal/` | Paths, config, dictionary, selection, translation, IPC, systemd |
+
+`cmd/lex` is the CLI entry point and `cmd/lexicon-daemon` is the service entry
+point. They are separate binaries: systemd starts `lexicon-daemon` directly and
+the CLI has no lifecycle subcommands. An installed `lexicon` symlink points at
+`lex` for compatibility. The popup is a separate Go module so the core build
+never needs WebKitGTK.
+
+## Package boundaries
+
+- `internal/paths` resolves XDG locations and rejects an unset
+  `XDG_RUNTIME_DIR` rather than falling back to a world-writable directory.
+- `internal/config` defines the typed TOML schema, defaults, validation, atomic
+  writes, and dotted-key access used by `lex config`.
+- `internal/dictionary` normalizes lookup text and reads a SQLite dictionary
+  read-only. The schema is probed once at open time; optional columns and tables
+  are handled without failing the whole lookup.
+- `internal/selection` defines a `Provider` with an injected `Runner`. The only
+  current implementation invokes `wl-paste --primary --no-newline` without a
+  shell, with a timeout, output cap, UTF-8 validation, and rune limit.
+- `internal/translation` resolves model packs and delegates to an engine. The
+  default engine reports unavailability; the `bergamot` build tag selects a C++
+  bridge kept in `internal/translation/bergamotengine`.
+- `internal/ipc` owns the wire protocol, framing, single-instance socket lock,
+  request multiplexing, subscriptions, event replay, and lookup fan-out.
+- `internal/daemon` wires the above together and implements the IPC handler.
+- `internal/systemd` renders, installs, and enables the user unit through
+  `systemctl --user`. Service lifecycle itself stays with systemctl.
+- `internal/cli` contains no dictionary logic; it parses commands and calls the
+  same packages the daemon uses.
+- `internal/installer` composes config, dictionary validation, file copying, and
+  systemd installation. It prompts through injected streams.
+
+## Lookup flow
+
+1. A CLI lookup opens a socket connection, sends a versioned `hello`, then a
+   `lookup` request. An empty request text means "read the primary selection".
+2. The daemon selects text if needed, normalizes it, and enforces
+   `general.max_query_words` and `general.max_query_chars`.
+3. The dictionary store tries the headword, transliteration, and inflected form
+   in that order. Definitions are read in `sense_order, id` order.
+4. If translation is enabled, available, and the source/target languages differ,
+   the daemon attempts a best-effort translation. A translation failure is
+   reported separately and never discards the definition.
+5. The daemon replies to the requester, remembers found results for replay, and
+   broadcasts a lookup event to subscribed popups.
+6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
+   launch `lexicon-popup` at most once every two seconds. The popup connects,
+   receives the replayed result, and displays it.
+
+The daemon logs whether a lookup succeeded, query length, duration, and error
+class. It does not log the query or the selection.
+
+## Concurrency and reload
+
+`Daemon` holds a read/write mutex around the mutable resources: configuration,
+dictionary store, selection provider, and translation service. A lookup holds
+the read lock for its entire duration. `reload` builds new resources first, then
+swaps them under the write lock and closes the old ones.
+
+- If rebuilding fails, the old configuration remains active and the IPC caller
+  receives an error.
+- `daemon.socket` cannot change at runtime; the CLI reports that a restart is
+  required.
+- The SQLite store uses one open connection to serialize reads and avoid
+  surprising locking behavior while another process updates the file.
+- The IPC server serializes writes per connection and multiplexes request IDs on
+  the client side. A popup's event channel keeps the newest result if the
+  frontend is slow.
+
+## IPC and security
+
+The socket lives in `$XDG_RUNTIME_DIR/lexicon`, created mode `0700`, with the
+socket mode `0600`. A sibling lock file (`daemon.sock.lock`) is held with
+`flock` for the daemon lifetime, so a second daemon fails cleanly; stale sockets
+are removed only after the lock is held. Non-socket paths are never replaced.
+
+Messages are newline-delimited JSON with a protocol version and a 1 MiB frame
+cap. The server requires a `hello` within five seconds and accepts only known
+client roles. Details are in [IPC.md](IPC.md).
+
+## Process and lifecycle model
+
+- The daemon has no custom supervisor or lifecycle subcommands. systemd owns the
+  process: `systemctl --user start|stop|restart|status lexicon.service` and
+  `journalctl --user -u lexicon.service`.
+- The installer writes a user unit under
+  `$XDG_CONFIG_HOME/systemd/user/lexicon.service` and enables it. The unit is
+  sandboxed with `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`,
+  `ProtectHome=read-only`, and a writable runtime directory.
+- The popup is a normal child process launched with an explicit `--socket` and
+  `--config`, so a daemon started with a custom configuration reaches the
+  matching instance.
+- The popup starts hidden. It shows on a replayed or live lookup result, or
+  after a short idle delay when launched manually. It hides on window close,
+  blur (config-gated), or Escape.
+
+## Build split
+
+Core (`go test ./...`, `go build ./cmd/...`) has no CGO or desktop dependency.
+The popup module adds Wails v3 and WebKitGTK. The Makefile picks `-tags gtk3`
+when WebKitGTK 6.0 is absent but WebKitGTK 4.1 and GTK 3 are present.
+
+The optional Bergamot engine is the only other native boundary. It is isolated
+in a C++ translation unit exposing opaque handles and C strings; C++ exceptions
+and types never cross into Go. Only the daemon links it, through the `bergamot`
+build tag (`make DAEMON_GO_TAGS=bergamot core`); the CLI and installer never
+need the Bergamot library.
+
+## Deliberate non-goals
+
+The rewrite does not add a generic RPC framework, a second configuration
+format, a plugin system, a dictionary engine, a model downloader, a settings UI,
+or automatic shortcut registration. These would expand the trusted and native
+surface without being required for selection lookup.
+
+Deferred work and open maintainer decisions are tracked in the local, git-ignored
+`plan/` directory and summarized in the project handoff report.
