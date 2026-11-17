@@ -65,11 +65,35 @@ falls back to `npm install`.
 ## Run the installer
 
 ```sh
-lexicon-installer                 # uses a packaged dictionary when present
+lexicon-installer                 # interactive TUI; uses a packaged dictionary
 lexicon-installer --dictionary /path/to/en.sqlite
+lexicon-installer --yes           # non-interactive, accept the flag values
 ```
 
-Flags:
+In a terminal, `lexicon-installer` opens a keyboard-driven wizard:
+
+1. **Welcome** — what the wizard will do.
+2. **Preflight** — Wayland session, `wl-paste`, `systemctl`, writable config and
+   data directories, the daemon and popup binaries, and a readable dictionary.
+   Failures block installation; warnings do not.
+3. **Install paths** — the configuration file to write.
+4. **Dictionary** — a packaged dictionary is used in place; a local `.sqlite`
+   file is validated and copied to `$XDG_DATA_HOME/lexicon/dictionary.sqlite`.
+5. **Languages** — headword and definition tags, with optional translation.
+6. **Service** — install and start the systemd user service when it is available.
+7. **Summary** — every resolved action, including warnings and notes.
+8. **Progress and completion** — each step is reported, and failures roll back
+   the configuration, dictionary, and unit file before showing the error.
+
+Keys are shown at the bottom of each screen: `enter` advances, `esc` goes back,
+and `q` quits. `ctrl+c` is ignored while files are being installed so an
+in-progress copy is not interrupted.
+
+If a configuration already exists, the wizard offers to keep it and repair the
+service, replace it with new settings, or cancel. Keeping it never rewrites the
+file.
+
+### Flags
 
 | Flag | Meaning |
 | --- | --- |
@@ -78,34 +102,31 @@ Flags:
 | `--dictionary-url URL` | Explicit HTTPS dictionary asset (requires `--dictionary-sha256`) |
 | `--dictionary-sha256 HEX` | Expected SHA-256 of the local or downloaded dictionary |
 | `--daemon PATH` | `lexicon-daemon` binary used in the systemd unit |
+| `--model-dir PATH` | Translation model directory (default `$XDG_DATA_HOME/lexicon/models`) |
 | `--source-lang TAG` | Headword language (default `en`) |
 | `--target-lang TAG` | Definition language (default `en`) |
 | `--translation` | Enable translation in the config |
-| `--no-service` | Do not install a systemd unit |
-| `--force` | Replace an existing config or installed dictionary |
-| `--yes` | Accept defaults without prompting |
+| `--no-service` | Do not install a systemd unit (`--skip-service` is an alias) |
+| `--force` | Replace an existing config, dictionary, or unit |
+| `--yes` | Run without the TUI and accept the flag values |
 | `--dry-run` | Print the resolved plan and change nothing |
 
-The installer:
-
-1. looks for a packaged dictionary under `/usr/share/lexicon` and
-   `/usr/local/share/lexicon`; when `manifest.json` is present, its size and
-   SHA-256 must match before the copy is used;
-2. validates the dictionary by opening it read-only, checking the `entries`
-   schema, and reading `dictionary_info`;
-3. writes `$XDG_CONFIG_HOME/lexicon/config.toml`;
-4. references a packaged dictionary in place; an explicit local file is copied
-   to `$XDG_DATA_HOME/lexicon/dictionary.sqlite` unless it is already there or a
-   target exists without `--force`;
-5. writes a user unit to `$XDG_CONFIG_HOME/systemd/user/lexicon.service`, runs
-   `systemctl --user daemon-reload`, and enables/starts it when `systemctl` and
-   the `lexicon-daemon` binary are available.
+`--yes` and `--dry-run` always use the non-interactive text output. Running
+without either flag when stdin is not a terminal is an error, so scripts must
+choose one explicitly. `--dry-run` never downloads, writes, or starts anything.
 
 `--dictionary-url` is the only network path. It is never used implicitly,
 requires HTTPS and an explicit checksum, and is rejected with `--dry-run`
 because a dry run must not download anything.
 
-It never writes system-wide files.
+### Re-running
+
+The installer is idempotent. Without `--force` it keeps an existing
+configuration and dictionary, and it repairs a missing systemd unit. A unit that
+already exists is left in place but started again. Replacing any of these files
+requires `--force`.
+
+The installer never writes system-wide files.
 
 ## systemd user unit
 

@@ -97,6 +97,11 @@ func Enable(ctx context.Context) error {
 	return run(ctx, "enable", "--now", UnitName)
 }
 
+// Reload asks the user manager to re-read unit files.
+func Reload(ctx context.Context) error {
+	return run(ctx, "daemon-reload")
+}
+
 func run(ctx context.Context, args ...string) error {
 	path, err := exec.LookPath("systemctl")
 	if err != nil {

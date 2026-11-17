@@ -1,208 +1,182 @@
 # Lexicon
 
-Lexicon is an offline dictionary for Wayland desktops. It reads the current
-primary selection (the text you highlighted), looks it up in a local SQLite
-dictionary, and displays the result in a small popup or on the terminal.
+Lexicon is an offline dictionary for Wayland desktops. Highlight a word, press
+your shortcut, and read the definition in a small popup. Everything stays on
+your machine: no account, no network requests, and no telemetry.
 
-This repository is a from-scratch Go rewrite of the earlier C++/Qt application.
-It is intentionally smaller in scope:
+## What you get
 
-- a per-user daemon that owns the dictionary, selection provider, optional
-  translation engine, and Unix socket;
-- a CLI (`lex`) for lookups, configuration, and diagnostics;
-- a Wails v3 + React popup that only renders daemon results;
-- a terminal installer that writes user configuration and a systemd user unit.
+- **Look up the text you selected.** Lexicon reads the Wayland primary
+  selection, so the word you highlighted is the word it looks up.
+- **Definitions in a popup or the terminal.** Use `lex lookup` for a quick
+  answer, or let the popup appear next to your work.
+- **A real dictionary, included.** Release packages ship an English dictionary
+  built from WordNet 3.0, with pronunciations from the CMU Pronouncing
+  Dictionary.
+- **No background clutter.** One systemd user service does the work. There is no
+  tray icon, no settings window, and no global shortcut registration — you bind
+  the shortcut in your desktop, where it belongs.
+- **Optional offline translation.** Translation can be built in for language
+  pairs you have model packs for. It is off by default.
 
-The C++/Qt project is not part of this repository and is not required to build
-or run this one.
+Lexicon only reads the primary selection. It never reads or changes your
+clipboard.
 
-## Status
+## Install
 
-The core CLI, daemon, installer, and popup build and pass their test suites.
-The default build has no translation engine; Bergamot is an optional,
-unverified native build. Release packages bundle the English dictionary; the
-source checkout does not contain it.
+### From a package
 
-## How it works
+If your distribution provides a Lexicon package, install it with your package
+manager. The package includes the English dictionary and the systemd user
+service.
 
+### From source
+
+You need Go 1.27 or newer, `just`, Node.js 22 or newer, npm, `wl-clipboard`, and
+GTK/WebKit development packages for the popup. See
+[docs/INSTALL.md](docs/INSTALL.md) for distribution-specific package names.
+
+```sh
+git clone https://github.com/PandaX185/lexicon.git
+cd lexicon
+just build
+just install          # installs to ~/.local/bin
 ```
-primary selection ──wl-paste──┐
-                              ▼
-  lex lookup ──socket──► daemon ──► read-only SQLite dictionary
-                              │
-                              └──lookup event──► lexicon-popup (Wails/React)
+
+The source checkout does not contain the dictionary. Download `en.sqlite` from
+the [dictionary release](https://github.com/PandaX185/lexicon/releases/tag/dictionary-3.0)
+and pass it to the installer, or use a packaged copy.
+
+## Set up
+
+Run the installer once. It checks your system, writes the configuration,
+installs the dictionary, and starts the background service.
+
+```sh
+lexicon-installer
 ```
 
-The daemon owns the SQLite handle and exposes a small versioned NDJSON protocol
-over `$XDG_RUNTIME_DIR/lexicon/daemon.sock`. The popup subscribes; the CLI sends
-requests. Selected text is never logged.
+If the dictionary is not packaged, point the installer at the file you
+downloaded:
+
+```sh
+lexicon-installer --dictionary ~/Downloads/en.sqlite
+```
+
+Then let the systemd user service see your Wayland session, so the popup can
+open:
+
+```sh
+systemctl --user import-environment WAYLAND_DISPLAY
+systemctl --user restart lexicon.service
+```
+
+Check that everything is ready:
+
+```sh
+lex doctor
+```
+
+`lex doctor` reports the configuration, dictionary, selection backend, service,
+and popup. Fix anything marked `fail` before continuing.
+
+## Use it
+
+Look up a word you type:
+
+```sh
+lex lookup hello
+```
+
+Look up whatever you have highlighted:
+
+```sh
+lex lookup
+```
+
+Ask for machine-readable output:
+
+```sh
+lex lookup --json hello
+```
+
+To use the popup, bind `lex lookup` to a keyboard shortcut in your desktop's
+keyboard settings. Any shortcut works; Lexicon does not register one itself.
+
+### Everyday commands
+
+| Command | What it does |
+| --- | --- |
+| `lex lookup [word]` | Look up a word, or the current selection |
+| `lex lookup --json [word]` | Print the full result as JSON |
+| `lex doctor` | Check the installation and show what is wrong |
+| `lex config show` | Show the effective configuration |
+| `lex config set KEY VALUE` | Change one setting |
+| `lex config edit` | Edit the configuration file directly |
+| `lex version` | Show the version |
+
+### Service commands
+
+The background service is a normal systemd user unit:
+
+```sh
+systemctl --user status lexicon.service
+systemctl --user restart lexicon.service
+journalctl --user -u lexicon.service -f
+```
+
+## Configuration
+
+The installer writes `~/.config/lexicon/config.toml`. You can change settings
+with `lex config set` or by editing the file. Every key, its default, and its
+allowed range are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
+The dictionary lives in `~/.local/share/lexicon/dictionary.sqlite` unless a
+package provides it under `/usr/share/lexicon`, in which case Lexicon uses the
+packaged copy in place.
 
 ## Requirements
 
-- Linux with a Wayland session
-- Go 1.27 or newer
-- `just` for the build recipes
-- Node.js 22 or newer and npm (popup only)
-- `wl-clipboard` (`wl-paste`) for selection lookups
-- systemd user manager (optional, for the background service)
-- GTK 4 + WebKitGTK 6 **or** GTK 3 + WebKitGTK 4.1 development packages (popup
-  only; the justfile selects the matching Wails build tag)
+- A Wayland session (X11 is not supported)
+- `wl-clipboard` for reading the primary selection
+- systemd user manager for the background service (optional if you only use
+  `lex lookup` with explicit text)
+- An English dictionary: included in packages, or downloaded separately
 
-## Build and test
+## Troubleshooting
 
-```sh
-just core          # lex CLI, daemon, and installer; no WebKit dependency
-just build         # also builds the popup (frontend dependencies included)
-just test
-just lint
-just fmt-check
-```
-
-`just build` runs `npm ci` (or `npm install` when no lockfile exists), builds the
-Vite frontend, and then builds the Wails popup. Systems without
-`webkitgtk-6.0` but with `webkit2gtk-4.1` + GTK 3 automatically use
-`-tags gtk3`. Override the detection with:
+**The popup does not appear.** Give the user service your Wayland display and
+restart it:
 
 ```sh
-just popup_go_tags=gtk3 build-popup
+systemctl --user import-environment WAYLAND_DISPLAY
+systemctl --user restart lexicon.service
 ```
 
-Install binaries into `~/.local/bin` (override with `prefix=...` or `PREFIX`):
+Then check `journalctl --user -u lexicon.service` for errors.
 
-```sh
-just install
-```
+**`lex` says the daemon is not running.** Start the service with
+`systemctl --user start lexicon.service`, or run `lexicon-daemon` in a terminal
+to see its log.
 
-Run from the checkout without installing:
+**Selection lookups do nothing.** Install `wl-clipboard` and run `lex doctor`.
+Explicit lookups such as `lex lookup hello` still work without it.
 
-```sh
-just run-cli --help
-just run-cli lookup hello
-just run-daemon --config ~/.config/lexicon/config.toml
-just run-daemon-dev   # sample config, debug logging, isolated runtime
-just run-installer --dictionary /path/to/en.sqlite
-just run-popup
-```
+**The dictionary is missing.** Run `lex doctor`, then rerun the installer with
+`--dictionary /path/to/en.sqlite`.
 
-`just --list` shows every recipe, including the `lookup`, `doctor`, and `config`
-shortcuts.
+More help is in [docs/INSTALL.md](docs/INSTALL.md).
 
-## Quick start
+## Learn more
 
-1. Build and install the binaries.
-2. Run the installer. A distribution package places the dictionary under
-   `/usr/share/lexicon`; the installer verifies it and references it in place.
-   Otherwise pass a local file:
-
-   ```sh
-   lexicon-installer --dictionary /path/to/en.sqlite
-   ```
-
-   A local file is validated and copied to
-   `$XDG_DATA_HOME/lexicon/dictionary.sqlite`. The installer writes the TOML
-   configuration and optionally installs and starts `lexicon.service` as a
-   systemd user unit.
-
-3. Import the graphical environment into the user manager so the daemon can
-   launch the popup:
-
-   ```sh
-   systemctl --user import-environment WAYLAND_DISPLAY
-   ```
-
-4. Check the installation and start using it:
-
-   ```sh
-   lex doctor
-   systemctl --user status lexicon.service
-   lex lookup hello
-   lex lookup            # looks up the current primary selection
-   ```
-
-The daemon does not register a global shortcut. Bind `lex lookup` to a key in
-your compositor or desktop environment if you want one.
-
-## CLI
-
-```
-lex lookup [--json] [--timeout 60s] [text...]
-lex config show|get|set|reset|edit|path
-lex doctor
-lex version
-
-Global option:
-  --config PATH    configuration file
-```
-
-- `lookup` with no text reads the primary selection. `--json` prints the full
-  result envelope payload.
-- `config set KEY VALUE` validates and writes the canonical TOML file, then asks
-  a running daemon to reload. Changes to `daemon.socket` require a restart.
-- `doctor` checks the config, runtime directory, dictionary, `wl-paste`,
-  translation availability, daemon reachability, and popup binary.
-
-The daemon has no lifecycle subcommands. Use `systemctl --user
-start|stop|restart|status lexicon.service` and `journalctl --user -u
-lexicon.service`; the installer writes the unit and starts it.
-
-`bin/lexicon` is installed as a compatibility symlink to `lex`.
-
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for every key, its default,
-and its range.
-
-## Configuration and data locations
-
-| Purpose | Default |
-| --- | --- |
-| Configuration | `$XDG_CONFIG_HOME/lexicon/config.toml` (`~/.config/lexicon/config.toml`) |
-| Dictionary | `$XDG_DATA_HOME/lexicon/dictionary.sqlite` (`~/.local/share/lexicon/dictionary.sqlite`) |
-| Translation models | `$XDG_DATA_HOME/lexicon/models` |
-| Daemon socket | `$XDG_RUNTIME_DIR/lexicon/daemon.sock` |
-| systemd unit | `$XDG_CONFIG_HOME/systemd/user/lexicon.service` |
-
-`--config PATH` overrides the configuration path; `LEXICON_CONFIG` is also
-honored. A missing configuration file is not an error: built-in defaults apply
-until the installer or `lex config set` writes one.
-
-## Dictionary and translation
-
-The daemon reads the existing Lexicon SQLite v3 schema directly and opens it
-read-only. Lookup order is exact headword, transliteration, then inflected
-surface form, all case-insensitive. The reference dictionary is derived from
-WordNet 3.0 with pronunciation data from the CMU Pronouncing Dictionary. It is
-generated by `tools/dictgen` (`just dict-build`), treated as a release asset,
-and not committed here. See [docs/DICTIONARY.md](docs/DICTIONARY.md).
-
-Offline translation through Bergamot is compiled out by default. Enabling it
-requires rebuilding the daemon with `-tags bergamot` (for example `just
-daemon_go_tags=bergamot core`) and a Bergamot library, plus an installed model
-pack. This path is implemented but has not been built against a real Bergamot
-tree. See [docs/TRANSLATION.md](docs/TRANSLATION.md).
-
-## Limitations
-
-- Wayland only; primary selection only. The clipboard is never read.
-- No AT-SPI, OCR, clipboard simulation, application integrations, or global
-  shortcut registration.
-- No model downloader, updater, tray icon, or GUI settings.
-- `wl-paste` is the selection backend. A native `ext-data-control-v1` client is
-  deferred.
-- The source checkout ships no dictionary or translation model; release packages
-  bundle the English dictionary.
-
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [IPC protocol](docs/IPC.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Dictionary format](docs/DICTIONARY.md)
+- [Installation and service setup](docs/INSTALL.md)
+- [Configuration reference](docs/CONFIGURATION.md)
+- [Dictionary details](docs/DICTIONARY.md)
 - [Translation](docs/TRANSLATION.md)
-- [Installation and systemd](docs/INSTALL.md)
 - [Contributing](CONTRIBUTING.md)
-- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Security policy](SECURITY.md)
 
 ## License
 
-MIT. The dictionary content and any translation models keep their own licenses
-and attribution; see the metadata stored with those files.
+Lexicon is MIT licensed. The dictionary and translation models keep their own
+licenses and attribution; see the metadata stored with those files.

@@ -1,19 +1,18 @@
-// Package installer implements the interactive terminal setup wizard.
+// Package installer implements Lexicon's setup flow. Plan resolution and file
+// operations are independent of the terminal UI in the tui subpackage so they
+// can be tested without a terminal.
 package installer
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/PandaX185/lexicon/internal/dictionary"
@@ -21,13 +20,14 @@ import (
 	"github.com/PandaX185/lexicon/internal/systemd"
 )
 
-// Options carries flags and process streams.
+// Options carries command-line flags and process streams.
 type Options struct {
 	ConfigPath       string
 	Dictionary       string
 	DictionaryURL    string
 	DictionarySHA256 string
 	DaemonBinary     string
+	ModelDir         string
 	SourceLang       string
 	TargetLang       string
 	Translation      bool
@@ -47,22 +47,337 @@ type Options struct {
 	Stderr io.Writer
 }
 
+// Settings are the choices collected by the TUI. Non-interactive runs derive
+// them from Options.
+type Settings struct {
+	ConfigPath     string
+	Dictionary     string
+	ModelDir       string
+	SourceLang     string
+	TargetLang     string
+	Translation    bool
+	InstallService bool
+	ReplaceConfig  bool
+}
+
 // Plan is the resolved set of actions, also useful in dry-run mode.
 type Plan struct {
-	ConfigPath         string
+	ConfigPath   string
+	Config       config.Config
+	WriteConfig  bool
+	ConfigExists bool
+
 	DictionarySource   string
 	DictionaryTarget   string
 	DictionaryPackaged bool
 	DictionaryVersion  string
 	CopyDictionary     bool
-	UnitPath           string
-	Unit               string
-	InstallUnit        bool
-	EnableUnit         bool
+	DownloadURL        string
+	DownloadSHA256     string
+
+	UnitPath    string
+	Unit        string
+	InstallUnit bool
+	EnableUnit  bool
+
+	Checks []Check
+	Notes  []string
 }
 
-// Run performs the wizard and applies the plan.
+// FailedChecks returns the preflight failures that must block installation.
+func (p Plan) FailedChecks() []Check {
+	var failed []Check
+	for _, check := range p.Checks {
+		if check.Status == StatusFail {
+			failed = append(failed, check)
+		}
+	}
+	return failed
+}
+
+// Steps returns the apply steps in order, used for progress reporting.
+func (p Plan) Steps() []string {
+	var steps []string
+	if p.WriteConfig {
+		steps = append(steps, "Writing configuration")
+	}
+	if p.DownloadURL != "" {
+		steps = append(steps, "Downloading dictionary")
+	}
+	if p.CopyDictionary {
+		steps = append(steps, "Installing dictionary")
+	}
+	if p.InstallUnit {
+		steps = append(steps, "Installing systemd unit")
+	}
+	if p.EnableUnit {
+		steps = append(steps, "Starting service")
+	}
+	return steps
+}
+
+// BuildPlan validates options and settings and resolves every filesystem
+// action without changing anything.
+func BuildPlan(ctx context.Context, options Options, settings Settings) (Plan, error) {
+	plan := Plan{Checks: CheckEnvironment(ctx, options)}
+
+	configPath := firstNonEmpty(settings.ConfigPath, options.ConfigPath)
+	if configPath == "" {
+		resolved, err := paths.ConfigPath()
+		if err != nil {
+			return plan, err
+		}
+		configPath = resolved
+	}
+	configPath, err := paths.ExpandHome(configPath)
+	if err != nil {
+		return plan, err
+	}
+	plan.ConfigPath = configPath
+
+	sourceLang := firstNonEmpty(settings.SourceLang, options.SourceLang, "en")
+	targetLang := firstNonEmpty(settings.TargetLang, options.TargetLang, "en")
+
+	existing, exists, err := config.Load(configPath)
+	if err != nil {
+		return plan, fmt.Errorf("read existing configuration: %w", err)
+	}
+	plan.ConfigExists = exists
+	replaceConfig := options.Force || settings.ReplaceConfig
+
+	if exists && !replaceConfig {
+		plan.Config = config.Effective(existing)
+		plan.WriteConfig = false
+		plan.Notes = append(plan.Notes, "existing configuration kept; use --force to replace it")
+		plan.DictionaryTarget = plan.Config.Dictionary.DatabasePath
+		plan.Checks = replaceCheck(plan.Checks, dictionaryCheck(ctx, plan.DictionaryTarget, false))
+	} else {
+		plan.WriteConfig = true
+		resolution, err := resolveDictionary(ctx, options, settings)
+		if err != nil {
+			return plan, err
+		}
+		plan.DictionarySource = resolution.source
+		plan.DictionaryTarget = resolution.target
+		plan.DictionaryPackaged = resolution.packaged
+		plan.DictionaryVersion = resolution.version
+		plan.CopyDictionary = resolution.copy
+		plan.DownloadURL = resolution.downloadURL
+		plan.DownloadSHA256 = resolution.downloadSHA256
+		plan.Checks = replaceCheck(plan.Checks, resolution.check)
+		if resolution.note != "" {
+			plan.Notes = append(plan.Notes, resolution.note)
+		}
+
+		cfg := config.Default()
+		cfg.Dictionary.DatabasePath = plan.DictionaryTarget
+		cfg.Dictionary.SourceLanguage = strings.TrimSpace(sourceLang)
+		cfg.Dictionary.TargetLanguage = strings.TrimSpace(targetLang)
+		cfg.Translation.Enabled = settings.Translation
+		if modelDir := firstNonEmpty(settings.ModelDir, options.ModelDir); modelDir != "" {
+			expanded, err := paths.ExpandHome(modelDir)
+			if err != nil {
+				return plan, fmt.Errorf("resolve model directory: %w", err)
+			}
+			cfg.Translation.ModelDirectory = expanded
+		}
+		if err := cfg.Validate(); err != nil {
+			return plan, err
+		}
+		plan.Config = cfg
+	}
+
+	plan.InstallUnit, plan.EnableUnit, plan.UnitPath, plan.Unit, err = resolveService(options, settings, configPath)
+	if err != nil {
+		return plan, err
+	}
+	if plan.InstallUnit {
+		plan.Notes = append(plan.Notes, "systemd unit will be written to "+plan.UnitPath)
+	}
+	return plan, nil
+}
+
+type dictionaryResolution struct {
+	source         string
+	target         string
+	packaged       bool
+	version        string
+	copy           bool
+	downloadURL    string
+	downloadSHA256 string
+	check          Check
+	note           string
+}
+
+func resolveDictionary(ctx context.Context, options Options, settings Settings) (dictionaryResolution, error) {
+	var result dictionaryResolution
+	target, err := paths.DefaultDictionaryPath()
+	if err != nil {
+		return result, err
+	}
+	result.target = target
+
+	var packaged *packagedDictionary
+	if options.DictionaryURL == "" {
+		discovered, findErr := findPackagedDictionary(searchDirs(options))
+		switch {
+		case findErr != nil && settings.Dictionary == "":
+			return result, findErr
+		case findErr == nil:
+			packaged = discovered
+		}
+		// An explicit dictionary wins over a broken package; preflight still
+		// reports the package problem.
+	}
+
+	switch {
+	case options.DictionaryURL != "":
+		if settings.Dictionary != "" {
+			return result, errors.New("--dictionary and --dictionary-url are mutually exclusive")
+		}
+		if options.DryRun {
+			return result, errors.New("--dry-run cannot verify --dictionary-url; download the file first")
+		}
+		if strings.TrimSpace(options.DictionarySHA256) == "" {
+			return result, errors.New("--dictionary-url requires --dictionary-sha256")
+		}
+		result.source = options.DictionaryURL
+		result.downloadURL = options.DictionaryURL
+		result.downloadSHA256 = options.DictionarySHA256
+		result.copy = true
+		result.check = Check{Name: "dictionary", Status: StatusWarn, Detail: "will be downloaded from " + options.DictionaryURL}
+		return result, nil
+
+	case settings.Dictionary != "":
+		source, err := paths.ExpandHome(settings.Dictionary)
+		if err != nil {
+			return result, err
+		}
+		if err := validateDictionary(ctx, source); err != nil {
+			return result, fmt.Errorf("dictionary %s: %w", source, err)
+		}
+		if options.DictionarySHA256 != "" {
+			if err := dictionary.VerifySHA256(source, options.DictionarySHA256); err != nil {
+				return result, fmt.Errorf("dictionary %s: %w", source, err)
+			}
+		}
+		result.source = source
+		if packaged != nil && samePath(source, packaged.path) {
+			result.packaged = true
+			result.target = packaged.path
+			if packaged.manifest != nil {
+				result.version = packaged.manifest.Version
+			}
+			result.check = Check{Name: "dictionary", Status: StatusOK, Detail: packagedDetail(result.target, result.version, true)}
+			return result, nil
+		}
+		result.copy = true
+		if info, err := os.Stat(target); err == nil && info.Mode().IsRegular() && !options.Force {
+			result.copy = false
+			result.note = "keeping existing dictionary at " + target
+		}
+		result.check = Check{Name: "dictionary", Status: StatusOK, Detail: source}
+		return result, nil
+
+	case packaged != nil:
+		result.source = packaged.path
+		result.target = packaged.path
+		result.packaged = true
+		if packaged.manifest != nil {
+			result.version = packaged.manifest.Version
+		}
+		result.check = Check{Name: "dictionary", Status: StatusOK, Detail: packagedDetail(result.target, result.version, true)}
+		return result, nil
+
+	default:
+		result.check = Check{Name: "dictionary", Status: StatusWarn, Detail: "no dictionary found; configure one later with lex config set"}
+		result.note = "no dictionary configured; lookups will fail until one is installed"
+		return result, nil
+	}
+}
+
+func resolveService(options Options, settings Settings, configPath string) (install, enable bool, unitPath, unit string, err error) {
+	if !settings.InstallService {
+		return false, false, "", "", nil
+	}
+	daemonBinary := findDaemonBinary(options.DaemonBinary)
+	if daemonBinary == "" {
+		return false, false, "", "", nil
+	}
+	if _, lookErr := exec.LookPath("systemctl"); lookErr != nil {
+		// The service is optional, so a missing systemctl is not an error.
+		return false, false, "", "", nil //nolint:nilerr // service is optional
+	}
+	unitPath, err = systemd.UnitPath()
+	if err != nil {
+		return false, false, "", "", err
+	}
+	unit = systemd.RenderUnit(daemonBinary, configPath)
+	if info, statErr := os.Stat(unitPath); statErr == nil && info.Mode().IsRegular() && !options.Force {
+		return false, true, unitPath, unit, nil
+	} else if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+		return false, false, "", "", fmt.Errorf("inspect systemd unit %s: %w", unitPath, statErr)
+	}
+	return true, true, unitPath, unit, nil
+}
+
+func dictionaryCheck(ctx context.Context, path string, packaged bool) Check {
+	if strings.TrimSpace(path) == "" {
+		return Check{Name: "dictionary", Status: StatusWarn, Detail: "no dictionary configured"}
+	}
+	if err := validateDictionary(ctx, path); err != nil {
+		return Check{Name: "dictionary", Status: StatusFail, Detail: path + ": " + err.Error()}
+	}
+	return Check{Name: "dictionary", Status: StatusOK, Detail: packagedDetail(path, "", packaged)}
+}
+
+func packagedDetail(path, version string, packaged bool) string {
+	detail := path
+	if packaged {
+		detail += " (packaged"
+		if version != "" {
+			detail += " " + version
+		}
+		detail += ")"
+	}
+	return detail
+}
+
+// Run performs a non-interactive installation using the flag values.
 func Run(ctx context.Context, options Options) error {
+	options = withDefaults(options)
+	settings := Settings{
+		ConfigPath:     options.ConfigPath,
+		Dictionary:     options.Dictionary,
+		ModelDir:       options.ModelDir,
+		SourceLang:     options.SourceLang,
+		TargetLang:     options.TargetLang,
+		Translation:    options.Translation,
+		InstallService: !options.SkipService,
+		ReplaceConfig:  options.Force,
+	}
+
+	plan, err := BuildPlan(ctx, options, settings)
+	if err != nil {
+		return err
+	}
+	WriteChecks(options.Stdout, plan.Checks)
+	WriteSummary(options.Stdout, plan)
+	if options.DryRun {
+		fmt.Fprintln(options.Stdout, "\nDry run: no changes were made.")
+		return nil
+	}
+	if failed := plan.FailedChecks(); len(failed) > 0 {
+		return fmt.Errorf("preflight failed: %s", failed[0].Name+": "+failed[0].Detail)
+	}
+	if err := Apply(ctx, plan, textReporter(options.Stdout)); err != nil {
+		return err
+	}
+	WriteNextSteps(options.Stdout, plan)
+	return nil
+}
+
+func withDefaults(options Options) Options {
 	if options.Stdin == nil {
 		options.Stdin = os.Stdin
 	}
@@ -73,11 +388,9 @@ func Run(ctx context.Context, options Options) error {
 		options.Stderr = os.Stderr
 	}
 	if options.ConfigPath == "" {
-		resolved, err := paths.ConfigPath()
-		if err != nil {
-			return err
+		if resolved, err := paths.ConfigPath(); err == nil {
+			options.ConfigPath = resolved
 		}
-		options.ConfigPath = resolved
 	}
 	if options.SourceLang == "" {
 		options.SourceLang = "en"
@@ -85,407 +398,29 @@ func Run(ctx context.Context, options Options) error {
 	if options.TargetLang == "" {
 		options.TargetLang = "en"
 	}
-
-	prompter := newPrompter(options.Stdin, options.Stdout)
-	fmt.Fprintln(options.Stdout, "Lexicon installer")
-	fmt.Fprintln(options.Stdout, "This writes user configuration; it does not modify system files.")
-	fmt.Fprintln(options.Stdout)
-
-	if _, err := os.Stat(options.ConfigPath); err == nil && !options.Force {
-		replace, err := prompter.confirm("Configuration already exists at "+options.ConfigPath+". Replace it?", false, options.Yes)
-		if err != nil {
-			return err
-		}
-		if !replace {
-			fmt.Fprintln(options.Stdout, "Nothing changed.")
-			return nil
-		}
-	}
-
-	dictionarySource, downloadedPath, packaged, err := resolveDictionarySource(ctx, options, prompter)
-	if err != nil {
-		return err
-	}
-	if downloadedPath != "" {
-		defer func() { _ = os.Remove(downloadedPath) }()
-	}
-	dictionaryTarget, err := paths.DefaultDictionaryPath()
-	if err != nil {
-		return err
-	}
-	packagedPath := ""
-	if packaged != nil {
-		packagedPath = packaged.path
-	}
-	usePackaged := packagedPath != "" && samePath(dictionarySource, packagedPath)
-	if usePackaged {
-		dictionaryTarget = packagedPath
-	}
-
-	sourceLang, err := prompter.ask("Headword language (BCP 47)", options.SourceLang, options.Yes)
-	if err != nil {
-		return err
-	}
-	targetLang, err := prompter.ask("Definition language (BCP 47)", options.TargetLang, options.Yes)
-	if err != nil {
-		return err
-	}
-
-	translation := options.Translation
-	if !options.Yes {
-		translation, err = prompter.confirm("Enable offline Bergamot translation when languages differ?", options.Translation, false)
-		if err != nil {
-			return err
-		}
-	}
-
-	installService := !options.SkipService
-	if installService && !options.Yes {
-		installService, err = prompter.confirm("Install the systemd user service?", true, false)
-		if err != nil {
-			return err
-		}
-	}
-	if installService {
-		if _, err := exec.LookPath("systemctl"); err != nil {
-			fmt.Fprintln(options.Stderr, "warning: systemctl not found; skipping the service unit")
-			installService = false
-		}
-	}
-
-	daemonBinary := findDaemonBinary(options.DaemonBinary)
-	if installService && daemonBinary == "" {
-		fmt.Fprintln(options.Stderr, "warning: lexicon-daemon binary not found; skipping the service unit")
-		installService = false
-	}
-
-	cfg := config.Default()
-	cfg.Dictionary.DatabasePath = dictionaryTarget
-	cfg.Dictionary.SourceLanguage = strings.TrimSpace(sourceLang)
-	cfg.Dictionary.TargetLanguage = strings.TrimSpace(targetLang)
-	cfg.Translation.Enabled = translation
-
-	plan := Plan{
-		ConfigPath:         options.ConfigPath,
-		DictionarySource:   dictionarySource,
-		DictionaryTarget:   dictionaryTarget,
-		DictionaryPackaged: usePackaged,
-		CopyDictionary:     dictionarySource != "" && !usePackaged && !samePath(dictionarySource, dictionaryTarget),
-		InstallUnit:        installService,
-		EnableUnit:         installService,
-	}
-	if usePackaged && packaged.manifest != nil {
-		plan.DictionaryVersion = packaged.manifest.Version
-	}
-	if plan.CopyDictionary {
-		if info, err := os.Stat(dictionaryTarget); err == nil && info.Mode().IsRegular() && !options.Force {
-			plan.CopyDictionary = false
-			fmt.Fprintf(options.Stderr, "note: keeping existing dictionary at %s\n", dictionaryTarget)
-		}
-	}
-	if installService {
-		unitPath, err := systemd.UnitPath()
-		if err != nil {
-			return err
-		}
-		plan.UnitPath = unitPath
-		plan.Unit = systemd.RenderUnit(daemonBinary, options.ConfigPath)
-	}
-
-	fmt.Fprintln(options.Stdout)
-	fmt.Fprintln(options.Stdout, "Summary")
-	fmt.Fprintf(options.Stdout, "  config:      %s\n", plan.ConfigPath)
-	switch {
-	case plan.DictionaryPackaged:
-		version := ""
-		if plan.DictionaryVersion != "" {
-			version = " " + plan.DictionaryVersion
-		}
-		fmt.Fprintf(options.Stdout, "  dictionary:  %s (packaged%s, no copy)\n", plan.DictionaryTarget, version)
-	case plan.CopyDictionary:
-		fmt.Fprintf(options.Stdout, "  dictionary:  %s -> %s\n", plan.DictionarySource, plan.DictionaryTarget)
-	case dictionarySource != "":
-		fmt.Fprintf(options.Stdout, "  dictionary:  %s (unchanged)\n", plan.DictionaryTarget)
-	default:
-		fmt.Fprintf(options.Stdout, "  dictionary:  %s (to be provided)\n", plan.DictionaryTarget)
-	}
-	fmt.Fprintf(options.Stdout, "  languages:   %s -> %s\n", cfg.Dictionary.SourceLanguage, cfg.Dictionary.TargetLanguage)
-	fmt.Fprintf(options.Stdout, "  translation: %t\n", cfg.Translation.Enabled)
-	if plan.InstallUnit {
-		fmt.Fprintf(options.Stdout, "  service:     %s\n", plan.UnitPath)
-	} else {
-		fmt.Fprintln(options.Stdout, "  service:     not installed")
-	}
-	if options.DryRun {
-		fmt.Fprintln(options.Stdout, "\nDry run: no changes were made.")
-		return nil
-	}
-
-	confirmed, err := prompter.confirm("Apply this configuration?", true, options.Yes)
-	if err != nil {
-		return err
-	}
-	if !confirmed {
-		fmt.Fprintln(options.Stdout, "Nothing changed.")
-		return nil
-	}
-
-	if err := apply(ctx, plan, cfg, options); err != nil {
-		return err
-	}
-
-	fmt.Fprintln(options.Stdout)
-	fmt.Fprintln(options.Stdout, "Installed.")
-	fmt.Fprintln(options.Stdout, "Next steps:")
-	fmt.Fprintln(options.Stdout, "  lex doctor")
-	switch {
-	case plan.InstallUnit:
-		fmt.Fprintln(options.Stdout, "  systemctl --user status lexicon.service")
-	case daemonBinary != "":
-		fmt.Fprintf(options.Stdout, "  %s --config %s\n", daemonBinary, options.ConfigPath)
-	default:
-		fmt.Fprintln(options.Stdout, "  lexicon-daemon --config "+options.ConfigPath)
-	}
-	fmt.Fprintln(options.Stdout, "  systemctl --user import-environment WAYLAND_DISPLAY   # for popup auto-launch")
-	return nil
+	return options
 }
 
-func apply(ctx context.Context, plan Plan, cfg config.Config, options Options) error {
-	if err := config.Write(plan.ConfigPath, cfg); err != nil {
-		return fmt.Errorf("write config: %w", err)
+func searchDirs(options Options) []string {
+	if options.DictionarySearchDirs != nil {
+		return options.DictionarySearchDirs
 	}
-	fmt.Fprintf(options.Stdout, "wrote %s\n", plan.ConfigPath)
-
-	if plan.CopyDictionary {
-		if err := copyFile(plan.DictionarySource, plan.DictionaryTarget); err != nil {
-			return fmt.Errorf("copy dictionary: %w", err)
-		}
-		fmt.Fprintf(options.Stdout, "copied dictionary to %s\n", plan.DictionaryTarget)
-	}
-
-	if plan.InstallUnit {
-		if err := systemd.Install(ctx, plan.UnitPath, plan.Unit); err != nil {
-			return err
-		}
-		fmt.Fprintf(options.Stdout, "installed %s\n", plan.UnitPath)
-		if plan.EnableUnit {
-			if err := systemd.Enable(ctx); err != nil {
-				return fmt.Errorf("enable service: %w", err)
-			}
-			fmt.Fprintln(options.Stdout, "enabled and started lexicon.service")
-		}
-	}
-	return nil
+	return paths.PackagedDictionaryDirs()
 }
 
-type packagedDictionary struct {
-	path     string
-	manifest *dictionary.Manifest
+func textReporter(w io.Writer) Reporter {
+	return func(progress Progress) {
+		fmt.Fprintf(w, "  [%d/%d] %s\n", progress.Index, progress.Total, progress.Step)
+	}
 }
 
-// resolveDictionarySource selects the dictionary the user asked for, falling
-// back to a distribution-installed copy. It only uses the network when
-// --dictionary-url was passed explicitly.
-func resolveDictionarySource(ctx context.Context, options Options, prompter *prompter) (source, downloadedPath string, packaged *packagedDictionary, err error) {
-	if options.Dictionary == "" && options.DictionaryURL == "" {
-		searchDirs := options.DictionarySearchDirs
-		if searchDirs == nil {
-			searchDirs = paths.PackagedDictionaryDirs()
-		}
-		packaged, err = findPackagedDictionary(searchDirs)
-		if err != nil {
-			return "", "", nil, err
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
 		}
 	}
-
-	if options.DictionaryURL != "" {
-		if options.Dictionary != "" {
-			return "", "", nil, errors.New("--dictionary and --dictionary-url are mutually exclusive")
-		}
-		if options.DryRun {
-			return "", "", nil, errors.New("--dry-run cannot verify --dictionary-url; download the file first")
-		}
-		downloadedPath, err = downloadDictionary(ctx, options)
-		if err != nil {
-			return "", "", nil, err
-		}
-	}
-
-	defaultSource := options.Dictionary
-	switch {
-	case downloadedPath != "":
-		defaultSource = downloadedPath
-	case defaultSource == "" && packaged != nil:
-		defaultSource = packaged.path
-	}
-	source, err = prompter.ask("Dictionary .sqlite path (leave empty to configure later)", defaultSource, options.Yes)
-	if err != nil {
-		return "", "", nil, err
-	}
-	if source == "" {
-		return "", downloadedPath, packaged, nil
-	}
-	source, err = paths.ExpandHome(source)
-	if err != nil {
-		return "", "", nil, err
-	}
-	if err := validateDictionary(ctx, source); err != nil {
-		return "", "", nil, fmt.Errorf("dictionary %s: %w", source, err)
-	}
-	if options.DictionarySHA256 != "" {
-		if err := dictionary.VerifySHA256(source, options.DictionarySHA256); err != nil {
-			return "", "", nil, fmt.Errorf("dictionary %s: %w", source, err)
-		}
-	}
-	return source, downloadedPath, packaged, nil
-}
-
-// findPackagedDictionary returns the first distribution-installed dictionary.
-// When a manifest is present its size and checksum must match; a broken package
-// is an error rather than a silent fallback.
-func findPackagedDictionary(dirs []string) (*packagedDictionary, error) {
-	for _, dir := range dirs {
-		path := filepath.Join(dir, "en.sqlite")
-		info, err := os.Stat(path)
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			continue
-		case err != nil:
-			return nil, fmt.Errorf("inspect packaged dictionary %s: %w", path, err)
-		case !info.Mode().IsRegular():
-			continue
-		}
-		manifest, err := dictionary.ReadManifest(filepath.Join(dir, "manifest.json"))
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			return &packagedDictionary{path: path}, nil
-		case err != nil:
-			return nil, fmt.Errorf("read packaged dictionary manifest: %w", err)
-		}
-		if err := manifest.Verify(path); err != nil {
-			return nil, fmt.Errorf("verify packaged dictionary %s: %w", path, err)
-		}
-		return &packagedDictionary{path: path, manifest: &manifest}, nil
-	}
-	return nil, nil
-}
-
-// downloadDictionary fetches an explicit --dictionary-url into a temporary file
-// and verifies its checksum before anything is installed.
-func downloadDictionary(ctx context.Context, options Options) (string, error) {
-	if strings.TrimSpace(options.DictionarySHA256) == "" {
-		return "", errors.New("--dictionary-url requires --dictionary-sha256")
-	}
-	parsed, err := url.Parse(options.DictionaryURL)
-	if err != nil {
-		return "", fmt.Errorf("parse --dictionary-url: %w", err)
-	}
-	if parsed.Scheme != "https" {
-		return "", errors.New("--dictionary-url must use https")
-	}
-
-	client := options.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: 5 * time.Minute}
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, options.DictionaryURL, nil)
-	if err != nil {
-		return "", err
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		return "", fmt.Errorf("download dictionary: %w", err)
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download dictionary: %s", response.Status)
-	}
-
-	temp, err := os.CreateTemp("", "lexicon-dictionary-*.sqlite")
-	if err != nil {
-		return "", err
-	}
-	tempName := temp.Name()
-	fail := func(cause error) (string, error) {
-		_ = temp.Close()
-		_ = os.Remove(tempName)
-		return "", cause
-	}
-
-	const maxBytes = 512 << 20
-	written, err := io.Copy(temp, io.LimitReader(response.Body, maxBytes+1))
-	if err != nil {
-		return fail(fmt.Errorf("download dictionary: %w", err))
-	}
-	if written > maxBytes {
-		return fail(errors.New("downloaded dictionary exceeds 512 MiB"))
-	}
-	if err := temp.Sync(); err != nil {
-		return fail(err)
-	}
-	if err := temp.Close(); err != nil {
-		_ = os.Remove(tempName)
-		return "", err
-	}
-	if err := dictionary.VerifySHA256(tempName, options.DictionarySHA256); err != nil {
-		_ = os.Remove(tempName)
-		return "", fmt.Errorf("downloaded dictionary: %w", err)
-	}
-	return tempName, nil
-}
-
-func validateDictionary(ctx context.Context, path string) error {
-	store, err := dictionary.Open(path)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = store.Close() }()
-	if err := store.ValidateLookupSchema(); err != nil {
-		return err
-	}
-	info, err := store.Describe(ctx)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(info.Name) == "" {
-		return errors.New("dictionary metadata has no name")
-	}
-	return nil
-}
-
-func copyFile(source, target string) error {
-	//nolint:gosec // source is the dictionary path chosen by the installer user
-	input, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = input.Close() }()
-
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		return err
-	}
-	temp, err := os.CreateTemp(filepath.Dir(target), ".dictionary-*.tmp")
-	if err != nil {
-		return err
-	}
-	tempName := temp.Name()
-	defer func() { _ = os.Remove(tempName) }()
-
-	if _, err := io.Copy(temp, input); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(tempName, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tempName, target)
+	return ""
 }
 
 func findDaemonBinary(explicit string) string {
@@ -508,62 +443,4 @@ func samePath(left, right string) bool {
 	leftAbs, leftErr := filepath.Abs(left)
 	rightAbs, rightErr := filepath.Abs(right)
 	return leftErr == nil && rightErr == nil && leftAbs == rightAbs
-}
-
-type prompter struct {
-	reader *bufio.Reader
-	out    io.Writer
-}
-
-func newPrompter(in io.Reader, out io.Writer) *prompter {
-	return &prompter{reader: bufio.NewReader(in), out: out}
-}
-
-func (p *prompter) ask(label, defaultValue string, nonInteractive bool) (string, error) {
-	if nonInteractive {
-		return defaultValue, nil
-	}
-	if defaultValue != "" {
-		fmt.Fprintf(p.out, "%s [%s]: ", label, defaultValue)
-	} else {
-		fmt.Fprintf(p.out, "%s: ", label)
-	}
-	answer, err := p.reader.ReadString('\n')
-	if err != nil && answer == "" {
-		if errors.Is(err, io.EOF) {
-			return defaultValue, nil
-		}
-		return "", err
-	}
-	answer = strings.TrimSpace(answer)
-	if answer == "" {
-		return defaultValue, nil
-	}
-	return answer, nil
-}
-
-func (p *prompter) confirm(label string, defaultValue, nonInteractive bool) (bool, error) {
-	if nonInteractive {
-		return defaultValue, nil
-	}
-	suffix := "[y/N]"
-	if defaultValue {
-		suffix = "[Y/n]"
-	}
-	fmt.Fprintf(p.out, "%s %s: ", label, suffix)
-	answer, err := p.reader.ReadString('\n')
-	if err != nil && answer == "" {
-		if errors.Is(err, io.EOF) {
-			return defaultValue, nil
-		}
-		return false, err
-	}
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "":
-		return defaultValue, nil
-	case "y", "yes":
-		return true, nil
-	default:
-		return false, nil
-	}
 }

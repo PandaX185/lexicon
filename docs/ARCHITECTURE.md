@@ -42,7 +42,9 @@ never needs WebKitGTK.
 - `internal/cli` contains no dictionary logic; it parses commands and calls the
   same packages the daemon uses.
 - `internal/installer` composes config, dictionary validation, file copying, and
-  systemd installation. It prompts through injected streams.
+  systemd installation. `BuildPlan` resolves every action, `Apply` performs it
+  with progress and rollback, and `Run` provides the non-interactive path. The
+  Bubble Tea UI in `internal/installer/tui` is a thin layer over that API.
 
 ## Lookup flow
 
