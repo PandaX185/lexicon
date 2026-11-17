@@ -48,6 +48,11 @@ dictionary release assets. It installs:
 The `sha256sums` entries for the dictionary assets are pinned to the current
 release. Update them together with `dictionary-3.0` when the dictionary changes.
 
+The asset URLs assume the GitHub repository is publicly readable. While it is
+private, download the four release assets with an authenticated client (for
+example `gh release download dictionary-3.0`) and place them next to the
+PKGBUILD before building; `makepkg` will use the local files.
+
 Build with:
 
 ```sh

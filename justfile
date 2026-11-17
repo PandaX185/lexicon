@@ -9,7 +9,9 @@ daemon_go_tags := env("DAEMON_GO_TAGS", "")
 golangci_lint_version := env("GOLANGCI_LINT_VERSION", "v2.15.0")
 golangci_lint := env("GOLANGCI_LINT", go + " run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@" + golangci_lint_version)
 
-version := env("VERSION", shell("git describe --tags --always --dirty 2>/dev/null || printf 0.1.0-dev"))
+# Only application tags (v*) describe the app version; the dictionary is
+# versioned separately and tagged dictionary-<version>.
+version := env("VERSION", shell("git describe --tags --match 'v*' --always --dirty 2>/dev/null || printf 0.1.0-dev"))
 commit := env("COMMIT", shell("git rev-parse --short HEAD 2>/dev/null || printf unknown"))
 build_date := env("BUILD_DATE", shell("date -u +%Y-%m-%dT%H:%M:%SZ"))
 ldflags := "-s -w -X github.com/PandaX185/lexicon/internal/version.Version=" + version + " -X github.com/PandaX185/lexicon/internal/version.Commit=" + commit + " -X github.com/PandaX185/lexicon/internal/version.BuildDate=" + build_date
