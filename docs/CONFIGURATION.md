@@ -78,6 +78,10 @@ Notes:
 
 ## Example
 
+A commented copy of this example is tracked at `config.example.toml`.
+`just run-daemon-dev` runs the daemon against it with debug logging and an
+isolated runtime directory, so it does not collide with an installed service.
+
 ```toml
 # Lexicon configuration. Edit with `lex config set` or `lex config edit`.
 

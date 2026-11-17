@@ -78,6 +78,7 @@ Run from the checkout without installing:
 just run-cli --help
 just run-cli lookup hello
 just run-daemon --config ~/.config/lexicon/config.toml
+just run-daemon-dev   # sample config, debug logging, isolated runtime
 just run-installer --dictionary /path/to/en.sqlite
 just run-popup
 ```

@@ -2,8 +2,8 @@
 
 ## Ground rules
 
-- The C++/Qt implementation in the sibling `lexicon/` directory is reference
-  material. Do not modify it as part of this project.
+- The C++/Qt implementation in `lexicon-qt-archive/` is reference material. Do
+  not modify it as part of this project.
 - Keep the daemon and CLI free of WebKit/Wails dependencies. The popup is a
   separate Go module under `popup/`.
 - The CLI is the only configuration interface. Do not add settings screens or a
@@ -72,6 +72,7 @@ The build recipes also have run wrappers that rebuild first:
 ```sh
 just run-cli --help
 just run-daemon --config ~/.config/lexicon/config.toml
+just run-daemon-dev   # sample config, debug logging, isolated runtime
 just run-installer --dictionary /path/to/en.sqlite
 just run-popup
 just lookup hello

@@ -158,6 +158,18 @@ run-cli *args: build-cli
 run-daemon *args: build-daemon
     ./bin/lexicon-daemon {{ args }}
 
+# Run the daemon in the foreground with the sample config and an isolated
+# runtime directory, so it can run beside an installed service.
+run-daemon-dev *args: build-daemon
+    #!/usr/bin/env bash
+    set -euo pipefail
+    base="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+    runtime="$base/lexicon-dev-$(id -u)"
+    mkdir -p "$runtime"
+    chmod 700 "$runtime"
+    echo "dev runtime: $runtime" >&2
+    exec env XDG_RUNTIME_DIR="$runtime" ./bin/lexicon-daemon --config config.example.toml --log-level debug {{ args }}
+
 # Build and run the terminal installer.
 run-installer *args: build-installer
     ./bin/lexicon-installer {{ args }}

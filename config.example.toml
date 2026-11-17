@@ -1,0 +1,48 @@
+# Lexicon sample configuration.
+#
+# Copy this file to $XDG_CONFIG_HOME/lexicon/config.toml, or point the daemon
+# at it directly:
+#
+#   just run-daemon-dev
+#
+# Empty path values use the XDG defaults. Paths are not shell-expanded.
+# The CLI is the supported editor: lex --config config.example.toml config show
+
+[general]
+# Maximum words and characters accepted in one lookup.
+max_query_words = 4
+max_query_chars = 128
+
+[daemon]
+# Empty uses $XDG_RUNTIME_DIR/lexicon/daemon.sock.
+socket = ""
+# debug, info, warn, or error. run-daemon-dev overrides this to debug.
+log_level = "info"
+
+[selection]
+# auto uses wl-paste when installed; none disables selection lookups.
+provider = "auto"
+timeout_ms = 400
+max_chars = 128
+
+[dictionary]
+# Empty uses $XDG_DATA_HOME/lexicon/dictionary.sqlite.
+database_path = ""
+source_language = "en"
+target_language = "en"
+show_pronunciation = true
+
+[translation]
+# Requires a daemon built with -tags bergamot and an installed model pack.
+enabled = false
+# Empty uses $XDG_DATA_HOME/lexicon/models.
+model_directory = ""
+timeout_seconds = 30
+
+[popup]
+auto_launch = true
+# Empty looks next to lexicon-daemon, then PATH.
+binary = ""
+width = 420
+height = 320
+hide_on_blur = true
