@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+*.go text diff=golang
+*.toml text
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.ts text
+*.tsx text
+*.css text
+*.html text
+Makefile text
+
+*.png binary
+*.ico binary
+*.icns binary
+*.sqlite binary
+*.woff2 binary
+
+/plan/ export-ignore
+node_modules/ export-ignore

@@ -1,0 +1,61 @@
+# Local planning/tracking — never committed (see CONTRIBUTING.md)
+/plan/
+
+# Build outputs
+/build/
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+*.prof
+
+# Frontend
+node_modules/
+popup/frontend/dist/*
+!popup/frontend/dist/.gitkeep
+popup/frontend/.vite/
+popup/frontend/bindings/
+*.tsbuildinfo
+
+# Wails generated/transient files
+popup/build/bin/
+popup/build/darwin/
+popup/build/windows/
+popup/build/linux/
+popup/frontend/package-lock.json.tmp
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# Runtime artifacts
+*.sock
+*.lock
+*.pid
+
+# Dictionaries/models are user data, never source
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.model
+*.spm
+*.bin
+!/internal/dictionary/testdata/**/*.sqlite
+
+# Secrets and local environment
+.env
+.env.*
+!/.env.example
+*.pem
+*.key
+
+# Editors/OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
