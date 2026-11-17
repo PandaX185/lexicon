@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://v3.wails.io/schemas/wails.v3.json
+version: 3
+project:
+  name: lexicon-popup
+  product_name: Lexicon
+  identifier: dev.pandax185.lexicon.popup
+  version: 0.1.0
+  binary_name: lexicon-popup
+  description: Offline dictionary lookups from the Wayland primary selection
+frontend:
+  directory: frontend
+  package_manager: npm
+  install: [npm, install]
+  build: [npm, run, build]
+  dev: [npm, run, dev]
+  output_directory: dist
+build:
+  output_directory: bin
