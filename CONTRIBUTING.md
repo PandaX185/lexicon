@@ -19,6 +19,7 @@
 Requirements:
 
 - Go 1.27 or newer
+- `just` for the build recipes
 - Node.js 22 or newer and npm
 - `wl-clipboard` (`wl-paste`) for real selection tests
 - A C toolchain and `pkg-config`
@@ -26,7 +27,7 @@ Requirements:
   packages
 
 The Wails v3 CLI is not required to build this repository; the Go module and
-Makefile drive the build. Install it only if you want Wails' own dev tooling:
+justfile drive the build. Install it only if you want Wails' own dev tooling:
 
 ```sh
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
@@ -37,24 +38,24 @@ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 Core checks (no WebKit required):
 
 ```sh
-make fmt          # gofmt for core and popup
-make fmt-check    # fail if formatting is needed
-make test-core    # go test ./...
-make lint-core    # golangci-lint
-make core         # lex CLI + daemon + installer
+just fmt          # gofmt for core and popup
+just fmt-check    # fail if formatting is needed
+just test-core    # go test ./...
+just lint-core    # golangci-lint
+just core         # lex CLI + daemon + installer
 ```
 
 Full checks (popup and frontend):
 
 ```sh
-make popup-deps     # npm ci, or npm install when no lockfile exists
-make test-popup
-make lint-popup
-make lint-frontend  # tsc --noEmit
-make build          # frontend + popup + core
+just popup-deps     # npm ci, or npm install when no lockfile exists
+just test-popup
+just lint-popup
+just lint-frontend  # tsc --noEmit
+just build          # frontend + popup + core
 ```
 
-`make test` and `make lint` run both sides. `make lint` builds golangci-lint
+`just test` and `just lint` run both sides. `just lint` builds golangci-lint
 with the active Go toolchain via:
 
 ```sh
@@ -64,19 +65,33 @@ go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 A prebuilt linter built with an older Go cannot read current export data.
 Override `GOLANGCI_LINT` or `GOLANGCI_LINT_VERSION` if needed.
 
+### Run from the checkout
+
+The build recipes also have run wrappers that rebuild first:
+
+```sh
+just run-cli --help
+just run-daemon --config ~/.config/lexicon/config.toml
+just run-installer --dictionary /path/to/en.sqlite
+just run-popup
+just lookup hello
+just doctor
+just config show
+```
+
 ### Popup on GTK 3 systems
 
-The Makefile prefers WebKitGTK 6.0/GTK 4 and automatically falls back to
+The justfile prefers WebKitGTK 6.0/GTK 4 and automatically falls back to
 `-tags gtk3` when only WebKitGTK 4.1 + GTK 3 are available. To force it:
 
 ```sh
-make POPUP_GO_TAGS=gtk3 popup-build
-make POPUP_GO_TAGS=gtk3 test-popup
-make POPUP_GO_TAGS=gtk3 lint-popup
+just popup_go_tags=gtk3 build-popup
+just popup_go_tags=gtk3 test-popup
+just popup_go_tags=gtk3 lint-popup
 ```
 
 The frontend is embedded from `popup/frontend/dist`. Build it before testing or
-building the popup; the Makefile targets do this. `popup/frontend/dist` is
+building the popup; the justfile recipes do this. `popup/frontend/dist` is
 ignored except for `.gitkeep`.
 
 ### Native Bergamot build
@@ -89,7 +104,7 @@ on it.
 ## Code style
 
 - Go: `gofmt`, small packages, explicit errors, `slog` for structured logging.
-  Run `make fmt`; do not hand-format.
+  Run `just fmt`; do not hand-format.
 - TypeScript: strict mode, function components, no `any`.
 - SQL: bound parameters only; dictionary access is read-only.
 - Keep the CLI separate from dictionary logic; call shared packages rather than

@@ -40,36 +40,50 @@ requests. Selected text is never logged.
 
 - Linux with a Wayland session
 - Go 1.27 or newer
+- `just` for the build recipes
 - Node.js 22 or newer and npm (popup only)
 - `wl-clipboard` (`wl-paste`) for selection lookups
 - systemd user manager (optional, for the background service)
 - GTK 4 + WebKitGTK 6 **or** GTK 3 + WebKitGTK 4.1 development packages (popup
-  only; the Makefile selects the matching Wails build tag)
+  only; the justfile selects the matching Wails build tag)
 
 ## Build and test
 
 ```sh
-make core          # lex CLI, daemon, and installer; no WebKit dependency
-make build         # also builds the popup (frontend dependencies included)
-make test
-make lint
-make fmt-check
+just core          # lex CLI, daemon, and installer; no WebKit dependency
+just build         # also builds the popup (frontend dependencies included)
+just test
+just lint
+just fmt-check
 ```
 
-`make build` runs `npm ci` (or `npm install` when no lockfile exists), builds the
+`just build` runs `npm ci` (or `npm install` when no lockfile exists), builds the
 Vite frontend, and then builds the Wails popup. Systems without
 `webkitgtk-6.0` but with `webkit2gtk-4.1` + GTK 3 automatically use
 `-tags gtk3`. Override the detection with:
 
 ```sh
-make POPUP_GO_TAGS=gtk3 popup-build
+just popup_go_tags=gtk3 build-popup
 ```
 
-Install binaries into `~/.local/bin` (override with `PREFIX`):
+Install binaries into `~/.local/bin` (override with `prefix=...` or `PREFIX`):
 
 ```sh
-make install
+just install
 ```
+
+Run from the checkout without installing:
+
+```sh
+just run-cli --help
+just run-cli lookup hello
+just run-daemon --config ~/.config/lexicon/config.toml
+just run-installer --dictionary /path/to/en.sqlite
+just run-popup
+```
+
+`just --list` shows every recipe, including the `lookup`, `doctor`, and `config`
+shortcuts.
 
 ## Quick start
 
@@ -155,8 +169,8 @@ files are user data and are not committed here. See
 [docs/DICTIONARY.md](docs/DICTIONARY.md).
 
 Offline translation through Bergamot is compiled out by default. Enabling it
-requires rebuilding the daemon with `-tags bergamot` (for example `make
-DAEMON_GO_TAGS=bergamot core`) and a Bergamot library, plus an installed model
+requires rebuilding the daemon with `-tags bergamot` (for example `just
+daemon_go_tags=bergamot core`) and a Bergamot library, plus an installed model
 pack. This path is implemented but has not been built against a real Bergamot
 tree. See [docs/TRANSLATION.md](docs/TRANSLATION.md).
 

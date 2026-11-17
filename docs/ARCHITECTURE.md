@@ -111,13 +111,13 @@ client roles. Details are in [IPC.md](IPC.md).
 ## Build split
 
 Core (`go test ./...`, `go build ./cmd/...`) has no CGO or desktop dependency.
-The popup module adds Wails v3 and WebKitGTK. The Makefile picks `-tags gtk3`
+The popup module adds Wails v3 and WebKitGTK. The justfile picks `-tags gtk3`
 when WebKitGTK 6.0 is absent but WebKitGTK 4.1 and GTK 3 are present.
 
 The optional Bergamot engine is the only other native boundary. It is isolated
 in a C++ translation unit exposing opaque handles and C strings; C++ exceptions
 and types never cross into Go. Only the daemon links it, through the `bergamot`
-build tag (`make DAEMON_GO_TAGS=bergamot core`); the CLI and installer never
+build tag (`just daemon_go_tags=bergamot core`); the CLI and installer never
 need the Bergamot library.
 
 ## Deliberate non-goals

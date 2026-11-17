@@ -44,7 +44,7 @@ Example (paths are illustrative):
 CGO_ENABLED=1 \
 CGO_CXXFLAGS="-I/opt/bergamot/include" \
 CGO_LDFLAGS="-L/opt/bergamot/lib" \
-make DAEMON_GO_TAGS=bergamot core
+just daemon_go_tags=bergamot core
 ```
 
 Only the daemon links Bergamot; the `lex` CLI and `lexicon-installer` stay

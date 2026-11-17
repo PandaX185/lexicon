@@ -4,6 +4,7 @@
 
 - Linux with a Wayland session (`WAYLAND_DISPLAY` set)
 - Go 1.27 or newer
+- `just` for the build recipes
 - Node.js 22 or newer and npm for the popup
 - `wl-clipboard` (`wl-paste`) for primary-selection lookups
 - `systemctl` and `journalctl` for service lifecycle commands
@@ -18,22 +19,22 @@ pkg-config --exists webkitgtk-6.0 && echo "GTK4/WebKitGTK 6 available"
 pkg-config --exists webkit2gtk-4.1 gtk+-3.0 && echo "GTK3/WebKitGTK 4.1 available"
 ```
 
-At least one line must print for `make build`.
+At least one line must print for `just build`.
 
 ## Build and install
 
 ```sh
-make core                  # lex CLI, daemon, and installer; no WebKit dependency
-make build                 # core + popup (installs npm deps)
-make test
-make lint
-make install               # installs to ~/.local/bin
+just core                  # lex CLI, daemon, and installer; no WebKit dependency
+just build                 # core + popup (installs npm deps)
+just test
+just lint
+just install               # installs to ~/.local/bin
 ```
 
-`make install` respects `PREFIX` and `DESTDIR`:
+`just install` respects `prefix` and `destdir`:
 
 ```sh
-make install PREFIX="$HOME/.local"
+just prefix="$HOME/.local" install
 ```
 
 Installed binaries: `lex`, `lexicon-daemon`, `lexicon-installer`, and
@@ -42,22 +43,22 @@ Installed binaries: `lex`, `lexicon-daemon`, `lexicon-installer`, and
 Build the optional Bergamot engine into the daemon with:
 
 ```sh
-make DAEMON_GO_TAGS=bergamot core
+just daemon_go_tags=bergamot core
 ```
 
 This requires the native library and `CGO_*FLAGS` described in
 [TRANSLATION.md](TRANSLATION.md).
 
-If `make build` cannot find WebKitGTK 6.0 but finds WebKitGTK 4.1 + GTK 3, the
-Makefile adds `-tags gtk3`. To force a tag set:
+If `just build` cannot find WebKitGTK 6.0 but finds WebKitGTK 4.1 + GTK 3, the
+justfile adds `-tags gtk3`. To force a tag set:
 
 ```sh
-make POPUP_GO_TAGS=gtk3 popup-build
-make POPUP_GO_TAGS=gtk3 test-popup
+just popup_go_tags=gtk3 build-popup
+just popup_go_tags=gtk3 test-popup
 ```
 
 The frontend is built into `popup/frontend/dist` and embedded in the popup
-binary. `npm ci` is used when `package-lock.json` exists; otherwise the Makefile
+binary. `npm ci` is used when `package-lock.json` exists; otherwise the justfile
 falls back to `npm install`.
 
 ## Run the installer
