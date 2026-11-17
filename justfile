@@ -1,17 +1,17 @@
 set shell := ["bash", "-uc"]
 
-go := env_var_or_default("GO", "go")
-npm := env_var_or_default("NPM", "npm")
-prefix := env_var_or_default("PREFIX", home_directory() / ".local")
-destdir := env_var_or_default("DESTDIR", "")
+go := env("GO", "go")
+npm := env("NPM", "npm")
+prefix := env("PREFIX", home_directory() / ".local")
+destdir := env("DESTDIR", "")
 
-daemon_go_tags := env_var_or_default("DAEMON_GO_TAGS", "")
-golangci_lint_version := env_var_or_default("GOLANGCI_LINT_VERSION", "v2.15.0")
-golangci_lint := env_var_or_default("GOLANGCI_LINT", go + " run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@" + golangci_lint_version)
+daemon_go_tags := env("DAEMON_GO_TAGS", "")
+golangci_lint_version := env("GOLANGCI_LINT_VERSION", "v2.15.0")
+golangci_lint := env("GOLANGCI_LINT", go + " run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@" + golangci_lint_version)
 
-version := env_var_or_default("VERSION", shell("git describe --tags --always --dirty 2>/dev/null || printf 0.1.0-dev"))
-commit := env_var_or_default("COMMIT", shell("git rev-parse --short HEAD 2>/dev/null || printf unknown"))
-build_date := env_var_or_default("BUILD_DATE", shell("date -u +%Y-%m-%dT%H:%M:%SZ"))
+version := env("VERSION", shell("git describe --tags --always --dirty 2>/dev/null || printf 0.1.0-dev"))
+commit := env("COMMIT", shell("git rev-parse --short HEAD 2>/dev/null || printf unknown"))
+build_date := env("BUILD_DATE", shell("date -u +%Y-%m-%dT%H:%M:%SZ"))
 ldflags := "-s -w -X github.com/PandaX185/lexicon/internal/version.Version=" + version + " -X github.com/PandaX185/lexicon/internal/version.Commit=" + commit + " -X github.com/PandaX185/lexicon/internal/version.BuildDate=" + build_date
 
 # Wails defaults to GTK4/WebKitGTK 6.0. Systems that only ship WebKitGTK 4.1
@@ -19,7 +19,7 @@ ldflags := "-s -w -X github.com/PandaX185/lexicon/internal/version.Version=" + v
 # a different combination (for example "gtk3 purego").
 webkitgtk6 := shell("pkg-config --exists webkitgtk-6.0 2>/dev/null && echo yes || true")
 webkit2gtk41 := shell("pkg-config --exists webkit2gtk-4.1 gtk+-3.0 2>/dev/null && echo yes || true")
-popup_go_tags := env_var_or_default("POPUP_GO_TAGS", if webkitgtk6 == "yes" { "" } else if webkit2gtk41 == "yes" { "gtk3" } else { "" })
+popup_go_tags := env("POPUP_GO_TAGS", if webkitgtk6 == "yes" { "" } else if webkit2gtk41 == "yes" { "gtk3" } else { "" })
 
 daemon_tags_flag := if daemon_go_tags == "" { "" } else { "-tags " + daemon_go_tags }
 popup_tags_flag := if popup_go_tags == "" { "" } else { "-tags " + popup_go_tags }
