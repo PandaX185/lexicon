@@ -1,0 +1,5 @@
+  Synthetic fixture for dictgen tests. Not WordNet data.
+
+00000001 03 n 02 dog 0 domestic_dog 0 000 | a domesticated carnivorous mammal
+00000002 04 n 01 run 0 000 | an act or period of running
+00000003 03 n 01 child 0 000 | a young person

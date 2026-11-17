@@ -10,7 +10,8 @@
 - `systemctl` and `journalctl` for service lifecycle commands
 - For the popup: GTK 4 + WebKitGTK 6.0 **or** GTK 3 + WebKitGTK 4.1 development
   packages, plus `pkg-config` and a C toolchain
-- A dictionary SQLite file (see [DICTIONARY.md](DICTIONARY.md))
+- A dictionary SQLite file (see [DICTIONARY.md](DICTIONARY.md)); release
+  packages bundle one, or build it with `just dict-build`
 
 Package names vary by distribution. Verify the development packages with:
 

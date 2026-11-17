@@ -91,6 +91,11 @@ test: test-core test-popup
 test-core:
     {{ go }} test ./...
 
+# Build the English dictionary from WordNet 3.0 and CMUdict. Both paths are
+# build-time inputs; the generated asset is not tracked.
+dict-build wordnet_dir cmudict_file output="build/dictionaries/en.sqlite":
+    {{ go }} run ./tools/dictgen --wordnet-dir "{{ wordnet_dir }}" --cmudict-file "{{ cmudict_file }}" --output "{{ output }}"
+
 # Run popup Go tests.
 test-popup:
     cd popup && {{ go }} test {{ popup_tags_flag }} ./...
@@ -112,14 +117,14 @@ lint-frontend: popup-deps
 
 # Format Go sources.
 fmt:
-    gofmt -w cmd internal
+    gofmt -w cmd internal tools
     cd popup && gofmt -w .
 
 # Fail if Go formatting is needed.
 fmt-check:
     #!/usr/bin/env bash
     set -euo pipefail
-    files="$(gofmt -l cmd internal popup)"
+    files="$(gofmt -l cmd internal tools popup)"
     if [[ -n "$files" ]]; then
         echo "gofmt needs to run on:" >&2
         echo "$files" >&2

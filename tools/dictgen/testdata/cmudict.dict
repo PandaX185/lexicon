@@ -1,0 +1,8 @@
+;;; Synthetic fixture for dictgen tests. Not CMUdict data.
+DOG  D AO1 G
+DOG(2)  D AO2 G
+RUN  R AH1 N
+GO  G OW1
+CHILD  CH AY1 L D
+HAPPY  HH AE1 P IY0
+QUICKLY  K W IH1 K L IY0

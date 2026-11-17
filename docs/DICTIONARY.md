@@ -1,8 +1,10 @@
 # Dictionary format
 
 Lexicon reads dictionaries directly from SQLite. It does not rebuild or modify
-the database, and it does not bundle one. The expected format is the SQLite v3
-schema used by the earlier Lexicon application.
+the database at runtime. Release packages bundle the English dictionary as a
+release asset; the source checkout does not contain it and builds without it.
+The expected format is the SQLite v3 schema used by the earlier Lexicon
+application.
 
 ## Location
 
@@ -136,6 +138,61 @@ Pronunciation data from the CMU Pronouncing Dictionary.
 Dictionary files are user data, never source. They are git-ignored and are not
 downloaded by Lexicon at runtime.
 
+## Building the reference dictionary
+
+`tools/dictgen` is the Go importer that produces the bundled English dictionary
+from Princeton WordNet 3.0 and the CMU Pronouncing Dictionary. It replaces the
+old Python importer, which remains the behavioral reference. The importer is a
+build-time tool: it is not installed and the application never invokes it.
+
+Both inputs are downloaded manually; the build does not fetch anything.
+
+| Input | Source | SHA-256 |
+| --- | --- | --- |
+| WordNet 3.0 (`dict/` directory) | <https://wordnetcode.princeton.edu/3.0/WordNet-3.0.tar.gz> | `640db279c949a88f61f851dd54ebbb22d003f8b90b85267042ef85a3781d3a52` |
+| CMUdict (`cmudict.dict`) | <https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict> at commit `0f8072f8` (2024-12-17) | `81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22` |
+
+CMUdict publishes no tags; the file above is the current `master` revision of
+the dictionary, which the old documentation referred to as version 0.7b.
+
+```sh
+tar xzf WordNet-3.0.tar.gz
+just dict-build WordNet-3.0/dict cmudict.dict
+```
+
+`dict-build` writes `build/dictionaries/en.sqlite` by default; pass a third
+argument to choose another output path. The generated file is git-ignored.
+
+Expected output for the inputs above:
+
+```text
+entries         147806
+definitions     206918
+word_forms      113116   (313 ambiguous forms skipped)
+irregular forms   4967
+```
+
+The build is deterministic: the same inputs, importer, and SQLite version
+produce a byte-identical database. Against the reference Python importer the
+logical contents are identical — `sqldiff` reports no changes in any table,
+including `sqlite_stat1` and `sqlite_stat4` — but the files are not
+byte-identical because the Python and Go toolchains embed different SQLite
+point releases (3.54.0 vs 3.54.1) and lay out pages differently. Logical
+identity, not byte identity, is the acceptance criterion for the importer.
+
+To exercise the importer against the full corpus:
+
+```sh
+LEXICON_TEST_WORDNET_DIR=/path/to/WordNet-3.0/dict \
+LEXICON_TEST_CMUDICT=/path/to/cmudict.dict \
+go test ./tools/dictgen -run TestBuildFullCorpus -v
+```
+
+WordNet is distributed under the WordNet 3.0 license and CMUdict under a
+BSD 2-Clause license. Both notices ship in `licenses/` (`WORDNET.txt`,
+`CMUDICT.txt`) and must be included wherever the generated dictionary is
+redistributed.
+
 ## Output
 
 The CLI prints definitions, pronunciation (when enabled), an inflected form when
@@ -167,3 +224,13 @@ lex doctor
 The doctor checks that the path exists, opens read-only, and that
 `dictionary_info` is readable. It reports a warning rather than a hard failure
 when the metadata is missing.
+
+The core test suite includes an integration test against the real WordNet asset.
+It skips when no asset is found. Point it at a specific file with:
+
+```sh
+LEXICON_TEST_DICTIONARY=/absolute/path/to/en.sqlite just test-core
+```
+
+Without the variable it looks for `internal/dictionary/testdata/en.sqlite`, the
+archived development copy, and the installed default path.
