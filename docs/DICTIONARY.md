@@ -259,3 +259,9 @@ LEXICON_TEST_DICTIONARY=/absolute/path/to/en.sqlite just test-core
 
 Without the variable it looks for `internal/dictionary/testdata/en.sqlite`, the
 archived development copy, and the installed default path.
+
+## Bootstrap pin
+
+`install.sh` pins `en.sqlite` and `manifest.json` from the `dictionary-3.0`
+release with the same SHA-256 values used by `packaging/arch/PKGBUILD`. When the
+dictionary is republished, update both files and the release checklist together.

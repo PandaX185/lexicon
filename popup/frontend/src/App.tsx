@@ -1,15 +1,23 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Events } from "@wailsio/runtime";
 import type {
   ConnectionState,
   DisplaySettings,
   Entry,
+  LanguagePairsState,
   LookupResult,
+  PairErrorMessage,
 } from "./types";
+import LanguagePairSelector from "./components/LanguagePairSelector";
 
 const LOOKUP_EVENT = "lexicon:lookup";
 const CONNECTION_EVENT = "lexicon:connection";
 const SETTINGS_EVENT = "lexicon:settings";
+const LANGUAGE_PAIRS_EVENT = "lexicon:language_pairs";
+const PAIR_ERROR_EVENT = "lexicon:pair_error";
+const SET_LANGUAGE_PAIR_EVENT = "lexicon:set-language-pair";
+const SELECTOR_OPEN_EVENT = "lexicon:selector-open";
+const SELECTOR_CLOSE_EVENT = "lexicon:selector-close";
 const READY_EVENT = "lexicon:ready";
 const HIDE_EVENT = "lexicon:hide";
 
@@ -17,6 +25,8 @@ export default function App() {
   const [result, setResult] = useState<LookupResult | null>(null);
   const [connection, setConnection] = useState<ConnectionState | null>(null);
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
+  const [pairs, setPairs] = useState<LanguagePairsState | null>(null);
+  const [pairError, setPairError] = useState("");
 
   useEffect(() => {
     const stopLookup = Events.On(LOOKUP_EVENT, (event) => {
@@ -29,6 +39,14 @@ export default function App() {
       const value = event.data as DisplaySettings;
       setSettings(value);
       document.documentElement.dataset.theme = value.theme;
+    });
+    const stopPairs = Events.On(LANGUAGE_PAIRS_EVENT, (event) => {
+      setPairs(event.data as LanguagePairsState);
+      setPairError("");
+    });
+    const stopPairError = Events.On(PAIR_ERROR_EVENT, (event) => {
+      const value = event.data as PairErrorMessage;
+      setPairError(value.message || "Failed to change the language pair.");
     });
 
     void Events.Emit(READY_EVENT, null);
@@ -45,8 +63,19 @@ export default function App() {
       stopLookup();
       stopConnection();
       stopSettings();
+      stopPairs();
+      stopPairError();
       window.removeEventListener("keydown", onKeyDown);
     };
+  }, []);
+
+  const changePair = useCallback((source: string, target: string) => {
+    setPairError("");
+    void Events.Emit(SET_LANGUAGE_PAIR_EVENT, { source, target });
+  }, []);
+
+  const setSelectorOpen = useCallback((open: boolean) => {
+    void Events.Emit(open ? SELECTOR_OPEN_EVENT : SELECTOR_CLOSE_EVENT, null);
   }, []);
 
   const showHeader = settings?.show_header === true;
@@ -54,7 +83,22 @@ export default function App() {
   const showFooter = settings?.show_footer === true;
 
   return (
-    <main className="popup-card flex h-full flex-col text-ink">
+    <main className="popup-card relative flex h-full flex-col text-ink">
+      {pairs ? (
+        <div className="absolute right-3 top-3 z-10">
+          <LanguagePairSelector
+            state={pairs}
+            error={pairError}
+            onChange={changePair}
+            onOpenChange={setSelectorOpen}
+          />
+        </div>
+      ) : pairError ? (
+        <div className="absolute right-3 top-3 z-10 max-w-[30ch] rounded-md border border-line bg-surface px-2 py-1 text-[10px] text-red-400">
+          {pairError}
+        </div>
+      ) : null}
+
       {showHeader ? (
         <header className="flex shrink-0 items-center justify-between border-b border-line px-5 py-2.5">
           <div className="flex items-center gap-2">

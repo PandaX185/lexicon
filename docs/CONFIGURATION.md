@@ -34,6 +34,23 @@ write, the CLI asks the daemon to reload. If the daemon is not running, the
 change applies on its next start. A changed `daemon.socket` cannot be applied by
 reload; restart the service with `systemctl --user restart lexicon.service`.
 
+## Installer-managed versus advanced settings
+
+The terminal installer manages only:
+
+- `popup.theme`
+- `dictionary.show_pronunciation`
+- `popup.hide_on_blur`
+- `popup.show_header`, `popup.show_status`, `popup.show_footer`
+- `general.max_query_words`, `general.max_query_chars`
+
+Everything else — sockets, paths, timeouts, selection tuning, and binary
+overrides — remains in `lex config` and `lex config edit`.
+
+The active translation pair can now be changed from the popup's language chip
+or with `lex languages use SRC-TGT`. Both paths write the same config keys:
+`translation.source_language` and `translation.target_language`.
+
 ## Keys
 
 | Key | Type | Default | Validation |

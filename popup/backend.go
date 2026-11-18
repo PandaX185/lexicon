@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -12,11 +15,16 @@ import (
 )
 
 const (
-	eventLookup     = "lexicon:lookup"
-	eventConnection = "lexicon:connection"
-	eventReady      = "lexicon:ready"
-	eventHide       = "lexicon:hide"
-	eventSettings   = "lexicon:settings"
+	eventLookup          = "lexicon:lookup"
+	eventConnection      = "lexicon:connection"
+	eventReady           = "lexicon:ready"
+	eventHide            = "lexicon:hide"
+	eventSettings        = "lexicon:settings"
+	eventLanguagePairs   = "lexicon:language_pairs"
+	eventPairError       = "lexicon:pair_error"
+	eventSetLanguagePair = "lexicon:set-language-pair"
+	eventSelectorOpen    = "lexicon:selector-open"
+	eventSelectorClose   = "lexicon:selector-close"
 
 	dialRetryDelay  = 1500 * time.Millisecond
 	maxDialFailures = 12
@@ -29,6 +37,15 @@ const (
 type connectionState struct {
 	Connected bool   `json:"connected"`
 	Error     string `json:"error,omitempty"`
+}
+
+type setLanguagePairRequest struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type pairErrorMessage struct {
+	Message string `json:"message"`
 }
 
 // displaySettings carries the window appearance to the frontend. The values
@@ -55,6 +72,12 @@ type Popup struct {
 	last       *ipc.LookupResult
 	connection connectionState
 	shownAt    time.Time
+
+	clientMu     sync.Mutex
+	client       *ipc.Client
+	pairMu       sync.Mutex
+	pairState    *ipc.LanguagePairsState
+	selectorOpen bool
 }
 
 func newPopup(app *application.App, window *application.WebviewWindow, settings settings, logger *slog.Logger) *Popup {
@@ -77,6 +100,62 @@ func newPopup(app *application.App, window *application.WebviewWindow, settings 
 	}
 }
 
+func (p *Popup) setClient(client *ipc.Client) {
+	p.clientMu.Lock()
+	p.client = client
+	p.clientMu.Unlock()
+}
+
+func (p *Popup) currentClient() *ipc.Client {
+	p.clientMu.Lock()
+	defer p.clientMu.Unlock()
+	return p.client
+}
+
+func (p *Popup) publishPairs(state ipc.LanguagePairsState) {
+	copied := state
+	p.pairMu.Lock()
+	p.pairState = &copied
+	p.pairMu.Unlock()
+	p.app.Event.Emit(eventLanguagePairs, copied)
+}
+
+func (p *Popup) pairErrorMessage(message string) {
+	p.app.Event.Emit(eventPairError, pairErrorMessage{Message: message})
+}
+
+func decodeEventData(event *application.CustomEvent, target any) error {
+	switch value := event.Data.(type) {
+	case json.RawMessage:
+		return json.Unmarshal(value, target)
+	case []byte:
+		return json.Unmarshal(value, target)
+	case string:
+		return json.Unmarshal([]byte(value), target)
+	case map[string]any:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(encoded, target)
+	default:
+		return fmt.Errorf("unexpected event data %T", event.Data)
+	}
+}
+
+func (p *Popup) lastQuery() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.last == nil {
+		return ""
+	}
+	return p.last.Query
+}
+
+func shouldHideOnBlur(enabled bool, shownAt, now time.Time, selectorOpen bool) bool {
+	return enabled && !selectorOpen && !shownAt.IsZero() && now.Sub(shownAt) > blurGuard
+}
+
 // start wires frontend requests and begins subscribing. It is called once the
 // Wails application has started, so emitting events is safe.
 func (p *Popup) start(ctx context.Context) {
@@ -95,9 +174,49 @@ func (p *Popup) start(ctx context.Context) {
 		if last != nil {
 			p.app.Event.Emit(eventLookup, *last)
 		}
+		p.pairMu.Lock()
+		pairState := p.pairState
+		p.pairMu.Unlock()
+		if pairState != nil {
+			p.app.Event.Emit(eventLanguagePairs, *pairState)
+		}
 	})
 	p.app.Event.On(eventHide, func(*application.CustomEvent) {
 		p.hide()
+	})
+	p.app.Event.On(eventSetLanguagePair, func(event *application.CustomEvent) {
+		var request setLanguagePairRequest
+		if err := decodeEventData(event, &request); err != nil {
+			p.pairErrorMessage("invalid language-pair request: " + err.Error())
+			return
+		}
+		client := p.currentClient()
+		if client == nil {
+			p.pairErrorMessage("The Lexicon daemon is not connected.")
+			return
+		}
+		state, relookup, err := p.changeLanguagePair(ctx, client, request)
+		if err != nil {
+			if refreshed, refreshErr := client.LanguagePairs(ctx); refreshErr == nil {
+				p.publishPairs(*refreshed)
+			}
+			p.pairErrorMessage(err.Error())
+			return
+		}
+		p.publishPairs(state)
+		if relookup != nil {
+			p.handleResult(*relookup)
+		}
+	})
+	p.app.Event.On(eventSelectorOpen, func(*application.CustomEvent) {
+		p.pairMu.Lock()
+		p.selectorOpen = true
+		p.pairMu.Unlock()
+	})
+	p.app.Event.On(eventSelectorClose, func(*application.CustomEvent) {
+		p.pairMu.Lock()
+		p.selectorOpen = false
+		p.pairMu.Unlock()
 	})
 
 	go p.connectLoop(ctx)
@@ -126,9 +245,22 @@ func (p *Popup) connectLoop(ctx context.Context) {
 		}
 
 		failures = 0
+		p.setClient(client)
 		p.setConnection(true, "")
+		if state, err := client.LanguagePairs(ctx); err == nil {
+			copied := *state
+			p.pairMu.Lock()
+			p.pairState = &copied
+			p.pairMu.Unlock()
+		} else {
+			var protocolErr *ipc.ProtocolError
+			if errors.As(err, &protocolErr) && (protocolErr.Code == "unknown_type" || protocolErr.Code == "unsupported") {
+				p.pairErrorMessage("This popup needs a newer Lexicon daemon. Update Lexicon to use the language selector.")
+			}
+		}
 		requestStartupLookup(ctx, client, p.logger)
 		p.consume(ctx, client)
+		p.setClient(nil)
 		_ = client.Close()
 		if ctx.Err() != nil {
 			return
@@ -167,6 +299,11 @@ func (p *Popup) consume(ctx context.Context, client *ipc.Client) {
 				return
 			}
 			p.handleResult(result)
+		case state, ok := <-client.LanguagePairEvents():
+			if !ok {
+				return
+			}
+			p.publishPairs(state)
 		}
 	}
 }
@@ -214,18 +351,31 @@ func (p *Popup) hide() {
 	p.window.Hide()
 }
 
-// hideOnBlur closes the popup when the user clicks elsewhere. The short guard
-// avoids hiding while the window is still acquiring focus on show.
 func (p *Popup) hideOnBlur() {
-	if !p.blurHides {
-		return
-	}
 	p.mu.Lock()
 	shownAt := p.shownAt
 	p.mu.Unlock()
-	if !shownAt.IsZero() && time.Since(shownAt) > blurGuard {
+	p.pairMu.Lock()
+	selectorOpen := p.selectorOpen
+	p.pairMu.Unlock()
+	if shouldHideOnBlur(p.blurHides, shownAt, time.Now(), selectorOpen) {
 		p.hide()
 	}
+}
+
+func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, request setLanguagePairRequest) (ipc.LanguagePairsState, *ipc.LookupResult, error) {
+	state, err := client.SetLanguagePair(ctx, request.Source, request.Target)
+	if err != nil {
+		return ipc.LanguagePairsState{}, nil, err
+	}
+	var relookup *ipc.LookupResult
+	if query := p.lastQuery(); query != "" {
+		result, lookupErr := client.Lookup(ctx, query)
+		if lookupErr == nil {
+			relookup = result
+		}
+	}
+	return *state, relookup, nil
 }
 
 // showWhenIdle makes a manually launched popup visible even when the daemon

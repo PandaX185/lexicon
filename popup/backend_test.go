@@ -107,3 +107,62 @@ func TestStartupLookupSkippedWhenDaemonHasReplay(t *testing.T) {
 		t.Fatalf("lookups = %q, want only the seeding lookup", got)
 	}
 }
+
+type pairIPCHandler struct {
+	recordingHandler
+	state ipc.LanguagePairsState
+}
+
+func (h *pairIPCHandler) LanguagePairs() ipc.LanguagePairsState { return h.state }
+
+func (h *pairIPCHandler) SetLanguagePair(_ context.Context, source, target string) (ipc.LanguagePairsState, error) {
+	h.state.Source = source
+	h.state.Target = target
+	return h.state, nil
+}
+
+func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
+	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
+		Enabled: true,
+		Source:  "en",
+		Target:  "de",
+		Pairs:   []ipc.LanguagePair{{Source: "en", Target: "de", PackID: "en-de"}},
+	}}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	popup := &Popup{logger: newTestLogger(t)}
+	popup.last = &ipc.LookupResult{Query: "hallo", Found: true}
+
+	state, result, err := popup.changeLanguagePair(ctx, client, setLanguagePairRequest{Source: "en", Target: "de"})
+	if err != nil {
+		t.Fatalf("changeLanguagePair: %v", err)
+	}
+	if state.Source != "en" || state.Target != "de" {
+		t.Fatalf("state = %+v", state)
+	}
+	if result == nil || result.Query != "hallo" {
+		t.Fatalf("relookup result = %+v", result)
+	}
+	got := handler.recorded()
+	if len(got) != 1 || got[0] != "hallo" {
+		t.Fatalf("lookups = %q, want last query relookup", got)
+	}
+}
+
+func TestBlurIsSuppressedWhileSelectorOpen(t *testing.T) {
+	now := time.Now()
+	if !shouldHideOnBlur(true, now.Add(-time.Second), now, false) {
+		t.Fatal("expected normal blur to hide")
+	}
+	if shouldHideOnBlur(true, now.Add(-time.Second), now, true) {
+		t.Fatal("selector must suppress blur hide")
+	}
+}

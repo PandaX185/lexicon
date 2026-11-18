@@ -1,5 +1,25 @@
 # Installation and service setup
 
+## One-line bootstrap (recommended)
+
+~~~sh
+curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+~~~
+
+The script is fetched from the pinned `v0.1.0` tag, not `main`. It downloads the
+release tarball and `checksums.sha256` over HTTPS, verifies the tarball hash,
+downloads `en.sqlite` and `manifest.json` from the pinned `dictionary-3.0`
+release, verifies both dictionary SHA-256 hashes, extracts the tarball to a
+private temporary directory, verifies its internal checksums, and runs
+`lexicon-installer` from there. It never uses root or a package manager.
+
+The installer asks for curated appearance settings, offers installable
+Bergamot packs, writes configuration, installs the dictionary, enables the
+systemd user service when available, and prints CLI usage plus
+compositor-specific shortcut guidance. Pack download failures are warnings with
+an exact `lex languages install ID` retry command; they do not roll back a
+working base install.
+
 ## Prerequisites
 
 - Linux with a Wayland session (`WAYLAND_DISPLAY` set)

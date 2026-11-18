@@ -179,6 +179,30 @@ Bergamot aborts silently when it is missing, which is why the shipped
 `config.intgemm8bitalpha.yml` files cannot be passed through unchanged.
 `max-length-break` must not exceed `mini-batch-words`.
 
+## Installing packs
+
+Packs are never downloaded implicitly. During first-run setup the installer
+shows the embedded catalog and lets you select zero or more packs. Each select
+is a deliberate HTTPS download verified against the catalog SHA-256. Failures
+are reported on the final screen with an exact `lex languages install ID`
+retry command, and definitions continue to work.
+
+You can also install a specific pack later:
+
+~~~sh
+lex languages list
+lex languages install bergamot-en-de-tiny11
+lex languages use en-de
+~~~
+
+## Choosing the active pair in the popup
+
+When translation is enabled and at least one pack is installed, a small language
+chip appears in the top-right of the popup. Click it to choose the source and
+target languages from installed packs only. Closing the popup or restarting the
+daemon does not lose the choice: the popup asks the daemon to persist it and
+reload the translation engine.
+
 ## Runtime behavior
 
 - Translation runs only when a dictionary entry was found, translation is

@@ -1,204 +1,273 @@
 # Lexicon
 
-Lexicon is an offline dictionary for Wayland desktops. Highlight a word, press
-your shortcut, and read the definition in a small popup. Everything stays on
-your machine: no account, no network requests, and no telemetry.
+**Look it up. Stay in your flow.**
 
-## What you get
+Lexicon is a lightweight, offline dictionary for Linux Wayland desktops. Select a word, press your keyboard shortcut, and get its definition in an instant.
 
-- **Look up the text you selected.** Lexicon reads the Wayland primary
-  selection, so the word you highlighted is the word it looks up.
-- **Definitions in a popup or the terminal.** Use `lex lookup` for a quick
-  answer, or let the popup appear next to your work.
-- **A real dictionary, included.** Release packages ship an English dictionary
-  built from WordNet 3.0, with pronunciations from the CMU Pronouncing
-  Dictionary.
-- **No background clutter.** One systemd user service does the work. There is no
-  tray icon, no settings window, and no global shortcut registration — you bind
-  the shortcut in your desktop, where it belongs.
-- **Optional offline translation.** Translation can be built in for language
-  pairs you have model packs for. It is off by default.
+No browser tabs. No accounts. No cloud services. Just your dictionary, right where you need it.
 
-Lexicon only reads the primary selection. It never reads or changes your
-clipboard.
+<!-- Add a real popup screenshot or demo GIF here -->
 
-## Install
+## Features
 
-### From a package
+- **Instant lookups** — Look up highlighted text using the Wayland primary selection.
+- **Native popup** — Read definitions in a small desktop popup without leaving your current application.
+- **Terminal support** — Use `lex lookup` directly from your terminal, including JSON output.
+- **Built-in English dictionary** — WordNet 3.0 definitions with pronunciations from the CMU Pronouncing Dictionary.
+- **Offline by design** — Dictionary lookups happen locally. No telemetry or cloud dependency.
+- **Optional translation** — Add offline translation language packs when you need them.
+- **Simple desktop integration** — Use your desktop's keyboard shortcut settings. Lexicon doesn't install its own global shortcut manager.
 
-If your distribution provides a Lexicon package, install it with your package
-manager. The package includes the English dictionary and the systemd user
-service. On Arch, `packaging/arch/PKGBUILD` installs the release tarball.
+Lexicon only reads the Wayland primary selection. Your clipboard is never read or modified.
 
-### From a release tarball
+## Get started
 
-Stable releases publish `lexicon-<version>-linux-<arch>.tar.gz` and a
-`checksums.sha256` file. Verify before extracting:
+On a Wayland desktop, install Lexicon using the bootstrap installer:
+
+```sh
+curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+```
+
+The bootstrap verifies the release tarball, checksums, and pinned dictionary before launching the terminal installer. No root access is required.
+
+Once installed, run:
+
+```sh
+lexicon-installer
+```
+
+The installer checks your system, configures Lexicon, installs the dictionary, and sets up the background service.
+
+Check your installation:
+
+```sh
+lex doctor
+```
+
+See the [installation guide](docs/INSTALL.md) for package installation, manual installation, and distribution-specific instructions.
+
+## Using Lexicon
+
+### Look up a word
+
+```sh
+lex lookup hello
+```
+
+### Look up highlighted text
+
+Highlight a word in any supported Wayland application, then run:
+
+```sh
+lex lookup
+```
+
+### Use the popup
+
+Bind the following command to a keyboard shortcut in your desktop's keyboard settings:
+
+```sh
+lex lookup
+```
+
+The popup appears with the definition of your current selection.
+
+You can also launch the popup directly:
+
+```sh
+lexicon-popup
+```
+
+### Machine-readable output
+
+```sh
+lex lookup --json hello
+```
+
+### Available commands
+
+| Command | Description |
+| --- | --- |
+| `lex lookup [word]` | Look up a word or current selection |
+| `lex lookup --json [word]` | Return the result as JSON |
+| `lex doctor` | Diagnose your installation |
+| `lex config show` | Show effective configuration |
+| `lex config set KEY VALUE` | Change a setting |
+| `lex config edit` | Edit configuration directly |
+| `lex languages list` | List translation packs |
+| `lex languages install ID` | Install a translation pack |
+| `lex languages use SRC-TGT` | Select a translation pair |
+| `lex languages remove ID` | Remove a translation pack |
+| `lex version` | Show the installed version |
+
+## Offline translation
+
+Lexicon can optionally provide offline machine translation using Bergamot.
+
+The translation engine is included in the release daemon, while language models are installed separately. Translation is disabled by default.
+
+See [Offline translation](docs/TRANSLATION.md) for supported languages, model installation, and configuration.
+
+## Requirements
+
+- Linux running Wayland (X11 is not currently supported).
+- `wl-clipboard` for reading the primary selection.
+- systemd user manager for the background service.
+- An English dictionary, included in release packages or installed separately.
+
+Explicit lookups such as `lex lookup hello` can work without the background service or selection backend.
+
+## Installation options
+
+### Release installer
+
+The recommended option for most users:
+
+```sh
+curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+```
+
+### Release tarball
+
+Release assets are published as:
+
+```text
+lexicon-<version>-linux-<arch>.tar.gz
+checksums.sha256
+```
+
+Verify the archive before extracting it:
 
 ```sh
 grep "lexicon-0.1.0-linux-amd64.tar.gz" checksums.sha256 | sha256sum -c -
 tar -xzf lexicon-0.1.0-linux-amd64.tar.gz
 ```
 
-The daemon in the tarball has offline Bergamot translation built in. The
-dictionary is a separate pinned asset; see the
-[installation guide](docs/INSTALL.md#install-from-a-release) for the full
-procedure, supported distributions, and dependency names.
+The English dictionary is distributed as a separate pinned asset. Follow the [installation guide](docs/INSTALL.md#install-from-a-release) for the complete procedure.
 
 ### From source
 
-You need Go 1.27 or newer, `just`, Node.js 22 or newer, npm, `wl-clipboard`, and
-GTK/WebKit development packages for the popup. See
-[docs/INSTALL.md](docs/INSTALL.md) for distribution-specific package names.
+Requirements:
+
+- Go 1.27 or newer
+- `just`
+- Node.js 22 or newer
+- npm
+- `wl-clipboard`
+- GTK and WebKit development packages for the popup
 
 ```sh
 git clone https://github.com/PandaX185/lexicon.git
 cd lexicon
+
 just build
-just install          # installs to ~/.local/bin
+just install
 ```
 
-The source checkout does not contain the dictionary. Download `en.sqlite` from
-the [dictionary release](https://github.com/PandaX185/lexicon/releases/tag/dictionary-3.0)
-and pass it to the installer, or use a packaged copy.
+The source checkout does not include the dictionary. Download `en.sqlite` from the [dictionary release](https://github.com/PandaX185/lexicon/releases/tag/dictionary-3.0) and provide it during installation.
 
-## Set up
+See [docs/INSTALL.md](docs/INSTALL.md) for distribution-specific dependencies and manual installation instructions.
 
-Run the installer once. It checks your system, writes the configuration,
-installs the dictionary, and starts the background service.
+## Background service
+
+Lexicon uses a systemd user service to handle lookups and communicate with the popup.
+
+Check its status:
 
 ```sh
-lexicon-installer
+systemctl --user status lexicon.service
 ```
 
-If the dictionary is not packaged, point the installer at the file you
-downloaded:
+Restart it:
 
 ```sh
-lexicon-installer --dictionary ~/Downloads/en.sqlite
+systemctl --user restart lexicon.service
 ```
 
-Then let the systemd user service see your Wayland session, so the popup can
-open:
+Follow its logs:
+
+```sh
+journalctl --user -u lexicon.service -f
+```
+
+If the service cannot access your Wayland session, import the display environment and restart it:
 
 ```sh
 systemctl --user import-environment WAYLAND_DISPLAY
 systemctl --user restart lexicon.service
 ```
 
-Check that everything is ready:
+## Configuration
+
+Lexicon stores its configuration in:
+
+```text
+~/.config/lexicon/config.toml
+```
+
+You can modify settings through the CLI:
+
+```sh
+lex config show
+lex config set KEY VALUE
+lex config edit
+```
+
+The dictionary is stored at:
+
+```text
+~/.local/share/lexicon/dictionary.sqlite
+```
+
+Packaged installations may use a system-wide dictionary under `/usr/share/lexicon` instead.
+
+See [Configuration](docs/CONFIGURATION.md) for all available settings, defaults, and allowed values.
+
+## Troubleshooting
+
+Start with:
 
 ```sh
 lex doctor
 ```
 
-`lex doctor` reports the configuration, socket path and permissions, dictionary,
-selection backend, service state, model directory, translation state, and popup.
-Fix anything marked `fail` before continuing.
+It checks your configuration, service, socket, dictionary, selection backend, translation models, and popup.
 
-## Use it
+Common issues:
 
-Look up a word you type:
+**The daemon is not running**
 
 ```sh
-lex lookup hello
+systemctl --user start lexicon.service
 ```
 
-Look up whatever you have highlighted:
+Alternatively, run `lexicon-daemon` in a terminal to inspect its output.
+
+**Highlighted text isn't detected**
+
+Make sure `wl-clipboard` is installed and run `lex doctor`. Explicit lookups still work without the selection backend.
+
+**The dictionary is missing**
+
+Rerun the installer and provide the dictionary file:
 
 ```sh
-lex lookup
+lexicon-installer --dictionary ~/Downloads/en.sqlite
 ```
 
-Ask for machine-readable output:
+For more troubleshooting information, see [docs/INSTALL.md](docs/INSTALL.md).
 
-```sh
-lex lookup --json hello
-```
+## Documentation
 
-To use the popup, bind `lex lookup` to a keyboard shortcut in your desktop's
-keyboard settings. Any shortcut works; Lexicon does not register one itself.
-You can also launch `lexicon-popup` directly: on startup it asks the daemon to
-read the current highlight and shows the definition right away.
-
-### Everyday commands
-
-| Command | What it does |
-| --- | --- |
-| `lex lookup [word]` | Look up a word, or the current selection |
-| `lex lookup --json [word]` | Print the full result as JSON |
-| `lex doctor` | Check the installation and show what is wrong |
-| `lex config show` | Show the effective configuration |
-| `lex config set KEY VALUE` | Change one setting |
-| `lex config edit` | Edit the configuration file directly |
-| `lex languages list` | Show installed and available translation packs |
-| `lex languages install ID` | Download and install a translation pack |
-| `lex languages use SRC-TGT` | Set the translation pair |
-| `lex languages remove ID` | Remove an installed translation pack |
-| `lex version` | Show the version |
-
-### Service commands
-
-The background service is a normal systemd user unit:
-
-```sh
-systemctl --user status lexicon.service
-systemctl --user restart lexicon.service
-journalctl --user -u lexicon.service -f
-```
-
-## Configuration
-
-The installer writes `~/.config/lexicon/config.toml`. You can change settings
-with `lex config set` or by editing the file. Every key, its default, and its
-allowed range are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-
-The dictionary lives in `~/.local/share/lexicon/dictionary.sqlite` unless a
-package provides it under `/usr/share/lexicon`, in which case Lexicon uses the
-packaged copy in place.
-
-## Requirements
-
-- A Wayland session (X11 is not supported)
-- `wl-clipboard` for reading the primary selection
-- systemd user manager for the background service (optional if you only use
-  `lex lookup` with explicit text)
-- An English dictionary: included in packages, or downloaded separately
-
-## Troubleshooting
-
-**The popup does not appear.** Give the user service your Wayland display and
-restart it:
-
-```sh
-systemctl --user import-environment WAYLAND_DISPLAY
-systemctl --user restart lexicon.service
-```
-
-Then check `journalctl --user -u lexicon.service` for errors.
-
-**`lex` says the daemon is not running.** Start the service with
-`systemctl --user start lexicon.service`, or run `lexicon-daemon` in a terminal
-to see its log.
-
-**Selection lookups do nothing.** Install `wl-clipboard` and run `lex doctor`.
-Explicit lookups such as `lex lookup hello` still work without it.
-
-**The dictionary is missing.** Run `lex doctor`, then rerun the installer with
-`--dictionary /path/to/en.sqlite`.
-
-More help is in [docs/INSTALL.md](docs/INSTALL.md).
-
-## Learn more
-
-- [Installation and service setup](docs/INSTALL.md)
-- [Configuration reference](docs/CONFIGURATION.md)
-- [Dictionary details](docs/DICTIONARY.md)
-- [Translation](docs/TRANSLATION.md)
+- [Installation](docs/INSTALL.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Offline translation](docs/TRANSLATION.md)
+- [Dictionary](docs/DICTIONARY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
 ## License
 
-Lexicon is MIT licensed. The dictionary and translation models keep their own
-licenses and attribution; see the metadata stored with those files.
+Lexicon is released under the MIT License.
+
+The dictionary and translation models have their own licenses and attribution requirements. Refer to the metadata distributed with each asset for details.

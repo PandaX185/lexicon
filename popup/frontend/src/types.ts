@@ -48,3 +48,21 @@ export interface DisplaySettings {
   show_status: boolean;
   show_footer: boolean;
 }
+
+export interface LanguagePair {
+  source: string;
+  target: string;
+  pack_id: string;
+}
+
+export interface LanguagePairsState {
+  enabled: boolean;
+  available: boolean;
+  source: string;
+  target: string;
+  pairs: LanguagePair[];
+}
+
+export interface PairErrorMessage {
+  message: string;
+}
