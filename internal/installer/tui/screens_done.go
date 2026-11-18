@@ -17,10 +17,10 @@ func (m model) viewDone() string {
 	b.WriteString(okStyle.Render("Setup complete") + "\n\n")
 
 	b.WriteString("CLI overview\n")
-	b.WriteString("  lex lookup              look up the selected word\n")
-	b.WriteString("  lex lookup --json       machine-readable result\n")
-	b.WriteString("  lex doctor              check the installation\n")
-	b.WriteString("  lex languages           manage translation packs\n\n")
+	b.WriteString("  lexicon lookup          look up the selected word\n")
+	b.WriteString("  lexicon lookup --json   machine-readable result\n")
+	b.WriteString("  lexicon doctor          check the installation\n")
+	b.WriteString("  lexicon languages       manage translation packs\n\n")
 
 	if len(m.packResults) > 0 {
 		b.WriteString("Model packs\n")

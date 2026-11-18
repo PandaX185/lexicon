@@ -72,7 +72,7 @@ func (a *App) languagesList(args []string) int {
 		return ExitUsage
 	}
 	if len(flags.Args()) != 0 {
-		a.errorf("usage: lex languages list [--json]")
+		a.errorf("usage: lexicon languages list [--json]")
 		return ExitUsage
 	}
 
@@ -135,7 +135,7 @@ func (a *App) languagesList(args []string) int {
 
 func (a *App) languagesInstall(ctx context.Context, args []string) int {
 	if len(args) != 1 {
-		a.errorf("usage: lex languages install ID")
+		a.errorf("usage: lexicon languages install ID")
 		return ExitUsage
 	}
 	id := strings.TrimSpace(args[0])
@@ -146,7 +146,7 @@ func (a *App) languagesInstall(ctx context.Context, args []string) int {
 	}
 	if !found {
 		a.errorf("unknown model pack %q", id)
-		fmt.Fprintln(a.Stderr, "Run \"lex languages list\" to see available packs.")
+		fmt.Fprintln(a.Stderr, "Run \"lexicon languages list\" to see available packs.")
 		return ExitUsage
 	}
 
@@ -162,10 +162,10 @@ func (a *App) languagesInstall(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 	fmt.Fprintf(a.Stdout, "installed %s in %s\n", entry.ID, target)
-	fmt.Fprintf(a.Stdout, "hint: select it with \"lex languages use %s\"\n",
+	fmt.Fprintf(a.Stdout, "hint: select it with \"lexicon languages use %s\"\n",
 		pairArgument(entry.Source, entry.Target))
 	if !effective.Translation.Enabled {
-		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lex config set translation.enabled true\"")
+		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lexicon config set translation.enabled true\"")
 	}
 	return ExitOK
 }
@@ -177,7 +177,7 @@ func (a *App) languagesRemove(args []string) int {
 		return ExitUsage
 	}
 	if len(flags.Args()) != 1 {
-		a.errorf("usage: lex languages remove [--yes] ID")
+		a.errorf("usage: lexicon languages remove [--yes] ID")
 		return ExitUsage
 	}
 	id := strings.TrimSpace(flags.Arg(0))
@@ -237,7 +237,7 @@ func (a *App) languagesRemove(args []string) int {
 
 func (a *App) languagesUse(ctx context.Context, args []string) int {
 	if len(args) != 1 {
-		a.errorf("usage: lex languages use SRC-TGT")
+		a.errorf("usage: lexicon languages use SRC-TGT")
 		return ExitUsage
 	}
 	source, target, err := parseLanguagePair(args[0])
@@ -255,7 +255,7 @@ func (a *App) languagesUse(ctx context.Context, args []string) int {
 		if errors.Is(err, translation.ErrNoModel) {
 			a.errorf("no installed model pack translates %s -> %s", source, target)
 			if entry, found, catalogErr := translation.CatalogEntryForPair(source, target); catalogErr == nil && found {
-				fmt.Fprintf(a.Stderr, "Install it with: lex languages install %s\n", entry.ID)
+				fmt.Fprintf(a.Stderr, "Install it with: lexicon languages install %s\n", entry.ID)
 			}
 			return ExitFailure
 		}
@@ -276,7 +276,7 @@ func (a *App) languagesUse(ctx context.Context, args []string) int {
 	}
 	fmt.Fprintf(a.Stdout, "translation pair: %s -> %s\n", source, target)
 	if !cfg.Translation.Enabled {
-		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lex config set translation.enabled true\"")
+		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lexicon config set translation.enabled true\"")
 	}
 	a.reloadDaemon(ctx, previous.Daemon.Socket)
 	return ExitOK

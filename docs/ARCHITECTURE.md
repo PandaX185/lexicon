@@ -7,24 +7,23 @@ that keep it testable on machines without desktop libraries.
 
 | Component | Module | Responsibility |
 | --- | --- | --- |
-| `lex` CLI | core | Parse commands, resolve config/socket, render results |
+| `lexicon` CLI | core | Parse commands, resolve config/socket, render results |
 | Daemon (`lexicon-daemon`) | core | Own resources, serve IPC, perform lookups, reload config, launch popup |
 | `lexicon-installer` | core | Terminal wizard, validate/copy dictionary, write config, install user unit |
 | `lexicon-popup` | `popup/` | Wails window and React UI; subscribes to lookup events |
 | Shared packages | core `internal/` | Paths, config, dictionary, selection, translation, IPC, systemd |
 
-`cmd/lex` is the CLI entry point and `cmd/lexicon-daemon` is the service entry
-point. They are separate binaries: systemd starts `lexicon-daemon` directly and
-the CLI has no lifecycle subcommands. An installed `lexicon` symlink points at
-`lex` for compatibility. The popup is a separate Go module so the core build
-never needs WebKitGTK.
+`cmd/lexicon` is the CLI entry point and `cmd/lexicon-daemon` is the service
+entry point. They are separate binaries: systemd starts `lexicon-daemon`
+directly and the CLI has no lifecycle subcommands. The popup is a separate Go
+module so the core build never needs WebKitGTK.
 
 ## Package boundaries
 
 - `internal/paths` resolves XDG locations and rejects an unset
   `XDG_RUNTIME_DIR` rather than falling back to a world-writable directory.
 - `internal/config` defines the typed TOML schema, defaults, validation, atomic
-  writes, and dotted-key access used by `lex config`.
+  writes, and dotted-key access used by `lexicon config`.
 - `internal/dictionary` normalizes lookup text and reads a SQLite dictionary
   read-only. The schema is probed once at open time; optional columns and tables
   are handled without failing the whole lookup.
@@ -114,7 +113,7 @@ client roles. Details are in [IPC.md](IPC.md).
   connect it checks `has_last_result` in the IPC welcome: if the daemon has no
   result to replay, it sends an empty-text lookup so the daemon reads the
   current Wayland primary selection immediately. This makes a manually launched
-  popup show the highlighted word without a separate `lex lookup`; the
+  popup show the highlighted word without a separate `lexicon lookup`; the
   auto-launch path keeps its replay and does not look up or translate twice.
   It hides on window close, blur (config-gated), or Escape.
 - The window is frameless and solid. Appearance is read from `[popup]` at

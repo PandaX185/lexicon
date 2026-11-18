@@ -12,7 +12,7 @@ No browser tabs. No accounts. No cloud services. Just your dictionary, right whe
 
 - **Instant lookups** — Look up highlighted text using the Wayland primary selection.
 - **Native popup** — Read definitions in a small desktop popup without leaving your current application.
-- **Terminal support** — Use `lex lookup` directly from your terminal, including JSON output.
+- **Terminal support** — Use `lexicon lookup` directly from your terminal, including JSON output.
 - **Built-in English dictionary** — WordNet 3.0 definitions with pronunciations from the CMU Pronouncing Dictionary.
 - **Offline by design** — Dictionary lookups happen locally. No telemetry or cloud dependency.
 - **Optional translation** — Add offline translation language packs when you need them.
@@ -25,10 +25,10 @@ Lexicon only reads the Wayland primary selection. Your clipboard is never read o
 On a Wayland desktop, install Lexicon using the bootstrap installer:
 
 ```sh
-curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh)
 ```
 
-The bootstrap verifies the release tarball, checksums, and pinned dictionary before launching the terminal installer. No root access is required.
+The bootstrap verifies the release tarball, checksums, and pinned dictionary before launching the terminal installer. No root access is required. Run it in an interactive terminal so the installer can prompt you (piping through `sh` will exit early).
 
 Once installed, run:
 
@@ -41,7 +41,7 @@ The installer checks your system, configures Lexicon, installs the dictionary, a
 Check your installation:
 
 ```sh
-lex doctor
+lexicon doctor
 ```
 
 See the [installation guide](docs/INSTALL.md) for package installation, manual installation, and distribution-specific instructions.
@@ -51,7 +51,7 @@ See the [installation guide](docs/INSTALL.md) for package installation, manual i
 ### Look up a word
 
 ```sh
-lex lookup hello
+lexicon lookup hello
 ```
 
 ### Look up highlighted text
@@ -59,7 +59,7 @@ lex lookup hello
 Highlight a word in any supported Wayland application, then run:
 
 ```sh
-lex lookup
+lexicon lookup
 ```
 
 ### Use the popup
@@ -67,7 +67,7 @@ lex lookup
 Bind the following command to a keyboard shortcut in your desktop's keyboard settings:
 
 ```sh
-lex lookup
+lexicon lookup
 ```
 
 The popup appears with the definition of your current selection.
@@ -81,24 +81,24 @@ lexicon-popup
 ### Machine-readable output
 
 ```sh
-lex lookup --json hello
+lexicon lookup --json hello
 ```
 
 ### Available commands
 
 | Command | Description |
 | --- | --- |
-| `lex lookup [word]` | Look up a word or current selection |
-| `lex lookup --json [word]` | Return the result as JSON |
-| `lex doctor` | Diagnose your installation |
-| `lex config show` | Show effective configuration |
-| `lex config set KEY VALUE` | Change a setting |
-| `lex config edit` | Edit configuration directly |
-| `lex languages list` | List translation packs |
-| `lex languages install ID` | Install a translation pack |
-| `lex languages use SRC-TGT` | Select a translation pair |
-| `lex languages remove ID` | Remove a translation pack |
-| `lex version` | Show the installed version |
+| `lexicon lookup [word]` | Look up a word or current selection |
+| `lexicon lookup --json [word]` | Return the result as JSON |
+| `lexicon doctor` | Diagnose your installation |
+| `lexicon config show` | Show effective configuration |
+| `lexicon config set KEY VALUE` | Change a setting |
+| `lexicon config edit` | Edit configuration directly |
+| `lexicon languages list` | List translation packs |
+| `lexicon languages install ID` | Install a translation pack |
+| `lexicon languages use SRC-TGT` | Select a translation pair |
+| `lexicon languages remove ID` | Remove a translation pack |
+| `lexicon version` | Show the installed version |
 
 ## Offline translation
 
@@ -115,7 +115,7 @@ See [Offline translation](docs/TRANSLATION.md) for supported languages, model in
 - systemd user manager for the background service.
 - An English dictionary, included in release packages or installed separately.
 
-Explicit lookups such as `lex lookup hello` can work without the background service or selection backend.
+Explicit lookups such as `lexicon lookup hello` can work without the background service or selection backend.
 
 ## Installation options
 
@@ -124,7 +124,7 @@ Explicit lookups such as `lex lookup hello` can work without the background serv
 The recommended option for most users:
 
 ```sh
-curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh)
 ```
 
 ### Release tarball
@@ -208,9 +208,9 @@ Lexicon stores its configuration in:
 You can modify settings through the CLI:
 
 ```sh
-lex config show
-lex config set KEY VALUE
-lex config edit
+lexicon config show
+lexicon config set KEY VALUE
+lexicon config edit
 ```
 
 The dictionary is stored at:
@@ -228,7 +228,7 @@ See [Configuration](docs/CONFIGURATION.md) for all available settings, defaults,
 Start with:
 
 ```sh
-lex doctor
+lexicon doctor
 ```
 
 It checks your configuration, service, socket, dictionary, selection backend, translation models, and popup.
@@ -245,7 +245,7 @@ Alternatively, run `lexicon-daemon` in a terminal to inspect its output.
 
 **Highlighted text isn't detected**
 
-Make sure `wl-clipboard` is installed and run `lex doctor`. Explicit lookups still work without the selection backend.
+Make sure `wl-clipboard` is installed and run `lexicon doctor`. Explicit lookups still work without the selection backend.
 
 **The dictionary is missing**
 

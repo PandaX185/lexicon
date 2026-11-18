@@ -155,8 +155,8 @@ func Render(cfg Config) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encode config: %w", err)
 	}
-	header := "# Lexicon configuration. Edit with `lex config set` or `lex config edit`.\n" +
-		"# Values shown by `lex config show` are effective values, including XDG defaults.\n\n"
+	header := "# Lexicon configuration. Edit with `lexicon config set` or `lexicon config edit`.\n" +
+		"# Values shown by `lexicon config show` are effective values, including XDG defaults.\n\n"
 	return append([]byte(header), body...), nil
 }
 

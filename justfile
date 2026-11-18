@@ -40,14 +40,13 @@ help:
 # Build every binary, including the popup.
 build: core build-popup
 
-# Build the lex CLI, daemon, and installer without WebKit.
+# Build the lexicon CLI, daemon, and installer without WebKit.
 core: build-cli build-daemon build-installer
 
-# Build the lex CLI and the lexicon compatibility symlink.
+# Build the lexicon CLI.
 build-cli:
     @mkdir -p bin
-    {{ go }} build -trimpath -ldflags '{{ ldflags }}' -o bin/lex ./cmd/lex
-    ln -sfn lex bin/lexicon
+    {{ go }} build -trimpath -ldflags '{{ ldflags }}' -o bin/lexicon ./cmd/lexicon
 
 # Build the systemd-owned daemon. Set daemon_go_tags=bergamot for translation.
 build-daemon:
@@ -142,9 +141,8 @@ release app_version:
     source build/bergamot/env.sh
     just core
     just build-popup
-    cp bin/lex bin/lexicon-daemon bin/lexicon-installer \
+    cp bin/lexicon bin/lexicon-daemon bin/lexicon-installer \
        bin/lexicon-popup "$stage/bin/"
-    ln -s lex "$stage/bin/lexicon"
     cp packaging/systemd/lexicon.service "$stage/share/lexicon/"
     cp docs/*.md "$stage/share/doc/lexicon/"
     cp LICENSE licenses/WORDNET.txt licenses/CMUDICT.txt \
@@ -217,10 +215,9 @@ distclean: clean
 # Install the CLI, daemon, installer, and popup under prefix.
 install: install-core install-popup
 
-# Install the CLI, alias, daemon, and installer under prefix.
+# Install the CLI, daemon, and installer under prefix.
 install-core: core
-    install -Dm755 bin/lex "{{ destdir }}{{ prefix }}/bin/lex"
-    ln -sfn lex "{{ destdir }}{{ prefix }}/bin/lexicon"
+    install -Dm755 bin/lexicon "{{ destdir }}{{ prefix }}/bin/lexicon"
     install -Dm755 bin/lexicon-daemon "{{ destdir }}{{ prefix }}/bin/lexicon-daemon"
     install -Dm755 bin/lexicon-installer "{{ destdir }}{{ prefix }}/bin/lexicon-installer"
 
@@ -228,9 +225,9 @@ install-core: core
 install-popup: build-popup
     install -Dm755 bin/lexicon-popup "{{ destdir }}{{ prefix }}/bin/lexicon-popup"
 
-# Build and run the lex CLI. Pass lex arguments after the recipe name.
+# Build and run the lexicon CLI. Pass lexicon arguments after the recipe name.
 run-cli *args: build-cli
-    ./bin/lex {{ args }}
+    ./bin/lexicon {{ args }}
 
 # Build and run the daemon in the foreground.
 run-daemon *args: build-daemon
@@ -258,12 +255,12 @@ run-popup *args: build-popup
 
 # Build and run a lookup through the CLI. Use `just lookup --json`.
 lookup *args: build-cli
-    ./bin/lex lookup {{ args }}
+    ./bin/lexicon lookup {{ args }}
 
 # Build and show the doctor report.
 doctor: build-cli
-    ./bin/lex doctor
+    ./bin/lexicon doctor
 
 # Build and run a config subcommand. Use `just config show`.
 config *args: build-cli
-    ./bin/lex config {{ args }}
+    ./bin/lexicon config {{ args }}

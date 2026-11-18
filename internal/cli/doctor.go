@@ -26,7 +26,7 @@ type diagnostic struct {
 
 func (a *App) runDoctor(ctx context.Context, args []string) int {
 	if len(args) != 0 {
-		a.errorf("usage: lex doctor")
+		a.errorf("usage: lexicon doctor")
 		return ExitUsage
 	}
 

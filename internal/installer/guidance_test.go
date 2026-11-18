@@ -15,8 +15,8 @@ func TestShortcutsIncludeLexLookup(t *testing.T) {
 		if shortcuts[index].Name != want {
 			t.Fatalf("shortcut %d = %q, want %q", index, shortcuts[index].Name, want)
 		}
-		if !strings.Contains(shortcuts[index].Hint, "lex lookup") {
-			t.Fatalf("%s hint does not contain lex lookup: %q", want, shortcuts[index].Hint)
+		if !strings.Contains(shortcuts[index].Hint, "lexicon lookup") {
+			t.Fatalf("%s hint does not contain lexicon lookup: %q", want, shortcuts[index].Hint)
 		}
 	}
 }

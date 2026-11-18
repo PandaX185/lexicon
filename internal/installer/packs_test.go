@@ -45,7 +45,7 @@ func TestInstallPacksContinuesAfterFailure(t *testing.T) {
 	if results[1].Error != nil {
 		t.Fatalf("second result error = %v", results[1].Error)
 	}
-	if results[0].RetryCommand() != "lex languages install pack-a" {
+	if results[0].RetryCommand() != "lexicon languages install pack-a" {
 		t.Fatalf("retry = %q", results[0].RetryCommand())
 	}
 	if len(progress) != 2 || progress[1].Index != 2 || progress[1].Total != 2 {

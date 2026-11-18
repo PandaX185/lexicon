@@ -357,7 +357,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "esc":
 			return m.startPaths()
-		case "enter":
+		case "enter", "tab":
 			value := strings.TrimSpace(m.dictionaryInput.Value())
 			if value == "" {
 				m.settings.Dictionary = ""

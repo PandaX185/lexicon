@@ -202,7 +202,7 @@ and translation resources. On failure it returns:
 ```
 
 Changing `daemon.socket` is rejected; restart the service with `systemctl --user
-restart lexicon.service`. `lex config set` and `config reset` send a reload
+restart lexicon.service`. `lexicon config set` and `config reset` send a reload
 automatically after writing the file.
 
 ## Errors and compatibility

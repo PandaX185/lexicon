@@ -42,7 +42,7 @@ just fmt          # gofmt for core and popup
 just fmt-check    # fail if formatting is needed
 just test-core    # go test ./...
 just lint-core    # golangci-lint
-just core         # lex CLI + daemon + installer
+just core         # lexicon CLI + daemon + installer
 ```
 
 Full checks (popup and frontend):

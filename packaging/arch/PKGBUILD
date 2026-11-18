@@ -39,8 +39,7 @@ package() {
     # Refuse to install a tarball whose contents do not match its manifest.
     ( cd "$stage" && sha256sum -c checksums.sha256 )
 
-    install -Dm755 "$stage/bin/lex" "$pkgdir/usr/bin/lex"
-    ln -s lex "$pkgdir/usr/bin/lexicon"
+    install -Dm755 "$stage/bin/lexicon" "$pkgdir/usr/bin/lexicon"
     install -Dm755 "$stage/bin/lexicon-daemon" "$pkgdir/usr/bin/lexicon-daemon"
     install -Dm755 "$stage/bin/lexicon-installer" "$pkgdir/usr/bin/lexicon-installer"
     install -Dm755 "$stage/bin/lexicon-popup" "$pkgdir/usr/bin/lexicon-popup"

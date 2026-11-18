@@ -67,6 +67,7 @@ func createDictionary(t *testing.T, path string) {
 }
 
 func keyEnter() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyEnter} }
+func keyTab() tea.KeyMsg   { return tea.KeyMsg{Type: tea.KeyTab} }
 func keyEsc() tea.KeyMsg   { return tea.KeyMsg{Type: tea.KeyEsc} }
 func keyUp() tea.KeyMsg    { return tea.KeyMsg{Type: tea.KeyUp} }
 func keyDown() tea.KeyMsg  { return tea.KeyMsg{Type: tea.KeyDown} }
@@ -267,6 +268,35 @@ func TestDictionaryScreenAllowsEmpty(t *testing.T) {
 	}
 	if m.settings.Dictionary != "" {
 		t.Fatalf("dictionary = %q, want empty", m.settings.Dictionary)
+	}
+}
+
+func TestDictionaryScreenTabContinues(t *testing.T) {
+	options := testOptions(t)
+	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
+	createDictionary(t, path)
+
+	m := newModel(context.Background(), options)
+	m.screen = screenDictionary
+	m.dictionaryInput.SetValue(path)
+	m = press(t, m, keyTab())
+	if m.screen != screenLanguages {
+		t.Fatalf("screen = %d, want languages (err %q)", m.screen, m.dictionaryErr)
+	}
+	if m.settings.Dictionary != path {
+		t.Fatalf("dictionary = %q, want %s", m.settings.Dictionary, path)
+	}
+}
+
+func TestAppearanceSpaceTogglesOption(t *testing.T) {
+	m := newModel(context.Background(), testOptions(t))
+	m.screen = screenAppearance
+	m.appearanceField = fieldPronunciation
+	before := *m.appearance.ShowPronunciation
+
+	m = press(t, m, keySpace())
+	if *m.appearance.ShowPronunciation == before {
+		t.Fatal("space did not toggle the selected appearance option")
 	}
 }
 
@@ -518,7 +548,7 @@ func TestDoneViewMentionsNextSteps(t *testing.T) {
 	m.screen = screenDone
 	m.plan = installer.Plan{ConfigPath: "/tmp/config.toml", InstallUnit: true}
 	view := m.View()
-	for _, want := range []string{"Setup complete", "lex doctor", "systemctl --user status lexicon.service"} {
+	for _, want := range []string{"Setup complete", "lexicon doctor", "systemctl --user status lexicon.service"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("done view does not mention %q:\n%s", want, view)
 		}

@@ -1,4 +1,4 @@
-// Package cli implements the Lexicon `lex` command-line interface.
+// Package cli implements the Lexicon `lexicon` command-line interface.
 package cli
 
 import (
@@ -75,7 +75,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		a.printUsage()
 		return ExitOK
 	case "version", "--version":
-		fmt.Fprintln(a.Stdout, version.StringFor("lex"))
+		fmt.Fprintln(a.Stdout, version.StringFor("lexicon"))
 		return ExitOK
 	case "lookup":
 		return a.runLookup(ctx, args[1:])
@@ -105,34 +105,34 @@ func (a *App) effectiveConfig() (config.Config, error) {
 }
 
 func (a *App) errorf(format string, args ...any) {
-	fmt.Fprintf(a.Stderr, "lex: "+format+"\n", args...)
+	fmt.Fprintf(a.Stderr, "lexicon: "+format+"\n", args...)
 }
 
 func (a *App) newFlagSet(name string, usage string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(a.Stderr)
 	flags.Usage = func() {
-		fmt.Fprintf(a.Stderr, "Usage: lex %s\n", usage)
+		fmt.Fprintf(a.Stderr, "Usage: lexicon %s\n", usage)
 		flags.PrintDefaults()
 	}
 	return flags
 }
 
 func (a *App) printUsage() {
-	fmt.Fprint(a.Stdout, `lex — offline dictionary lookups from the Wayland primary selection
+	fmt.Fprint(a.Stdout, `lexicon — offline dictionary lookups from the Wayland primary selection
 
 Usage:
-  lex lookup [--json] [text...]
-  lex config show|get|set|reset|edit|path
-  lex languages list|install|remove|use
-  lex doctor
-  lex version
+  lexicon lookup [--json] [text...]
+  lexicon config show|get|set|reset|edit|path
+  lexicon languages list|install|remove|use
+  lexicon doctor
+  lexicon version
 
 Global option:
   --config PATH    configuration file (default $XDG_CONFIG_HOME/lexicon/config.toml)
 
 The daemon is managed by systemd. The CLI is the only configuration interface.
-Run "lex help" for this text.
+Run "lexicon help" for this text.
 `)
 }
 

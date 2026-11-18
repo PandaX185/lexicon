@@ -377,7 +377,7 @@ func resolveDictionary(ctx context.Context, options Options, settings Settings) 
 		return result, nil
 
 	default:
-		result.check = Check{Name: "dictionary", Status: StatusWarn, Detail: "no dictionary found; configure one later with lex config set"}
+		result.check = Check{Name: "dictionary", Status: StatusWarn, Detail: "no dictionary found; configure one later with lexicon config set"}
 		result.note = "no dictionary configured; lookups will fail until one is installed"
 		return result, nil
 	}

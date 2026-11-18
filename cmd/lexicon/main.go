@@ -1,4 +1,4 @@
-// Command lex is the Lexicon command-line interface. The daemon is a separate
+// Command lexicon is the Lexicon command-line interface. The daemon is a separate
 // binary (lexicon-daemon) managed by systemd.
 package main
 

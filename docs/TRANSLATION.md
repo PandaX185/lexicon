@@ -13,8 +13,8 @@ model packs are installed only when you ask for them.
 The default build contains a stub engine:
 
 ```sh
-lex config set translation.enabled true
-lex doctor
+lexicon config set translation.enabled true
+lexicon doctor
 # translation  unavailable: rebuild with -tags bergamot ...
 ```
 
@@ -24,9 +24,9 @@ translator as unavailable and keeps serving lookups.
 ## Release packages
 
 Stable tarballs and the Arch package ship a daemon with Bergamot compiled in,
-so `lex doctor` reports the translator as available without a local C++ build.
+so `lexicon doctor` reports the translator as available without a local C++ build.
 Bundling the engine does not install any models: install a pack explicitly with
-`lex languages install ID` before enabling a language pair. Definitions always
+`lexicon languages install ID` before enabling a language pair. Definitions always
 work, including when no pack is installed or a translation fails.
 
 ## Building the engine
@@ -62,7 +62,7 @@ Two build details are load-bearing:
 - The default build arch is `native`. Set `BERGAMOT_ARCH=x86-64-v3` (or similar)
   to produce a binary that runs on older CPUs.
 
-Only the daemon links Bergamot; `lex` and `lexicon-installer` stay untagged
+Only the daemon links Bergamot; `lexicon` and `lexicon-installer` stay untagged
 builds. The generated flags are equivalent to:
 
 ```sh
@@ -83,18 +83,18 @@ boundary.
 
 ## Installing model packs
 
-`lex languages` manages packs from the catalog embedded in the binary. Every
+`lexicon languages` manages packs from the catalog embedded in the binary. Every
 catalog entry pins an HTTPS tarball, its SHA-256, and its exact size.
 
 ```sh
-lex languages list                 # installed packs and the catalog
-lex languages install bergamot-en-de-tiny11
-lex languages use en-de            # sets translation.source/target_language
-lex config set translation.enabled true
-lex languages remove bergamot-en-de-tiny11
+lexicon languages list                 # installed packs and the catalog
+lexicon languages install bergamot-en-de-tiny11
+lexicon languages use en-de            # sets translation.source/target_language
+lexicon config set translation.enabled true
+lexicon languages remove bergamot-en-de-tiny11
 ```
 
-`lex languages install` streams the tarball into the model directory, verifies
+`lexicon languages install` streams the tarball into the model directory, verifies
 the size and checksum, extracts only the files named by the catalog entry,
 writes a fresh `metadata.json`, validates the result, and renames the staging
 directory into place. It never overwrites an installed pack. Redirects are not
@@ -184,15 +184,15 @@ Bergamot aborts silently when it is missing, which is why the shipped
 Packs are never downloaded implicitly. During first-run setup the installer
 shows the embedded catalog and lets you select zero or more packs. Each select
 is a deliberate HTTPS download verified against the catalog SHA-256. Failures
-are reported on the final screen with an exact `lex languages install ID`
+are reported on the final screen with an exact `lexicon languages install ID`
 retry command, and definitions continue to work.
 
 You can also install a specific pack later:
 
 ~~~sh
-lex languages list
-lex languages install bergamot-en-de-tiny11
-lex languages use en-de
+lexicon languages list
+lexicon languages install bergamot-en-de-tiny11
+lexicon languages use en-de
 ~~~
 
 ## Choosing the active pair in the popup

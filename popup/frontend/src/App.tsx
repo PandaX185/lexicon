@@ -287,7 +287,7 @@ function IdleState({ connection }: { connection: ConnectionState | null }) {
         </>
       ) : (
         <p className="max-w-[36ch] text-xs leading-relaxed text-muted">
-          Select text, then run <code className="text-ink">lex lookup</code>.
+          Select text, then run <code className="text-ink">lexicon lookup</code>.
         </p>
       )}
     </div>

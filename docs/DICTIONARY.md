@@ -13,7 +13,7 @@ The default path is `$XDG_DATA_HOME/lexicon/dictionary.sqlite`
 `dictionary.database_path`:
 
 ```sh
-lex config set dictionary.database_path /absolute/path/to/en.sqlite
+lexicon config set dictionary.database_path /absolute/path/to/en.sqlite
 ```
 
 The installer validates a supplied file, copies it to the default location
@@ -83,7 +83,7 @@ CREATE INDEX idx_definitions_entry ON definitions (entry_id, sense_order);
   optional tables for lookup purposes. Missing tables are skipped rather than
   failing a lookup.
 - `dictionary_info` is needed for human-readable dictionary metadata. Without it
-  `lex doctor` warns; the installer rejects the file because it cannot
+  `lexicon doctor` warns; the installer rejects the file because it cannot
   validate a name.
 - `definitions` is read with `part_of_speech`, `definition`, `label`, and
   `sense_order`. If you provide that table, use this shape.
@@ -243,7 +243,7 @@ results sent to the popup. JSON lookup output is not filtered.
 ## Verifying a dictionary
 
 ```sh
-lex doctor
+lexicon doctor
 ```
 
 The doctor checks that the path exists, opens read-only, and that

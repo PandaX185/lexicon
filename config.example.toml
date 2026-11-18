@@ -6,7 +6,7 @@
 #   just run-daemon-dev
 #
 # Empty path values use the XDG defaults. Paths are not shell-expanded.
-# The CLI is the supported editor: lex --config config.example.toml config show
+# The CLI is the supported editor: lexicon --config config.example.toml config show
 
 [general]
 # Maximum words and characters accepted in one lookup.

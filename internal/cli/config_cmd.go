@@ -55,7 +55,7 @@ func (a *App) configShow() int {
 
 func (a *App) configGet(args []string) int {
 	if len(args) != 1 {
-		a.errorf("usage: lex config get KEY")
+		a.errorf("usage: lexicon config get KEY")
 		return ExitUsage
 	}
 	cfg, err := a.effectiveConfig()
@@ -75,7 +75,7 @@ func (a *App) configGet(args []string) int {
 
 func (a *App) configSet(ctx context.Context, args []string) int {
 	if len(args) != 2 {
-		a.errorf("usage: lex config set KEY VALUE")
+		a.errorf("usage: lexicon config set KEY VALUE")
 		return ExitUsage
 	}
 	key, value := args[0], args[1]
@@ -138,7 +138,7 @@ func (a *App) configReset(ctx context.Context, args []string) int {
 
 func (a *App) configEdit(ctx context.Context, args []string) int {
 	if len(args) != 0 {
-		a.errorf("usage: lex config edit")
+		a.errorf("usage: lexicon config edit")
 		return ExitUsage
 	}
 	if _, err := config.Ensure(a.ConfigPath); err != nil {
@@ -172,7 +172,7 @@ func (a *App) configEdit(ctx context.Context, args []string) int {
 
 	cfg, _, err := a.loadConfig()
 	if err != nil {
-		a.errorf("the edited file is invalid; fix it and run `lex config edit` again: %v", err)
+		a.errorf("the edited file is invalid; fix it and run `lexicon config edit` again: %v", err)
 		return ExitFailure
 	}
 	a.reloadDaemon(ctx, config.Effective(cfg).Daemon.Socket)

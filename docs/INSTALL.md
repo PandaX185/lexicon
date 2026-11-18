@@ -3,7 +3,7 @@
 ## One-line bootstrap (recommended)
 
 ~~~sh
-curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh | sh
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh)
 ~~~
 
 The script is fetched from the pinned `v0.1.0` tag, not `main`. It downloads the
@@ -17,7 +17,7 @@ The installer asks for curated appearance settings, offers installable
 Bergamot packs, writes configuration, installs the dictionary, enables the
 systemd user service when available, and prints CLI usage plus
 compositor-specific shortcut guidance. Pack download failures are warnings with
-an exact `lex languages install ID` retry command; they do not roll back a
+an exact `lexicon languages install ID` retry command; they do not roll back a
 working base install.
 
 ## Prerequisites
@@ -84,12 +84,12 @@ Package names can change between distribution releases; the `pkg-config`
 checks above are the authoritative test. The release daemon has Bergamot
 statically linked in, so the BLAS, LAPACK, PCRE2, and C++ runtime libraries are
 its only shared-library dependencies beyond glibc. Model packs are still
-installed at runtime with `lex languages install ID`.
+installed at runtime with `lexicon languages install ID`.
 
 ## Build and install
 
 ```sh
-just core                  # lex CLI, daemon, and installer; no WebKit dependency
+just core                  # lexicon CLI, daemon, and installer; no WebKit dependency
 just build                 # core + popup (installs npm deps)
 just test
 just lint
@@ -102,8 +102,8 @@ just install               # installs to ~/.local/bin
 just prefix="$HOME/.local" install
 ```
 
-Installed binaries: `lex`, `lexicon-daemon`, `lexicon-installer`, and
-`lexicon-popup`. `lexicon` is installed as a compatibility symlink to `lex`.
+Installed binaries: `lexicon`, `lexicon-daemon`, `lexicon-installer`, and
+`lexicon-popup`.
 
 Build the optional Bergamot engine into the daemon with:
 
@@ -114,7 +114,7 @@ just daemon_go_tags=bergamot build-daemon
 ```
 
 The build is pinned to Bergamot v0.4.5 and runs in Docker. Install model packs
-afterwards with `lex languages install ID`; see [TRANSLATION.md](TRANSLATION.md).
+afterwards with `lexicon languages install ID`; see [TRANSLATION.md](TRANSLATION.md).
 
 If `just build` cannot find WebKitGTK 6.0 but finds WebKitGTK 4.1 + GTK 3, the
 justfile adds `-tags gtk3`. To force a tag set:
@@ -264,10 +264,10 @@ systemctl --user restart lexicon.service
 ## Verify
 
 ```sh
-lex version
-lex doctor
-lex lookup hello
-lex lookup                    # primary selection
+lexicon version
+lexicon doctor
+lexicon lookup hello
+lexicon lookup                    # primary selection
 systemctl --user status lexicon.service
 journalctl --user -u lexicon.service -f
 ```
@@ -294,7 +294,7 @@ in the shared config file.
 systemctl --user disable --now lexicon.service
 rm ~/.config/systemd/user/lexicon.service
 systemctl --user daemon-reload
-rm ~/.local/bin/lex ~/.local/bin/lexicon ~/.local/bin/lexicon-daemon \
+rm ~/.local/bin/lexicon ~/.local/bin/lexicon-daemon \
    ~/.local/bin/lexicon-installer ~/.local/bin/lexicon-popup
 ```
 
@@ -315,7 +315,7 @@ lexicon.service`, or run `lexicon-daemon --config <path>` in the foreground for
 debugging.
 
 **`wl-paste was not found`** — Install `wl-clipboard`. Check
-`lex doctor`; `selection.provider = "none"` is valid if you only want
+`lexicon doctor`; `selection.provider = "none"` is valid if you only want
 explicit-text lookups.
 
 **Popup does not appear** — Verify `lexicon-popup` is installed next to
@@ -328,9 +328,9 @@ can relaunch it.
 WebKitGTK development packages and rebuild. Systems with only WebKitGTK 4.1
 need `-tags gtk3`.
 
-**Dictionary unavailable** — Run `lex doctor`. The configured path must be a
+**Dictionary unavailable** — Run `lexicon doctor`. The configured path must be a
 readable regular file with an `entries` table; the installer additionally needs
-`dictionary_info`. Fix the path with `lex config set
+`dictionary_info`. Fix the path with `lexicon config set
 dictionary.database_path /absolute/path.sqlite`.
 
 **A configuration change did not apply** — Check the daemon is running and the

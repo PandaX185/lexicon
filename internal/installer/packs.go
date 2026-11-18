@@ -26,7 +26,7 @@ type PackResult struct {
 	Error  error
 }
 
-func (r PackResult) RetryCommand() string { return "lex languages install " + r.ID }
+func (r PackResult) RetryCommand() string { return "lexicon languages install " + r.ID }
 
 // InstallPacks installs selected packs after Apply. Failures are returned as
 // data so the base install is never rolled back.

@@ -83,7 +83,7 @@ func (m model) updateAppearance(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) toggleAppearanceBool() {
+func (m *model) toggleAppearanceBool() {
 	switch m.appearanceField {
 	case fieldPronunciation:
 		m.appearance.ShowPronunciation = boolPtr(!*m.appearance.ShowPronunciation)

@@ -88,7 +88,7 @@ func WriteNextSteps(w io.Writer, plan Plan) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Installed.")
 	fmt.Fprintln(w, "Next steps:")
-	fmt.Fprintln(w, "  lex doctor")
+	fmt.Fprintln(w, "  lexicon doctor")
 	if plan.InstallUnit || plan.EnableUnit {
 		fmt.Fprintln(w, "  systemctl --user status lexicon.service")
 	} else {

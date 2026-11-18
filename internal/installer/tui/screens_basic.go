@@ -15,7 +15,7 @@ func (m model) viewWelcome() (string, string) {
 		"It writes only user files under your home directory.",
 		"System files are never modified.",
 		"",
-		"You can change every setting later with `lex config`.",
+		"You can change every setting later with `lexicon config`.",
 	}, "\n")
 	return body, "enter  begin    q  quit"
 }
@@ -100,7 +100,7 @@ func (m model) viewDictionary() (string, string) {
 	if m.dictionaryErr != "" {
 		b.WriteString("\n" + failStyle.Render(m.dictionaryErr) + "\n")
 	}
-	return b.String(), "enter  continue    esc  back"
+	return b.String(), "enter/tab  continue    esc  back"
 }
 
 func (m model) viewLanguages() (string, string) {

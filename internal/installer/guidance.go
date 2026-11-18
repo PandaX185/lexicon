@@ -13,24 +13,24 @@ func Shortcuts() []Shortcut {
 		{
 			Name: "GNOME",
 			Hint: "Settings -> Keyboard -> Keyboard Shortcuts -> Custom Shortcuts -> +. " +
-				"Set Command to `lex lookup`, then assign a key.",
+				"Set Command to `lexicon lookup`, then assign a key.",
 		},
 		{
 			Name: "KDE Plasma",
 			Hint: "System Settings -> Shortcuts -> Custom Shortcuts -> Edit -> New -> " +
-				"Global Shortcut -> Command/URL. Set Command to `lex lookup`.",
+				"Global Shortcut -> Command/URL. Set Command to `lexicon lookup`.",
 		},
 		{
 			Name: "Sway",
-			Hint: "Add `bindsym $mod+Shift+l exec lex lookup` to ~/.config/sway/config, then reload Sway.",
+			Hint: "Add `bindsym $mod+Shift+l exec lexicon lookup` to ~/.config/sway/config, then reload Sway.",
 		},
 		{
 			Name: "Hyprland",
-			Hint: "Add `bind = $mainMod, L, exec, lex lookup` to ~/.config/hypr/hyprland.conf, then reload Hyprland.",
+			Hint: "Add `bind = $mainMod, L, exec, lexicon lookup` to ~/.config/hypr/hyprland.conf, then reload Hyprland.",
 		},
 		{
 			Name: "Other",
-			Hint: "Bind `lex lookup` in your compositor's global shortcut settings.",
+			Hint: "Bind `lexicon lookup` in your compositor's global shortcut settings.",
 		},
 	}
 }

@@ -20,12 +20,12 @@ paths. `popup.binary` additionally accepts a leading `~/`.
 ## Commands
 
 ```sh
-lex config path          # print the resolved path
-lex config show          # canonical TOML with effective XDG values
-lex config get KEY       # print one effective value
-lex config set KEY VALUE # validate, write, and notify a running daemon
-lex config reset [--yes] # restore defaults
-lex config edit          # open the raw file in $VISUAL/$EDITOR
+lexicon config path          # print the resolved path
+lexicon config show          # canonical TOML with effective XDG values
+lexicon config get KEY       # print one effective value
+lexicon config set KEY VALUE # validate, write, and notify a running daemon
+lexicon config reset [--yes] # restore defaults
+lexicon config edit          # open the raw file in $VISUAL/$EDITOR
 ```
 
 `set` and `reset` rewrite the file canonically, so comments are not preserved.
@@ -45,10 +45,10 @@ The terminal installer manages only:
 - `general.max_query_words`, `general.max_query_chars`
 
 Everything else — sockets, paths, timeouts, selection tuning, and binary
-overrides — remains in `lex config` and `lex config edit`.
+overrides — remains in `lexicon config` and `lexicon config edit`.
 
 The active translation pair can now be changed from the popup's language chip
-or with `lex languages use SRC-TGT`. Both paths write the same config keys:
+or with `lexicon languages use SRC-TGT`. Both paths write the same config keys:
 `translation.source_language` and `translation.target_language`.
 
 ## Keys
@@ -94,7 +94,7 @@ Notes:
 - `translation.enabled = true` on a default build is accepted; the daemon
   reports the translator as unavailable and lookups still return definitions.
 - `translation.source_language`/`target_language` select the translation pair
-  independently of the dictionary pair. Install packs with `lex languages`.
+  independently of the dictionary pair. Install packs with `lexicon languages`.
 - The popup is frameless by design. Its result card shows the translation first,
   then the headword, pronunciation, definitions, and source metadata.
 - `popup.*` display values are read when the popup process starts. A running
@@ -122,7 +122,7 @@ A commented copy of this example is tracked at `config.example.toml`.
 isolated runtime directory, so it does not collide with an installed service.
 
 ```toml
-# Lexicon configuration. Edit with `lex config set` or `lex config edit`.
+# Lexicon configuration. Edit with `lexicon config set` or `lexicon config edit`.
 
 [general]
 max_query_words = 4
@@ -162,5 +162,5 @@ show_status = false
 show_footer = false
 ```
 
-An empty string means "use the XDG default". `lex config show` prints the
+An empty string means "use the XDG default". `lexicon config show` prints the
 effective values instead of the empty placeholders.

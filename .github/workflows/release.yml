@@ -97,7 +97,7 @@ jobs:
           version="${{ needs.validate.outputs.version }}"
           stage="build/release/lexicon-${version}-linux-${{ matrix.goarch }}"
           ( cd "$stage" && sha256sum -c checksums.sha256 )
-          "$stage/bin/lex" version | grep -q "^lex ${version} "
+          "$stage/bin/lexicon" version | grep -q "^lexicon ${version} "
           test -x "$stage/bin/lexicon-daemon"
 
       - name: Attest build provenance

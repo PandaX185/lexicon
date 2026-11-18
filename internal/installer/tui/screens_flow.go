@@ -137,6 +137,6 @@ func (m model) viewError() (string, string) {
 	if m.applyErr != nil {
 		b.WriteString("Previous files were restored where possible.\n")
 	}
-	b.WriteString("Run `lex doctor` for more detail.\n")
+	b.WriteString("Run `lexicon doctor` for more detail.\n")
 	return b.String(), "esc  try again    q  quit"
 }
