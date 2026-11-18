@@ -342,7 +342,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.screen = screenPreflight
 			return m, nil
-		case "enter":
+		case "enter", "tab":
 			m.settings.ConfigPath = strings.TrimSpace(m.configInput.Value())
 			if m.settings.ConfigPath == "" {
 				m.settings.ConfigPath = m.options.ConfigPath

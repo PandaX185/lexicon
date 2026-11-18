@@ -88,12 +88,16 @@ build-popup: popup-frontend
     cd popup
     {{ go }} build {{ popup_tags_flag }} -trimpath -ldflags '{{ ldflags }}' -o ../bin/lexicon-popup .
 
-# Run Go tests for the core and popup.
-test: test-core test-popup
+# Run Go tests and the bootstrap installer test.
+test: test-core test-popup test-install
 
 # Run core Go tests.
 test-core:
     {{ go }} test ./...
+
+# Run the install.sh integration test with a local fake release.
+test-install:
+    bash tests/install_sh_test.sh
 
 # Build the pinned native Bergamot translator in Docker. Then source
 # build/bergamot/env.sh and build the daemon with daemon_go_tags=bergamot.

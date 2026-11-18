@@ -10,8 +10,12 @@ The script is fetched from the pinned `v0.1.1` tag, not `main`. It downloads the
 release tarball and `checksums.sha256` over HTTPS, verifies the tarball hash,
 downloads `en.sqlite` and `manifest.json` from the pinned `dictionary-3.0`
 release, verifies both dictionary SHA-256 hashes, extracts the tarball to a
-private temporary directory, verifies its internal checksums, and runs
-`lexicon-installer` from there. It never uses root or a package manager.
+private temporary directory, and verifies its internal checksums. It then
+installs `lexicon`, `lexicon-daemon`, `lexicon-installer`, and `lexicon-popup`
+into `${XDG_BIN_HOME:-$HOME/.local/bin}` and runs the installer from there, so
+the systemd unit points at stable paths. Set `LEXICON_BIN_DIR` to choose a
+different destination. If that directory is not on your `PATH`, the script
+prints a hint. It never uses root or a package manager.
 
 The installer asks for curated appearance settings, offers installable
 Bergamot packs, writes configuration, installs the dictionary, enables the
@@ -142,7 +146,8 @@ In a terminal, `lexicon-installer` opens a keyboard-driven wizard:
 2. **Preflight** — Wayland session, `wl-paste`, `systemctl`, writable config and
    data directories, the daemon and popup binaries, and a readable dictionary.
    Failures block installation; warnings do not.
-3. **Install paths** — the configuration file to write.
+3. **Install paths** — the configuration file to write; `tab` also advances to
+   the dictionary path screen.
 4. **Dictionary** — a packaged dictionary is used in place; a local `.sqlite`
    file is validated and copied to `$XDG_DATA_HOME/lexicon/dictionary.sqlite`.
 5. **Languages** — headword and definition tags, with optional translation.

@@ -8,8 +8,9 @@ DICT_BASE="${LEXICON_DICTIONARY_BASE_URL:-$RELEASE_BASE/dictionary-3.0}"
 SKIP_EXEC="${LEXICON_INSTALL_SKIP_EXEC:-0}"
 KEEP_WORK="${LEXICON_INSTALL_KEEP:-0}"
 
-DICT_SHA='4abacd0b88267af00bff88a731644bb3cc6a3c8f579729c2b69a405fdc03b458'
-MANIFEST_SHA='7cf561d001f109101305d475f5d5b71bc48310c1668babd935aabeb4f3e2ef83'
+DICT_SHA="${LEXICON_INSTALL_DICT_SHA:-4abacd0b88267af00bff88a731644bb3cc6a3c8f579729c2b69a405fdc03b458}"
+MANIFEST_SHA="${LEXICON_INSTALL_MANIFEST_SHA:-7cf561d001f109101305d475f5d5b71bc48310c1668babd935aabeb4f3e2ef83}"
+BIN_DIR="${LEXICON_BIN_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
 
 fail() {
 	printf 'lexicon-install: %s\n' "$*" >&2
@@ -48,6 +49,7 @@ require_https "$MANIFEST_URL"
 command -v curl >/dev/null 2>&1 || fail 'curl is required'
 command -v sha256sum >/dev/null 2>&1 || fail 'sha256sum is required'
 command -v tar >/dev/null 2>&1 || fail 'tar is required'
+command -v install >/dev/null 2>&1 || fail 'install is required'
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lexicon-install.XXXXXX")"
 cleanup() {
@@ -87,4 +89,18 @@ if [ "$SKIP_EXEC" = "1" ]; then
 	exit 0
 fi
 
-exec "$STAGE/bin/lexicon-installer" --dictionary "$WORK/en.sqlite"
+printf 'Installing binaries to %s\n' "$BIN_DIR"
+mkdir -p "$BIN_DIR" || fail "cannot create $BIN_DIR"
+for binary in lexicon lexicon-daemon lexicon-installer lexicon-popup; do
+	temp="$BIN_DIR/.$binary.$$"
+	install -m 755 "$STAGE/bin/$binary" "$temp" || fail "install $binary"
+	mv -f "$temp" "$BIN_DIR/$binary" || fail "install $binary"
+done
+case ":$PATH:" in
+	*":$BIN_DIR:"*) ;;
+	*) printf 'lexicon-install: add %s to your PATH to use the CLI\n' "$BIN_DIR" >&2 ;;
+esac
+
+exec "$BIN_DIR/lexicon-installer" \
+	--dictionary "$WORK/en.sqlite" \
+	--daemon "$BIN_DIR/lexicon-daemon"

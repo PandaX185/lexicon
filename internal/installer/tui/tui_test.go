@@ -592,6 +592,31 @@ func TestConfigPathIsKeptWhenInputIsEmpty(t *testing.T) {
 	}
 }
 
+func TestPathsScreenTabAdvancesToDictionary(t *testing.T) {
+	options := testOptions(t)
+	m := newModel(context.Background(), options)
+	m.screen = screenPaths
+	custom := filepath.Join(t.TempDir(), "config.toml")
+	m.configInput.SetValue(custom)
+
+	m = press(t, m, keyTab())
+
+	if m.screen != screenDictionary {
+		t.Fatalf("screen = %d, want dictionary", m.screen)
+	}
+	if m.settings.ConfigPath != custom {
+		t.Fatalf("config = %q, want %s", m.settings.ConfigPath, custom)
+	}
+}
+
+func TestPathsViewShowsTabHint(t *testing.T) {
+	m := newModel(context.Background(), testOptions(t))
+	m.screen = screenPaths
+	if view := m.View(); !strings.Contains(view, "enter/tab") {
+		t.Fatalf("paths view does not show the tab hint:\n%s", view)
+	}
+}
+
 func TestDownloadURLSkipsDictionaryScreen(t *testing.T) {
 	options := testOptions(t)
 	options.DictionaryURL = "https://example.invalid/en.sqlite"

@@ -28,7 +28,7 @@ On a Wayland desktop, install Lexicon using the bootstrap installer:
 bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.1/install.sh)
 ```
 
-The bootstrap verifies the release tarball, checksums, and pinned dictionary before launching the terminal installer. No root access is required. Run it in an interactive terminal so the installer can prompt you (piping through `sh` will exit early).
+The bootstrap verifies the release tarball, checksums, and pinned dictionary, installs the binaries into `~/.local/bin` (or `$XDG_BIN_HOME`), then launches the terminal installer. No root access is required. Run it in an interactive terminal so the installer can prompt you (piping through `sh` will exit early); if `~/.local/bin` is not on your `PATH`, the script tells you how to add it.
 
 Once installed, run:
 

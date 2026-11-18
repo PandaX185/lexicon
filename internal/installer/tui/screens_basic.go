@@ -66,7 +66,7 @@ func (m model) viewPaths() (string, string) {
 		labelStyle.Render("Dictionary location") + "\n" +
 		valueStyle.Render(dictionaryLocation(m)) + "\n\n" +
 		subtitleStyle.Render("A packaged dictionary is used in place; a local file is copied.")
-	return body, "enter  continue    esc  back"
+	return body, "enter/tab  continue    esc  back"
 }
 
 func dictionaryLocation(m model) string {

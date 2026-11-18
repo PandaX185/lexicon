@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/PandaX185/lexicon/internal/config"
@@ -44,8 +45,8 @@ func Apply(ctx context.Context, plan Plan, report Reporter) error {
 	)
 	rollback := func() error {
 		var rollbackErr error
-		for i := len(backups) - 1; i >= 0; i-- {
-			if err := backups[i].restore(); err != nil && rollbackErr == nil {
+		for _, backup := range slices.Backward(backups) {
+			if err := backup.restore(); err != nil && rollbackErr == nil {
 				rollbackErr = err
 			}
 		}
