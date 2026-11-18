@@ -44,11 +44,13 @@ Installed binaries: `lex`, `lexicon-daemon`, `lexicon-installer`, and
 Build the optional Bergamot engine into the daemon with:
 
 ```sh
-just daemon_go_tags=bergamot core
+just bergamot-build
+source build/bergamot/env.sh
+just daemon_go_tags=bergamot build-daemon
 ```
 
-This requires the native library and `CGO_*FLAGS` described in
-[TRANSLATION.md](TRANSLATION.md).
+The build is pinned to Bergamot v0.4.5 and runs in Docker. Install model packs
+afterwards with `lex languages install ID`; see [TRANSLATION.md](TRANSLATION.md).
 
 If `just build` cannot find WebKitGTK 6.0 but finds WebKitGTK 4.1 + GTK 3, the
 justfile adds `-tags gtk3`. To force a tag set:

@@ -112,7 +112,10 @@ type Status struct {
 	DictionaryName  string `json:"dictionary_name,omitempty"`
 	Selection       string `json:"selection,omitempty"`
 	Translation     string `json:"translation,omitempty"`
-	Socket          string `json:"socket,omitempty"`
+	// TranslationAvailable reports whether the daemon's compiled-in engine can
+	// translate. The CLI's own build may differ, so doctor trusts this field.
+	TranslationAvailable bool   `json:"translation_available,omitempty"`
+	Socket               string `json:"socket,omitempty"`
 }
 
 // ErrClosed is returned when the connection is gone.

@@ -51,6 +51,8 @@ reload; restart the service with `systemctl --user restart lexicon.service`.
 | `dictionary.show_pronunciation` | boolean | `true` | — |
 | `translation.enabled` | boolean | `false` | — |
 | `translation.model_directory` | string | empty → `$XDG_DATA_HOME/lexicon/models` | directory scanned at use time |
+| `translation.source_language` | string | `en` | lowercase BCP 47-shaped tag |
+| `translation.target_language` | string | `en` | lowercase BCP 47-shaped tag |
 | `translation.timeout_seconds` | integer | `30` | 5–300 |
 | `popup.auto_launch` | boolean | `true` | — |
 | `popup.binary` | string | empty → next to `lexicon-daemon`, then `PATH` | executable path checked at launch |
@@ -70,6 +72,8 @@ Notes:
   lowercase tag.
 - `translation.enabled = true` on a default build is accepted; the daemon
   reports the translator as unavailable and lookups still return definitions.
+- `translation.source_language`/`target_language` select the translation pair
+  independently of the dictionary pair. Install packs with `lex languages`.
 - `popup.*` display values are read when the popup process starts. A running
   popup does not hot-reload them; the next popup launch uses the new values.
 - With the generated systemd unit, the only writable path is `%t/lexicon`. A
@@ -107,6 +111,8 @@ show_pronunciation = true
 [translation]
 enabled = false
 model_directory = ""
+source_language = "en"
+target_language = "en"
 timeout_seconds = 30
 
 [popup]

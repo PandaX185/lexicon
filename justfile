@@ -93,6 +93,19 @@ test: test-core test-popup
 test-core:
     {{ go }} test ./...
 
+# Build the pinned native Bergamot translator in Docker. Then source
+# build/bergamot/env.sh and build the daemon with daemon_go_tags=bergamot.
+bergamot-build:
+    ./tools/bergamot/build.sh
+
+# Run the opt-in Bergamot integration test against an installed model pack.
+bergamot-test pack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source build/bergamot/env.sh
+    pack="$(realpath "{{ pack }}")"
+    LEXICON_BERGAMOT_TEST_PACK="$pack" {{ go }} test -tags bergamot -run TestBergamot -v ./internal/translation
+
 # Build the English dictionary from WordNet 3.0 and CMUdict. Both paths are
 # build-time inputs; the generated asset is not tracked.
 dict-build wordnet_dir cmudict_file output="build/dictionaries/en.sqlite":

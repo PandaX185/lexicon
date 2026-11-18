@@ -113,6 +113,10 @@ keyboard settings. Any shortcut works; Lexicon does not register one itself.
 | `lex config show` | Show the effective configuration |
 | `lex config set KEY VALUE` | Change one setting |
 | `lex config edit` | Edit the configuration file directly |
+| `lex languages list` | Show installed and available translation packs |
+| `lex languages install ID` | Download and install a translation pack |
+| `lex languages use SRC-TGT` | Set the translation pair |
+| `lex languages remove ID` | Remove an installed translation pack |
 | `lex version` | Show the version |
 
 ### Service commands

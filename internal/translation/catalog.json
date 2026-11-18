@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "bergamot-en-de-tiny11",
+      "name": "English → German (Bergamot tiny11)",
+      "source": "en",
+      "target": "de",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/deen/ende.student.tiny11.v2.93821e13b3c511b5.tar.gz",
+      "sha256": "93821e13b3c511b5390f9fb79f476f738d66e3656889bf076e906897e614fed2",
+      "size": 15238208,
+      "archive": {
+        "root": "ende.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.deen.spm"}
+        ]
+      }
+    },
+    {
+      "id": "bergamot-de-en-tiny11",
+      "name": "German → English (Bergamot tiny11)",
+      "source": "de",
+      "target": "en",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/deen/deen.student.tiny11.v2.9f70fcb17bf9572d.tar.gz",
+      "sha256": "9f70fcb17bf9572d969aee69ed34c5d8b54c896c60dfe057da37f2e51d46895f",
+      "size": 16068524,
+      "archive": {
+        "root": "deen.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.deen.spm"}
+        ]
+      }
+    },
+    {
+      "id": "bergamot-en-es-tiny11",
+      "name": "English → Spanish (Bergamot tiny11)",
+      "source": "en",
+      "target": "es",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/esen/enes.student.tiny11.v1.a7203a8f8e9daea8.tar.gz",
+      "sha256": "a7203a8f8e9daea85698d5912f25cca6fecae3e4097b188a0c31ed2d58e13c61",
+      "size": 14789705,
+      "archive": {
+        "root": "enes.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.esen.spm"}
+        ]
+      }
+    },
+    {
+      "id": "bergamot-es-en-tiny11",
+      "name": "Spanish → English (Bergamot tiny11)",
+      "source": "es",
+      "target": "en",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/esen/esen.student.tiny11.v1.09576f06d0ad805e.tar.gz",
+      "sha256": "09576f06d0ad805e6851defdd63434840729c3bcc5cf19db732f00298dcdb5d9",
+      "size": 15669196,
+      "archive": {
+        "root": "esen.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.esen.spm"}
+        ]
+      }
+    },
+    {
+      "id": "bergamot-en-et-tiny11",
+      "name": "English → Estonian (Bergamot tiny11)",
+      "source": "en",
+      "target": "et",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/eten/enet.student.tiny11.v1.0b8f835b0c154aaa.tar.gz",
+      "sha256": "0b8f835b0c154aaa01f612bfcf1bdcd41f86f1088f1226f2d3d6fa8155cb80a0",
+      "size": 14331144,
+      "archive": {
+        "root": "enet.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.eten.spm"}
+        ]
+      }
+    },
+    {
+      "id": "bergamot-et-en-tiny11",
+      "name": "Estonian → English (Bergamot tiny11)",
+      "source": "et",
+      "target": "en",
+      "architecture": "tiny11",
+      "gemm_precision": "int8shiftAlphaAll",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Bergamot project (data.statmt.org)",
+      "url": "https://data.statmt.org/bergamot/models/eten/eten.student.tiny11.v1.38de61c668e42f36.tar.gz",
+      "sha256": "38de61c668e42f36a6b8acd564f3044b283d0cd61ebdb3947c490a99e297a2d5",
+      "size": 14641920,
+      "archive": {
+        "root": "eten.student.tiny11",
+        "files": [
+          {"role": "model", "path": "model.intgemm.alphas.bin"},
+          {"role": "shortlist", "path": "lex.s2t.bin"},
+          {"role": "vocab", "path": "vocab.eten.spm"}
+        ]
+      }
+    }
+  ]
+}

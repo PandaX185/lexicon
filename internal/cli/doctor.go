@@ -92,20 +92,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 		add("ok", "selection", provider.Name()+" (primary selection only)")
 	}
 
-	translator := translation.New(translation.Options{
-		Enabled:        effective.Translation.Enabled,
-		ModelDirectory: effective.Translation.ModelDirectory,
-		Timeout:        time.Duration(effective.Translation.TimeoutSeconds) * time.Second,
-	})
-	switch {
-	case !effective.Translation.Enabled:
-		add("ok", "translation", "disabled")
-	case translator.Available():
-		add("ok", "translation", translator.Name())
-	default:
-		add("warn", "translation", translator.Name())
-	}
-	_ = translator.Close()
+	var daemonStatus *ipc.Status
 	if effective.Daemon.Socket != "" {
 		statusCtx, cancel := context.WithTimeout(ctx, time.Second)
 		client, dialErr := ipc.Dial(statusCtx, effective.Daemon.Socket, ipc.RoleProbe)
@@ -117,12 +104,41 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 			if statusErr != nil {
 				add("warn", "daemon", statusErr.Error())
 			} else {
+				daemonStatus = status
 				add("ok", "daemon", fmt.Sprintf("pid %d, %d subscriber(s), uptime %ds",
 					status.PID, status.Subscribers, status.UptimeSeconds))
 			}
 		}
 		cancel()
 	}
+
+	translator := translation.New(translation.Options{
+		Enabled:        effective.Translation.Enabled,
+		ModelDirectory: effective.Translation.ModelDirectory,
+		Timeout:        time.Duration(effective.Translation.TimeoutSeconds) * time.Second,
+	})
+	engineName := translator.Name()
+	available := translator.Available()
+	if daemonStatus != nil && daemonStatus.Translation != "" {
+		engineName = daemonStatus.Translation
+		available = daemonStatus.TranslationAvailable
+	}
+	switch {
+	case !effective.Translation.Enabled:
+		add("ok", "translation", "disabled")
+	case available:
+		source := translation.CanonicalLanguageCode(effective.Translation.SourceLanguage)
+		target := translation.CanonicalLanguageCode(effective.Translation.TargetLanguage)
+		pair := source + "->" + target
+		if _, err := translation.FindPack(effective.Translation.ModelDirectory, source, target); err != nil {
+			add("warn", "translation", fmt.Sprintf("%s (%s): no installed model pack", engineName, pair))
+		} else {
+			add("ok", "translation", fmt.Sprintf("%s (%s)", engineName, pair))
+		}
+	default:
+		add("warn", "translation", engineName)
+	}
+	_ = translator.Close()
 
 	if binary, ok := findPopupBinary(effective); ok {
 		add("ok", "popup", binary)

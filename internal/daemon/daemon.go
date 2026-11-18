@@ -178,8 +178,8 @@ func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 	result.Found = true
 	result.Entry = entry
 	if d.translator.Available() {
-		source := translation.CanonicalLanguageCode(d.cfg.Dictionary.SourceLanguage)
-		target := translation.CanonicalLanguageCode(d.cfg.Dictionary.TargetLanguage)
+		source := translation.CanonicalLanguageCode(d.cfg.Translation.SourceLanguage)
+		target := translation.CanonicalLanguageCode(d.cfg.Translation.TargetLanguage)
 		if source != target {
 			translated, translateErr := d.translator.Translate(ctx, normalized, source, target)
 			if translateErr != nil {
@@ -248,6 +248,7 @@ func (d *Daemon) Status() ipc.Status {
 	status.DictionaryPath = d.cfg.Dictionary.DatabasePath
 	status.Selection = d.selection.Name()
 	status.Translation = d.translator.Name()
+	status.TranslationAvailable = d.translator.Available()
 	if d.store != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		if info, err := d.store.Describe(ctx); err == nil {

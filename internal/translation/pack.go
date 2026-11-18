@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -18,6 +17,8 @@ type Pack struct {
 	Target        string
 	Architecture  string
 	GEMMPrecision string
+	License       string
+	Attribution   string
 	ModelPath     string
 	ShortlistPath string
 	VocabPaths    []string
@@ -31,6 +32,8 @@ type packMetadata struct {
 	Engine        string          `json:"engine"`
 	Architecture  string          `json:"architecture"`
 	GEMMPrecision string          `json:"gemm_precision"`
+	License       string          `json:"license"`
+	Attribution   string          `json:"attribution"`
 	Files         []packFileEntry `json:"files"`
 }
 
@@ -42,18 +45,36 @@ type packFileEntry struct {
 // FindPack scans dir for a metadata.json describing source->target. Invalid
 // packs are skipped; the first valid pack in sorted directory order wins.
 func FindPack(dir, source, target string) (*Pack, error) {
+	packs, err := scanPacks(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, pack := range packs {
+		if pack.Source == source && pack.Target == target {
+			return pack, nil
+		}
+	}
+	return nil, ErrNoModel
+}
+
+// InstalledPacks returns every valid pack directly under dir in directory-name
+// order. Invalid packs are skipped, matching FindPack.
+func InstalledPacks(dir string) ([]*Pack, error) {
+	return scanPacks(dir)
+}
+
+func scanPacks(dir string) ([]*Pack, error) {
 	if strings.TrimSpace(dir) == "" {
-		return nil, ErrNoModel
+		return nil, nil
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, ErrNoModel
+			return nil, nil
 		}
 		return nil, fmt.Errorf("read model directory: %w", err)
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-
+	packs := make([]*Pack, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -62,11 +83,9 @@ func FindPack(dir, source, target string) (*Pack, error) {
 		if err != nil {
 			continue
 		}
-		if pack.Source == source && pack.Target == target {
-			return pack, nil
-		}
+		packs = append(packs, pack)
 	}
-	return nil, ErrNoModel
+	return packs, nil
 }
 
 func readPack(directory string) (*Pack, error) {
@@ -92,6 +111,8 @@ func readPack(directory string) (*Pack, error) {
 		Target:        CanonicalLanguageCode(metadata.Target),
 		Architecture:  metadata.Architecture,
 		GEMMPrecision: metadata.GEMMPrecision,
+		License:       metadata.License,
+		Attribution:   metadata.Attribution,
 	}
 	for _, file := range metadata.Files {
 		if !safeName(file.File) {

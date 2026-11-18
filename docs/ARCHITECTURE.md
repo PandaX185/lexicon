@@ -31,9 +31,11 @@ never needs WebKitGTK.
 - `internal/selection` defines a `Provider` with an injected `Runner`. The only
   current implementation invokes `wl-paste --primary --no-newline` without a
   shell, with a timeout, output cap, UTF-8 validation, and rune limit.
-- `internal/translation` resolves model packs and delegates to an engine. The
-  default engine reports unavailability; the `bergamot` build tag selects a C++
-  bridge kept in `internal/translation/bergamotengine`.
+- `internal/translation` resolves model packs, embeds the pinned pack catalog,
+  and delegates to an engine. The default engine reports unavailability; the
+  `bergamot` build tag selects a C++ bridge kept in
+  `internal/translation/bergamotengine`. Pack installs are explicit: HTTPS,
+  SHA-256, size, atomic rename.
 - `internal/ipc` owns the wire protocol, framing, single-instance socket lock,
   request multiplexing, subscriptions, event replay, and lookup fan-out.
 - `internal/daemon` wires the above together and implements the IPC handler.
@@ -54,9 +56,10 @@ never needs WebKitGTK.
    `general.max_query_words` and `general.max_query_chars`.
 3. The dictionary store tries the headword, transliteration, and inflected form
    in that order. Definitions are read in `sense_order, id` order.
-4. If translation is enabled, available, and the source/target languages differ,
-   the daemon attempts a best-effort translation. A translation failure is
-   reported separately and never discards the definition.
+4. If translation is enabled, available, and `translation.source_language`
+   differs from `translation.target_language`, the daemon attempts a best-effort
+   translation. A translation failure is reported separately and never discards
+   the definition.
 5. The daemon replies to the requester, remembers found results for replay, and
    broadcasts a lookup event to subscribed popups.
 6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
@@ -119,15 +122,15 @@ when WebKitGTK 6.0 is absent but WebKitGTK 4.1 and GTK 3 are present.
 The optional Bergamot engine is the only other native boundary. It is isolated
 in a C++ translation unit exposing opaque handles and C strings; C++ exceptions
 and types never cross into Go. Only the daemon links it, through the `bergamot`
-build tag (`just daemon_go_tags=bergamot core`); the CLI and installer never
-need the Bergamot library.
+build tag (`just bergamot-build`, then `just daemon_go_tags=bergamot
+build-daemon`); the CLI and installer never need the Bergamot library.
 
 ## Deliberate non-goals
 
 The rewrite does not add a generic RPC framework, a second configuration
-format, a plugin system, a dictionary engine, a model downloader, a settings UI,
-or automatic shortcut registration. These would expand the trusted and native
-surface without being required for selection lookup.
+format, a plugin system, a dictionary engine, an implicit model downloader, a
+settings UI, or automatic shortcut registration. These would expand the trusted
+and native surface without being required for selection lookup.
 
 Deferred work and open maintainer decisions are tracked in the local, git-ignored
 `plan/` directory and summarized in the project handoff report.

@@ -58,6 +58,8 @@ type Dictionary struct {
 type Translation struct {
 	Enabled        bool   `toml:"enabled" comment:"Translate the looked-up word when source and target differ."`
 	ModelDirectory string `toml:"model_directory" comment:"Installed Bergamot model packs. Empty uses $XDG_DATA_HOME/lexicon/models."`
+	SourceLanguage string `toml:"source_language" comment:"BCP 47 tag translated from."`
+	TargetLanguage string `toml:"target_language" comment:"BCP 47 tag translated to."`
 	TimeoutSeconds int    `toml:"timeout_seconds" comment:"Translation timeout in seconds (5-300)."`
 }
 
@@ -91,6 +93,8 @@ func Default() Config {
 		},
 		Translation: Translation{
 			Enabled:        false,
+			SourceLanguage: "en",
+			TargetLanguage: "en",
 			TimeoutSeconds: 30,
 		},
 		Popup: Popup{
@@ -216,6 +220,8 @@ func (c Config) Validate() error {
 
 	check(c.Translation.TimeoutSeconds >= 5 && c.Translation.TimeoutSeconds <= 300,
 		"translation.timeout_seconds must be between 5 and 300")
+	check(validLanguage(c.Translation.SourceLanguage), "translation.source_language must be a lowercase BCP 47 tag")
+	check(validLanguage(c.Translation.TargetLanguage), "translation.target_language must be a lowercase BCP 47 tag")
 
 	check(c.Popup.Width >= 240 && c.Popup.Width <= 1200,
 		"popup.width must be between 240 and 1200")

@@ -81,6 +81,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return a.runLookup(ctx, args[1:])
 	case "config":
 		return a.runConfig(ctx, args[1:])
+	case "languages":
+		return a.runLanguages(ctx, args[1:])
 	case "doctor":
 		return a.runDoctor(ctx, args[1:])
 	default:
@@ -122,6 +124,7 @@ func (a *App) printUsage() {
 Usage:
   lex lookup [--json] [text...]
   lex config show|get|set|reset|edit|path
+  lex languages list|install|remove|use
   lex doctor
   lex version
 

@@ -4,6 +4,10 @@ Translation is optional and disabled by default. Definition lookup never depends
 on it: if translation fails or is missing, the dictionary result is still
 returned with a separate `translation_error`.
 
+Lexicon translates with the native [Bergamot](https://github.com/browsermt/bergamot-translator)
+engine. There is no network provider, no WASM runtime, and no implicit download:
+model packs are installed only when you ask for them.
+
 ## Default build
 
 The default build contains a stub engine:
@@ -17,51 +21,93 @@ lex doctor
 `translation.enabled = true` is a valid configuration. The daemon reports the
 translator as unavailable and keeps serving lookups.
 
-## Bergamot build (unverified)
+## Building the engine
 
-The `bergamot` build tag selects a small C++ bridge in
-`internal/translation/bergamotengine`. It targets the Bergamot v0.4.5-style API
-(`parseOptionsFromString`, `AsyncService`, `createCompatibleModel`, and the
-`translate` callback).
-
-The bridge is intentionally isolated:
-
-- C++ owns the engine and cached models;
-- Go holds only an opaque handle;
-- C++ exceptions are converted to allocated error strings;
-- returned strings are freed through the bridge;
-- no C++ type or exception crosses the CGO boundary.
-
-Build requirements:
-
-- CGO enabled and a C++17 compiler;
-- Bergamot headers and the `bergamot-translator` library (plus zlib);
-- include/library paths supplied through CGO flags.
-
-Example (paths are illustrative):
+The `bergamot` build tag selects the C++ bridge in
+`internal/translation/bergamotengine`. The bridge is pinned to Bergamot
+`v0.4.5` and is built with the same Ubuntu 24.04 / GCC 13 image that was used to
+verify it.
 
 ```sh
-CGO_ENABLED=1 \
-CGO_CXXFLAGS="-I/opt/bergamot/include" \
-CGO_LDFLAGS="-L/opt/bergamot/lib" \
-just daemon_go_tags=bergamot core
+just bergamot-build
+source build/bergamot/env.sh
+just daemon_go_tags=bergamot build-daemon
 ```
 
-Only the daemon links Bergamot; the `lex` CLI and `lexicon-installer` stay
-untagged builds.
+`just bergamot-build` runs `tools/bergamot/build.sh`, which:
 
-The source bridge declares:
+1. clones `browsermt/bergamot-translator` at `v0.4.5` with submodules into
+   `build/bergamot/src` (override with `BERGAMOT_ROOT`);
+2. builds the pinned `tools/bergamot/Dockerfile` image (Ubuntu 24.04, GCC 13,
+   OpenBLAS);
+3. configures and builds in Docker into `build/bergamot/build-native`
+   (override with `BERGAMOT_BUILD`);
+4. writes `build/bergamot/env.sh` with the `CGO_*FLAGS` that match the build
+   tree.
 
-```text
--lbergamot-translator -lz -lpthread -lstdc++
+Two build details are load-bearing:
+
+- GCC 13 needs `<cstdint>` in the vendored faiss sources. Marian overwrites
+  `CMAKE_CXX_FLAGS`, so the include is injected through
+  `CMAKE_PROJECT_TOP_LEVEL_INCLUDES=tools/bergamot/cstdint.cmake` and guarded by
+  `COMPILE_LANGUAGE:CXX` so the C sources are untouched.
+- The default build arch is `native`. Set `BERGAMOT_ARCH=x86-64-v3` (or similar)
+  to produce a binary that runs on older CPUs.
+
+Only the daemon links Bergamot; `lex` and `lexicon-installer` stay untagged
+builds. The generated flags are equivalent to:
+
+```sh
+CGO_ENABLED=1
+CGO_CXXFLAGS="-std=c++17 -O2 -include cstdint -I$BERGAMOT_ROOT -I$BERGAMOT_ROOT/src ..."
+CGO_LDFLAGS="-L$BERGAMOT_BUILD/src/translator -L$BERGAMOT_BUILD ... \
+  -lbergamot-translator -lmarian -lsentencepiece_train -lsentencepiece \
+  -lintgemm -lssplit -lblas -llapack -lcblas -lpcre2-8 -ldl -lpthread -lstdc++ -lm"
 ```
 
-This path has **not** been compiled or tested in this repository's development
-environment because no Bergamot tree or library was available. Treat it as a
-reviewed starting point and verify the API against your Bergamot revision. The
-default build, tests, and lint do not include this tag.
+On distributions without OpenBLAS the link uses netlib `-lblas -llapack
+-lcblas`. Override the BLAS flags with `BERGAMOT_BLAS_LIBS` when needed.
 
-## Model packs
+The bridge is isolated: C++ owns the engine and cached models, Go holds only an
+opaque handle, C++ exceptions become allocated error strings, and returned
+strings are freed through the bridge. No C++ type or exception crosses the CGO
+boundary.
+
+## Installing model packs
+
+`lex languages` manages packs from the catalog embedded in the binary. Every
+catalog entry pins an HTTPS tarball, its SHA-256, and its exact size.
+
+```sh
+lex languages list                 # installed packs and the catalog
+lex languages install bergamot-en-de-tiny11
+lex languages use en-de            # sets translation.source/target_language
+lex config set translation.enabled true
+lex languages remove bergamot-en-de-tiny11
+```
+
+`lex languages install` streams the tarball into the model directory, verifies
+the size and checksum, extracts only the files named by the catalog entry,
+writes a fresh `metadata.json`, validates the result, and renames the staging
+directory into place. It never overwrites an installed pack. Redirects are not
+followed, and a failed install leaves nothing behind.
+
+The shipped catalog covers these verified statmt.org tiny11 models:
+
+| Pair | Catalog id |
+| --- | --- |
+| en → de | `bergamot-en-de-tiny11` |
+| de → en | `bergamot-de-en-tiny11` |
+| en → es | `bergamot-en-es-tiny11` |
+| es → en | `bergamot-es-en-tiny11` |
+| en → et | `bergamot-en-et-tiny11` |
+| et → en | `bergamot-et-en-tiny11` |
+
+They are CC-BY-SA-4.0, curated by the Bergamot project. The catalog is
+`internal/translation/catalog.json`; each entry names the files inside the
+tarball, so adding a verified pack is a data-only change.
+
+## Model packs on disk
 
 Packs live under `translation.model_directory`, which defaults to
 `$XDG_DATA_HOME/lexicon/models`. Each immediate subdirectory is a candidate and
@@ -70,21 +116,23 @@ must contain `metadata.json`:
 ```json
 {
   "format": 1,
-  "id": "en-de",
+  "id": "bergamot-en-de-tiny11",
   "source": "en",
   "target": "de",
   "engine": "bergamot",
   "architecture": "tiny11",
-  "gemm_precision": "",
+  "gemm_precision": "int8shiftAlphaAll",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Bergamot project (data.statmt.org)",
   "files": [
-    {"role": "model", "file": "model.bin"},
+    {"role": "model", "file": "model.intgemm.alphas.bin"},
     {"role": "shortlist", "file": "lex.s2t.bin"},
     {"role": "vocab", "file": "vocab.spm"}
   ]
 }
 ```
 
-Rules enforced by `FindPack`:
+Rules enforced when a pack is read:
 
 - `engine` must be `bergamot`; `source` and `target` must be non-empty.
 - `id` and every `file` must be a plain file name: no path separators, `.` or
@@ -97,7 +145,7 @@ Rules enforced by `FindPack`:
 - Language tags are canonicalized (`jp` → `ja`, `ger` → `de`, …) before matching.
 
 A pack with a single vocabulary file is passed to Bergamot as both the source
-and target vocabulary, matching common Firefox model packs.
+and target vocabulary, matching common Firefox and statmt model packs.
 
 ## Generated Marian configuration
 
@@ -118,25 +166,46 @@ maxi-batch: 1
 maxi-batch-sort: none
 ```
 
-`gemm-precision` is added when the pack sets it. The native service uses one
-worker and no service-level cache.
+`gemm-precision` is added when the pack sets it. `mini-batch-words` is required:
+Bergamot aborts silently when it is missing, which is why the shipped
+`config.intgemm8bitalpha.yml` files cannot be passed through unchanged.
+`max-length-break` must not exceed `mini-batch-words`.
 
 ## Runtime behavior
 
 - Translation runs only when a dictionary entry was found, translation is
-  enabled and available, and `dictionary.source_language` differs from
-  `dictionary.target_language` after canonicalization.
+  enabled and available, and the translation pair's source and target differ
+  after canonicalization. The pair is `translation.source_language` →
+  `translation.target_language`, independent of the dictionary pair, so a
+  monolingual English dictionary can translate into another language.
 - The normalized query is translated, not the original selection.
 - `translation.timeout_seconds` bounds a call when no earlier deadline exists.
   The native call is bounded by that deadline, but C++ cancellation is not
   supported: a late callback is ignored after the timeout.
 - Lookups can run concurrently under the daemon's resource read lock. The native
   service has one worker, and the bridge mutex protects model creation.
+- Translation text and results are never logged; the daemon records only the
+  query length.
+
+## Verification
+
+The engine was verified end to end against the pinned v0.4.5 build with the six
+catalog packs and a real Firefox pack:
+
+- `Hello world` → `Hallo Welt` / `Hola mundo` / `Tere maailm`;
+- `Hallo Welt` / `Hola mundo` / `Tere maailm` → `Hello world`;
+- a full daemon lookup printed the WordNet definition plus
+  `translation: hallo`.
+
+Re-run the opt-in integration test against any installed pack:
+
+```sh
+source build/bergamot/env.sh
+just bergamot-test ~/.local/share/lexicon/models/bergamot-en-de-tiny11
+```
 
 ## Deferred work
 
-- Building/distributing model packs.
-- Downloading models or updates.
-- Validating model signatures or checksums.
 - Additional translation engines.
-- Testing the CGO bridge against a pinned Bergamot release.
+- Pack updates and signatures.
+- Automatic pack selection when the configured pair has no pack.

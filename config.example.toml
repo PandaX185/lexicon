@@ -34,9 +34,12 @@ show_pronunciation = true
 
 [translation]
 # Requires a daemon built with -tags bergamot and an installed model pack.
-enabled = false
+enabled = true
 # Empty uses $XDG_DATA_HOME/lexicon/models.
 model_directory = ""
+# Pair to translate into. Definitions always come from the dictionary pair.
+source_language = "en"
+target_language = "en"
 timeout_seconds = 30
 
 [popup]
