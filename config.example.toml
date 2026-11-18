@@ -49,3 +49,13 @@ binary = ""
 width = 420
 height = 320
 hide_on_blur = true
+# system follows the desktop light/dark preference. Built-in presets:
+# dark: dark, nord, catppuccin, gruvbox, rose-pine, dracula, tokyo-night,
+#       one-dark, solarized-dark, github-dark
+# light: light, nord-light, catppuccin-latte, gruvbox-light, rose-pine-dawn,
+#        solarized-light, github-light, one-light, tokyo-night-light,
+#        everforest-light
+theme = "system"
+show_header = false
+show_status = false
+show_footer = false

@@ -31,6 +31,10 @@ func TestKeysAreTheDocumentedSurface(t *testing.T) {
 		"popup.width",
 		"popup.height",
 		"popup.hide_on_blur",
+		"popup.theme",
+		"popup.show_header",
+		"popup.show_status",
+		"popup.show_footer",
 	}
 	if got := Keys(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Keys() = %v, want %v", got, want)
@@ -98,6 +102,7 @@ func TestEnumAndLanguageValidation(t *testing.T) {
 	enumTests := map[string][]string{
 		"daemon.log_level":   {"debug", "info", "warn", "error"},
 		"selection.provider": {"auto", "wl-paste", "none"},
+		"popup.theme":        PopupThemes,
 	}
 	for key, valid := range enumTests {
 		for _, value := range valid {

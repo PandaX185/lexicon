@@ -59,6 +59,10 @@ reload; restart the service with `systemctl --user restart lexicon.service`.
 | `popup.width` | integer | `420` | 240–1200 logical pixels |
 | `popup.height` | integer | `320` | 160–1200 logical pixels |
 | `popup.hide_on_blur` | boolean | `true` | — |
+| `popup.theme` | string | `system` | see the theme list below |
+| `popup.show_header` | boolean | `false` | show the brand header |
+| `popup.show_status` | boolean | `false` | show the daemon connection badge |
+| `popup.show_footer` | boolean | `false` | show the timestamp and close hint |
 
 Notes:
 
@@ -74,8 +78,22 @@ Notes:
   reports the translator as unavailable and lookups still return definitions.
 - `translation.source_language`/`target_language` select the translation pair
   independently of the dictionary pair. Install packs with `lex languages`.
+- The popup is frameless by design. Its result card shows the translation first,
+  then the headword, pronunciation, definitions, and source metadata.
 - `popup.*` display values are read when the popup process starts. A running
   popup does not hot-reload them; the next popup launch uses the new values.
+- Theme presets are compiled into the popup; there are no theme files or
+  downloads. `system` follows `prefers-color-scheme` and updates live when the
+  desktop switches between light and dark. Values are case-insensitive.
+- The popup window is always solid. There are no `opacity` or `blur` keys:
+  WebKitGTK's `backdrop-filter` cannot blur content from other X11/Wayland
+  windows, so a translucency/blur option would have no visible effect.
+- Built-in themes (10 dark, 10 light, plus `system`):
+  - Dark: `dark`, `nord`, `catppuccin`, `gruvbox`, `rose-pine`, `dracula`,
+    `tokyo-night`, `one-dark`, `solarized-dark`, `github-dark`
+  - Light: `light`, `nord-light`, `catppuccin-latte`, `gruvbox-light`,
+    `rose-pine-dawn`, `solarized-light`, `github-light`, `one-light`,
+    `tokyo-night-light`, `everforest-light`
 - With the generated systemd unit, the only writable path is `%t/lexicon`. A
   custom `daemon.socket` outside that directory needs a matching
   `ReadWritePaths=` entry, or the service cannot create the socket.
@@ -121,6 +139,10 @@ binary = ""
 width = 420
 height = 320
 hide_on_blur = true
+theme = "system"
+show_header = false
+show_status = false
+show_footer = false
 ```
 
 An empty string means "use the XDG default". `lex config show` prints the

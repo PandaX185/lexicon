@@ -16,6 +16,7 @@ const (
 	eventConnection = "lexicon:connection"
 	eventReady      = "lexicon:ready"
 	eventHide       = "lexicon:hide"
+	eventSettings   = "lexicon:settings"
 
 	dialRetryDelay  = 1500 * time.Millisecond
 	maxDialFailures = 12
@@ -30,6 +31,15 @@ type connectionState struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// displaySettings carries the window appearance to the frontend. The values
+// come from config at popup start; there is no runtime settings screen.
+type displaySettings struct {
+	Theme      string `json:"theme"`
+	ShowHeader bool   `json:"show_header"`
+	ShowStatus bool   `json:"show_status"`
+	ShowFooter bool   `json:"show_footer"`
+}
+
 // Popup owns the IPC subscription and the Wails window. The daemon launches it
 // with the socket path already resolved, so it stays a thin display process.
 type Popup struct {
@@ -38,6 +48,7 @@ type Popup struct {
 	socket            string
 	blurHides         bool
 	showPronunciation bool
+	display           displaySettings
 	logger            *slog.Logger
 
 	mu         sync.Mutex
@@ -56,7 +67,13 @@ func newPopup(app *application.App, window *application.WebviewWindow, settings 
 		socket:            settings.socket,
 		blurHides:         settings.hideOnBlur,
 		showPronunciation: settings.showPronunciation,
-		logger:            logger.With("component", "popup"),
+		display: displaySettings{
+			Theme:      settings.theme,
+			ShowHeader: settings.showHeader,
+			ShowStatus: settings.showStatus,
+			ShowFooter: settings.showFooter,
+		},
+		logger: logger.With("component", "popup"),
 	}
 }
 
@@ -73,6 +90,7 @@ func (p *Popup) start(ctx context.Context) {
 		}
 		p.mu.Unlock()
 
+		p.app.Event.Emit(eventSettings, p.display)
 		p.app.Event.Emit(eventConnection, state)
 		if last != nil {
 			p.app.Event.Emit(eventLookup, *last)

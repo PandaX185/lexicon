@@ -41,3 +41,10 @@ export interface ConnectionState {
   connected: boolean;
   error?: string;
 }
+
+export interface DisplaySettings {
+  theme: string;
+  show_header: boolean;
+  show_status: boolean;
+  show_footer: boolean;
+}

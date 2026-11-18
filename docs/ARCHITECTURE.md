@@ -113,6 +113,15 @@ client roles. Details are in [IPC.md](IPC.md).
 - The popup starts hidden. It shows on a replayed or live lookup result, or
   after a short idle delay when launched manually. It hides on window close,
   blur (config-gated), or Escape.
+- The window is frameless and solid. Appearance is read from `[popup]` at
+  startup: one of 20 built-in colour presets (10 dark, 10 light; `system`
+  follows the desktop light/dark preference) plus optional brand/status/footer
+  chrome. No theme files or downloads are involved. Go maps the preset to the
+  opaque window base colour to avoid a first-paint flash and sends the same
+  values to the frontend over `lexicon:settings`; the result view puts the
+  translation above the headword. Window transparency and backdrop blur were
+  deliberately omitted: WebKitGTK's `backdrop-filter` cannot reach other
+  X11/Wayland windows, so neither has a visible effect.
 
 ## Build split
 

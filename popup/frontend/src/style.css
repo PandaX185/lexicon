@@ -5,6 +5,256 @@
     sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
     serif;
+
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-line: var(--line);
+}
+
+/* Neutral dark is the base palette. `system` starts here and switches to the
+   neutral light palette below when the desktop prefers light. */
+:root,
+:root[data-theme="system"],
+:root[data-theme="dark"] {
+  --surface: #18181b;
+  --surface-soft: #202024;
+  --ink: #fafafa;
+  --muted: #a1a1aa;
+  --faint: #71717a;
+  --accent: #fbbf24;
+  --accent-soft: rgb(251 191 36 / 10%);
+  --line: rgb(255 255 255 / 8%);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --surface: #fafafa;
+    --surface-soft: #f4f4f5;
+    --ink: #18181b;
+    --muted: #52525b;
+    --faint: #71717a;
+    --accent: #b45309;
+    --accent-soft: rgb(180 83 9 / 10%);
+    --line: rgb(0 0 0 / 10%);
+  }
+}
+
+/* ---------- Dark presets ---------- */
+
+:root[data-theme="nord"] {
+  --surface: #2e3440;
+  --surface-soft: #3b4252;
+  --ink: #eceff4;
+  --muted: #d8dee9;
+  --faint: #8fbcbb;
+  --accent: #88c0d0;
+  --accent-soft: rgb(136 192 208 / 12%);
+  --line: rgb(255 255 255 / 10%);
+}
+
+:root[data-theme="catppuccin"] {
+  --surface: #1e1e2e;
+  --surface-soft: #262637;
+  --ink: #cdd6f4;
+  --muted: #a6adc8;
+  --faint: #6c7086;
+  --accent: #f9e2af;
+  --accent-soft: rgb(249 226 175 / 12%);
+  --line: rgb(255 255 255 / 8%);
+}
+
+:root[data-theme="gruvbox"] {
+  --surface: #282828;
+  --surface-soft: #32302f;
+  --ink: #ebdbb2;
+  --muted: #bdae93;
+  --faint: #928374;
+  --accent: #fabd2f;
+  --accent-soft: rgb(250 189 47 / 12%);
+  --line: rgb(255 255 255 / 10%);
+}
+
+:root[data-theme="rose-pine"] {
+  --surface: #191724;
+  --surface-soft: #1f1d2e;
+  --ink: #e0def4;
+  --muted: #9ccfd8;
+  --faint: #6e6a86;
+  --accent: #ebbcba;
+  --accent-soft: rgb(235 188 186 / 12%);
+  --line: rgb(255 255 255 / 8%);
+}
+
+:root[data-theme="dracula"] {
+  --surface: #282a36;
+  --surface-soft: #343746;
+  --ink: #f8f8f2;
+  --muted: #c3c7d4;
+  --faint: #8b8fa3;
+  --accent: #bd93f9;
+  --accent-soft: rgb(189 147 249 / 12%);
+  --line: rgb(255 255 255 / 10%);
+}
+
+:root[data-theme="tokyo-night"] {
+  --surface: #1a1b26;
+  --surface-soft: #24283b;
+  --ink: #c0caf5;
+  --muted: #a9b1d6;
+  --faint: #565f89;
+  --accent: #7aa2f7;
+  --accent-soft: rgb(122 162 247 / 12%);
+  --line: rgb(255 255 255 / 8%);
+}
+
+:root[data-theme="one-dark"] {
+  --surface: #282c34;
+  --surface-soft: #32363f;
+  --ink: #abb2bf;
+  --muted: #9da7b3;
+  --faint: #6b7280;
+  --accent: #61afef;
+  --accent-soft: rgb(97 175 239 / 12%);
+  --line: rgb(255 255 255 / 8%);
+}
+
+:root[data-theme="solarized-dark"] {
+  --surface: #002b36;
+  --surface-soft: #073642;
+  --ink: #eee8d5;
+  --muted: #93a1a1;
+  --faint: #657b83;
+  --accent: #b58900;
+  --accent-soft: rgb(181 137 0 / 14%);
+  --line: rgb(255 255 255 / 10%);
+}
+
+:root[data-theme="github-dark"] {
+  --surface: #0d1117;
+  --surface-soft: #161b22;
+  --ink: #e6edf3;
+  --muted: #9da7b3;
+  --faint: #6e7681;
+  --accent: #58a6ff;
+  --accent-soft: rgb(88 166 255 / 12%);
+  --line: rgb(255 255 255 / 10%);
+}
+
+/* ---------- Light presets ---------- */
+
+:root[data-theme="light"] {
+  --surface: #fafafa;
+  --surface-soft: #f4f4f5;
+  --ink: #18181b;
+  --muted: #52525b;
+  --faint: #71717a;
+  --accent: #b45309;
+  --accent-soft: rgb(180 83 9 / 10%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="nord-light"] {
+  --surface: #eceff4;
+  --surface-soft: #e5e9f0;
+  --ink: #2e3440;
+  --muted: #4c566a;
+  --faint: #616e88;
+  --accent: #5e81ac;
+  --accent-soft: rgb(94 129 172 / 12%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="catppuccin-latte"] {
+  --surface: #eff1f5;
+  --surface-soft: #e6e9ef;
+  --ink: #4c4f69;
+  --muted: #6c6f85;
+  --faint: #8c8fa1;
+  --accent: #9a6700;
+  --accent-soft: rgb(154 103 0 / 12%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="gruvbox-light"] {
+  --surface: #fbf1c7;
+  --surface-soft: #f2e5bc;
+  --ink: #3c3836;
+  --muted: #7c6f64;
+  --faint: #928374;
+  --accent: #af3a03;
+  --accent-soft: rgb(175 58 3 / 10%);
+  --line: rgb(0 0 0 / 12%);
+}
+
+:root[data-theme="rose-pine-dawn"] {
+  --surface: #faf4ed;
+  --surface-soft: #f2e9e1;
+  --ink: #575279;
+  --muted: #6f6e8e;
+  --faint: #9893a5;
+  --accent: #b4637a;
+  --accent-soft: rgb(180 99 122 / 12%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="solarized-light"] {
+  --surface: #fdf6e3;
+  --surface-soft: #eee8d5;
+  --ink: #073642;
+  --muted: #586e75;
+  --faint: #657b83;
+  --accent: #b58900;
+  --accent-soft: rgb(181 137 0 / 12%);
+  --line: rgb(0 0 0 / 12%);
+}
+
+:root[data-theme="github-light"] {
+  --surface: #ffffff;
+  --surface-soft: #f6f8fa;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --faint: #818b98;
+  --accent: #0969da;
+  --accent-soft: rgb(9 105 218 / 10%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="one-light"] {
+  --surface: #fafafa;
+  --surface-soft: #f2f3f5;
+  --ink: #383a42;
+  --muted: #5c6370;
+  --faint: #8a8f98;
+  --accent: #4078f2;
+  --accent-soft: rgb(64 120 242 / 10%);
+  --line: rgb(0 0 0 / 10%);
+}
+
+:root[data-theme="tokyo-night-light"] {
+  --surface: #e1e2e7;
+  --surface-soft: #d8dae0;
+  --ink: #343b58;
+  --muted: #565a6e;
+  --faint: #7a7f93;
+  --accent: #3451b2;
+  --accent-soft: rgb(52 81 178 / 12%);
+  --line: rgb(0 0 0 / 12%);
+}
+
+:root[data-theme="everforest-light"] {
+  --surface: #fdf6dd;
+  --surface-soft: #f4eedc;
+  --ink: #5c6a72;
+  --muted: #6f7f86;
+  --faint: #8c9a9e;
+  --accent: #8da101;
+  --accent-soft: rgb(141 161 1 / 12%);
+  --line: rgb(0 0 0 / 12%);
 }
 
 html,
@@ -16,10 +266,20 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: #18181b;
-  color: #fafafa;
+  background: var(--surface);
+  color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* One solid, frameless card. There is no window transparency or backdrop blur:
+   WebKitGTK's backdrop-filter cannot reach other X11/Wayland windows. */
+.popup-card {
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 @media (prefers-reduced-motion: reduce) {

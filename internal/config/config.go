@@ -69,6 +69,11 @@ type Popup struct {
 	Width      int    `toml:"width" comment:"Popup width in logical pixels (240-1200)."`
 	Height     int    `toml:"height" comment:"Popup height in logical pixels (160-1200)."`
 	HideOnBlur bool   `toml:"hide_on_blur" comment:"Hide the popup when it loses focus."`
+
+	Theme      string `toml:"theme" comment:"Built-in colour preset: system, one of the dark presets, or one of the light presets."`
+	ShowHeader bool   `toml:"show_header" comment:"Show the brand header."`
+	ShowStatus bool   `toml:"show_status" comment:"Show the daemon connection badge."`
+	ShowFooter bool   `toml:"show_footer" comment:"Show the timestamp and close hint."`
 }
 
 // Default returns the built-in configuration.
@@ -102,6 +107,7 @@ func Default() Config {
 			Width:      420,
 			Height:     320,
 			HideOnBlur: true,
+			Theme:      "system",
 		},
 	}
 }
@@ -227,6 +233,9 @@ func (c Config) Validate() error {
 		"popup.width must be between 240 and 1200")
 	check(c.Popup.Height >= 160 && c.Popup.Height <= 1200,
 		"popup.height must be between 160 and 1200")
+
+	check(ValidPopupTheme(c.Popup.Theme),
+		"popup.theme must be one of: %s", strings.Join(PopupThemes, ", "))
 
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "; "))
