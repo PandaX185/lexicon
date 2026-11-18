@@ -66,8 +66,9 @@ never needs WebKitGTK.
    launch `lexicon-popup` at most once every two seconds. The popup connects,
    receives the replayed result, and displays it.
 
-The daemon logs whether a lookup succeeded, query length, duration, and error
-class. It does not log the query or the selection.
+The daemon logs whether a lookup succeeded, query length, duration, error class,
+and a translation error detail when one occurs. It never logs the query, the
+selection, the definition, or the translated text.
 
 ## Concurrency and reload
 

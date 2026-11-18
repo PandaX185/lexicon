@@ -31,7 +31,7 @@ func (a *App) runLookup(ctx context.Context, args []string) int {
 	client, err := ipc.Dial(requestCtx, cfg.Daemon.Socket, ipc.RoleCLI)
 	if err != nil {
 		a.errorf("%v", err)
-		fmt.Fprintln(a.Stderr, "Start it with: systemctl --user start lexicon.service")
+		fmt.Fprintln(a.Stderr, daemonStartHint())
 		return ExitFailure
 	}
 	defer func() { _ = client.Close() }()
@@ -62,6 +62,10 @@ func (a *App) runLookup(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 	return ExitOK
+}
+
+func daemonStartHint() string {
+	return "Start the daemon with: systemctl --user start lexicon.service, or run lexicon-daemon directly"
 }
 
 func (a *App) renderEntry(result *ipc.LookupResult, showPronunciation bool) {

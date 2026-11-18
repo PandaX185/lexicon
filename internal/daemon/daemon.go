@@ -345,7 +345,7 @@ func (d *Daemon) translationName() string {
 	return d.translator.Name()
 }
 
-func (d *Daemon) logLookup(result *ipc.LookupResult, started time.Time) {
+func lookupAttributes(result *ipc.LookupResult, started time.Time) []any {
 	attributes := []any{
 		"found", result.Found,
 		"query_chars", len([]rune(result.Normalized)),
@@ -357,7 +357,11 @@ func (d *Daemon) logLookup(result *ipc.LookupResult, started time.Time) {
 	if result.TranslationError != "" {
 		attributes = append(attributes, "translation_error", result.TranslationError)
 	}
-	d.logger.Info("lookup", attributes...)
+	return attributes
+}
+
+func (d *Daemon) logLookup(result *ipc.LookupResult, started time.Time) {
+	d.logger.Info("lookup", lookupAttributes(result, started)...)
 }
 
 func openStore(path string) (*dictionary.Store, error) {
@@ -395,7 +399,7 @@ func popupBinary(cfg config.Config) (string, error) {
 	if path, err := exec.LookPath("lexicon-popup"); err == nil {
 		return path, nil
 	}
-	return "", errors.New("lexicon-popup was not found; build it with `make popup-build` or set popup.binary")
+	return "", errors.New("lexicon-popup was not found; build it with `just build-popup` or set popup.binary")
 }
 
 func selectionMessage(err error) string {

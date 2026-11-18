@@ -73,6 +73,8 @@ popup-deps:
 # Build the Vite frontend embedded in the popup.
 popup-frontend: popup-deps
     cd popup/frontend && {{ npm }} run build
+    # Vite cleans dist/, which also removes this tracked placeholder.
+    touch popup/frontend/dist/.gitkeep
 
 # Build the Wails popup (auto-selects gtk3 when needed).
 build-popup: popup-frontend

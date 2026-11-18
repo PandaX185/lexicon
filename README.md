@@ -77,8 +77,9 @@ Check that everything is ready:
 lex doctor
 ```
 
-`lex doctor` reports the configuration, dictionary, selection backend, service,
-and popup. Fix anything marked `fail` before continuing.
+`lex doctor` reports the configuration, socket path and permissions, dictionary,
+selection backend, service state, model directory, translation state, and popup.
+Fix anything marked `fail` before continuing.
 
 ## Use it
 

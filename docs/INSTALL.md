@@ -208,9 +208,9 @@ systemctl --user status lexicon.service
 journalctl --user -u lexicon.service -f
 ```
 
-A healthy `doctor` reports `ok` for config, socket, dictionary, selection,
-translation state, daemon, and popup. Warnings are not fatal; a failed config,
-socket, or dictionary exits non-zero.
+A healthy `doctor` reports `ok` for config, socket, socket mode, dictionary,
+selection, models, translation state, daemon, and popup. Warnings are not fatal;
+any failed check exits non-zero.
 
 ## Manual foreground run
 

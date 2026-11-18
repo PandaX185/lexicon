@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -112,6 +113,13 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 		cancel()
 	}
 
+	if daemonStatus != nil {
+		status, detail := checkSocketPermissions(effective.Daemon.Socket)
+		add(status, "socket mode", detail)
+	}
+	modelStatus, modelDetail := describeModelDirectory(effective.Translation.ModelDirectory)
+	add(modelStatus, "models", modelDetail)
+
 	translator := translation.New(translation.Options{
 		Enabled:        effective.Translation.Enabled,
 		ModelDirectory: effective.Translation.ModelDirectory,
@@ -157,6 +165,38 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 	return ExitOK
+}
+
+func checkSocketPermissions(path string) (status, detail string) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "warn", fmt.Sprintf("cannot inspect %s: %v", path, err)
+	}
+	perm := info.Mode().Perm()
+	if perm&0o077 != 0 {
+		return "warn", fmt.Sprintf("%s is group/world accessible (mode %04o)", path, perm)
+	}
+	return "ok", fmt.Sprintf("owner-only socket (mode %04o)", perm)
+}
+
+func describeModelDirectory(dir string) (status, detail string) {
+	if strings.TrimSpace(dir) == "" {
+		return "fail", "no model directory configured"
+	}
+	info, err := os.Stat(dir)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return "warn", dir + " (not created)"
+	case err != nil:
+		return "warn", fmt.Sprintf("%s (%v)", dir, err)
+	case !info.IsDir():
+		return "fail", dir + " is not a directory"
+	}
+	packs, err := translation.InstalledPacks(dir)
+	if err != nil {
+		return "warn", fmt.Sprintf("%s (%v)", dir, err)
+	}
+	return "ok", fmt.Sprintf("%s: %d pack(s)", dir, len(packs))
 }
 
 func findPopupBinary(cfg config.Config) (string, bool) {
