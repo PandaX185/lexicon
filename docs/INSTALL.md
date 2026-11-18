@@ -3,10 +3,10 @@
 ## One-line bootstrap (recommended)
 
 ~~~sh
-bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.0/install.sh)
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.1/install.sh)
 ~~~
 
-The script is fetched from the pinned `v0.1.0` tag, not `main`. It downloads the
+The script is fetched from the pinned `v0.1.1` tag, not `main`. It downloads the
 release tarball and `checksums.sha256` over HTTPS, verifies the tarball hash,
 downloads `en.sqlite` and `manifest.json` from the pinned `dictionary-3.0`
 release, verifies both dictionary SHA-256 hashes, extracts the tarball to a
@@ -49,7 +49,7 @@ Each stable release publishes a checksummed tarball named
 The daemon in the tarball has native Bergamot compiled in.
 
 ```sh
-version=0.1.0
+version=0.1.1
 arch=amd64
 base="https://github.com/PandaX185/lexicon/releases/download/v${version}"
 curl -fsSL "$base/lexicon-${version}-linux-${arch}.tar.gz" \
