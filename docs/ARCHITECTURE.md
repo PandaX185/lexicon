@@ -115,8 +115,11 @@ client roles. Details are in [IPC.md](IPC.md).
   current Wayland primary selection immediately. This makes a manually launched
   popup show the highlighted word without a separate `lexicon lookup`; the
   auto-launch path keeps its replay and does not look up or translate twice.
-  It hides on window close, blur (config-gated), or Escape.
-- The window is frameless and solid. Appearance is read from `[popup]` at
+  Closing the window or pressing Escape quits the popup process, so no popup
+  stays resident after dismissal.
+- The window is frameless, solid, and resizable by dragging its edges. The
+  language chip stays visible above the result and its dropdown is no longer
+  tied to window focus. Appearance is read from `[popup]` at
   startup: one of 20 built-in colour presets (10 dark, 10 light; `system`
   follows the desktop light/dark preference) plus optional brand/status/footer
   chrome. No theme files or downloads are involved. Go maps the preset to the

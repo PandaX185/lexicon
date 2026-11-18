@@ -156,13 +156,3 @@ func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 		t.Fatalf("lookups = %q, want last query relookup", got)
 	}
 }
-
-func TestBlurIsSuppressedWhileSelectorOpen(t *testing.T) {
-	now := time.Now()
-	if !shouldHideOnBlur(true, now.Add(-time.Second), now, false) {
-		t.Fatal("expected normal blur to hide")
-	}
-	if shouldHideOnBlur(true, now.Add(-time.Second), now, true) {
-		t.Fatal("selector must suppress blur hide")
-	}
-}

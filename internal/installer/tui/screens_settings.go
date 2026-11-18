@@ -14,7 +14,6 @@ import (
 const (
 	fieldTheme = iota
 	fieldPronunciation
-	fieldHideOnBlur
 	fieldHeader
 	fieldStatus
 	fieldFooter
@@ -87,8 +86,6 @@ func (m *model) toggleAppearanceBool() {
 	switch m.appearanceField {
 	case fieldPronunciation:
 		m.appearance.ShowPronunciation = boolPtr(!*m.appearance.ShowPronunciation)
-	case fieldHideOnBlur:
-		m.appearance.HideOnBlur = boolPtr(!*m.appearance.HideOnBlur)
 	case fieldHeader:
 		m.appearance.ShowHeader = boolPtr(!*m.appearance.ShowHeader)
 	case fieldStatus:
@@ -121,7 +118,6 @@ func (m model) viewAppearance() (string, string) {
 	}{
 		{"Theme", m.themeInput.View() + "  (left/right cycles presets)"},
 		{"Pronunciation", toggle(*m.appearance.ShowPronunciation)},
-		{"Hide on blur", toggle(*m.appearance.HideOnBlur)},
 		{"Header", toggle(*m.appearance.ShowHeader)},
 		{"Connection badge", toggle(*m.appearance.ShowStatus)},
 		{"Footer", toggle(*m.appearance.ShowFooter)},

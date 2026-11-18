@@ -60,7 +60,6 @@ type Options struct {
 type AppearanceSettings struct {
 	Theme             string
 	ShowPronunciation *bool
-	HideOnBlur        *bool
 	ShowHeader        *bool
 	ShowStatus        *bool
 	ShowFooter        *bool
@@ -256,9 +255,6 @@ func applyAppearance(cfg *config.Config, appearance AppearanceSettings) error {
 	}
 	if appearance.ShowPronunciation != nil {
 		cfg.Dictionary.ShowPronunciation = *appearance.ShowPronunciation
-	}
-	if appearance.HideOnBlur != nil {
-		cfg.Popup.HideOnBlur = *appearance.HideOnBlur
 	}
 	if appearance.ShowHeader != nil {
 		cfg.Popup.ShowHeader = *appearance.ShowHeader

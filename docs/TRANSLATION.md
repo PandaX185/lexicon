@@ -59,8 +59,10 @@ Two build details are load-bearing:
   `CMAKE_CXX_FLAGS`, so the include is injected through
   `CMAKE_PROJECT_TOP_LEVEL_INCLUDES=tools/bergamot/cstdint.cmake` and guarded by
   `COMPILE_LANGUAGE:CXX` so the C sources are untouched.
-- The default build arch is `native`. Set `BERGAMOT_ARCH=x86-64-v3` (or similar)
-  to produce a binary that runs on older CPUs.
+- The default build arch is `x86-64-v2` (SSE4.2/POPCNT), the lowest baseline
+  Bergamot's intgemm supports. Set `BERGAMOT_ARCH=native` for a local-only build
+  that uses your CPU's full instruction set; release builds stay on v2 so they
+  do not require AVX2 or AVX-512.
 
 Only the daemon links Bergamot; `lexicon` and `lexicon-installer` stay untagged
 builds. The generated flags are equivalent to:
@@ -74,7 +76,10 @@ CGO_LDFLAGS="-L$BERGAMOT_BUILD/src/translator -L$BERGAMOT_BUILD ... \
 ```
 
 On distributions without OpenBLAS the link uses netlib `-lblas -llapack
--lcblas`. Override the BLAS flags with `BERGAMOT_BLAS_LIBS` when needed.
+-lcblas`. Override the BLAS flags with `BERGAMOT_BLAS_LIBS` when needed. Release
+tarballs are built with `BERGAMOT_BLAS_LIBS=-lopenblas -lpthread`, so the
+installed daemon requires `libopenblas.so.0` at runtime (`openblas` on Arch and
+Fedora, `libopenblas0` on Debian/Ubuntu).
 
 The bridge is isolated: C++ owns the engine and cached models, Go holds only an
 opaque handle, C++ exceptions become allocated error strings, and returned

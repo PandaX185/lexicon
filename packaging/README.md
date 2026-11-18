@@ -51,9 +51,11 @@ Its first `sha256sums` entry pins the tarball itself and **must be refreshed
 from the CI artifact for every new release tag**. The four dictionary checksums
 stay pinned to `dictionary-3.0` until that release changes.
 
-Runtime dependencies are `glibc`, `wl-clipboard`, `blas`, `lapack`, `pcre2`, and
-`gcc-libs`. Bergamot itself is statically linked into the daemon; the remaining
-libraries are its BLAS, PCRE2, and C++ runtime dependencies.
+Runtime dependencies are `glibc`, `wl-clipboard`, `blas`, `lapack`, `openblas`,
+`pcre2`, `gcc-libs`, and `webkitgtk-6.0`. Bergamot itself is statically linked
+into the daemon; the remaining libraries are its OpenBLAS, PCRE2, and C++
+runtime dependencies. The popup embeds the frontend assets but links the system
+WebKitGTK engine; release builds use the GTK4/WebKitGTK 6.0 variant.
 
 The asset URLs require a publicly readable repository. If the repository is
 still private, download the tarball and dictionary assets with an authenticated

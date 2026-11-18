@@ -32,7 +32,6 @@ func main() {
 	flag.BoolVar(&options.DryRun, "dry-run", false, "print the resolved plan without changing anything")
 	theme := flag.String("theme", "", "popup theme preset")
 	showPronunciation := flag.Bool("show-pronunciation", true, "show pronunciation when present")
-	hideOnBlur := flag.Bool("hide-on-blur", true, "hide the popup when it loses focus")
 	showHeader := flag.Bool("show-header", false, "show the popup header")
 	showStatus := flag.Bool("show-status", false, "show the popup connection badge")
 	showFooter := flag.Bool("show-footer", false, "show the popup footer")
@@ -45,7 +44,6 @@ func main() {
 	options.Appearance = installer.AppearanceSettings{
 		Theme:             *theme,
 		ShowPronunciation: showPronunciation,
-		HideOnBlur:        hideOnBlur,
 		ShowHeader:        showHeader,
 		ShowStatus:        showStatus,
 		ShowFooter:        showFooter,

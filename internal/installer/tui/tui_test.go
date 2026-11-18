@@ -375,6 +375,15 @@ func TestAppearanceViewShowsTheme(t *testing.T) {
 	}
 }
 
+func TestAppearanceViewHasNoHideOnBlurOption(t *testing.T) {
+	m := newModel(context.Background(), testOptions(t))
+	m.screen = screenAppearance
+	view := m.View()
+	if strings.Contains(view, "Hide on blur") {
+		t.Fatalf("appearance view still exposes the removed hide-on-blur option:\n%s", view)
+	}
+}
+
 func TestSummaryDryRunFinishes(t *testing.T) {
 	options := testOptions(t)
 	options.DryRun = true

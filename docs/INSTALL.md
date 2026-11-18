@@ -3,10 +3,10 @@
 ## One-line bootstrap (recommended)
 
 ~~~sh
-bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.2/install.sh)
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.3/install.sh)
 ~~~
 
-The script is fetched from the pinned `v0.1.2` tag, not `main`. It downloads the
+The script is fetched from the pinned `v0.1.3` tag, not `main`. It downloads the
 release tarball and `checksums.sha256` over HTTPS, verifies the tarball hash,
 downloads `en.sqlite` and `manifest.json` from the pinned `dictionary-3.0`
 release, verifies both dictionary SHA-256 hashes, extracts the tarball to a
@@ -32,8 +32,10 @@ working base install.
 - Node.js 22 or newer and npm for the popup
 - `wl-clipboard` (`wl-paste`) for primary-selection lookups
 - `systemctl` and `journalctl` for service lifecycle commands
-- For the popup: GTK 4 + WebKitGTK 6.0 **or** GTK 3 + WebKitGTK 4.1 development
-  packages, plus `pkg-config` and a C toolchain
+- For the shipped popup at runtime: WebKitGTK 6.0 (`webkitgtk-6.0` on Arch,
+  `libwebkitgtk-6.0-4` on Debian/Ubuntu, `webkitgtk6.0` on Fedora)
+- For building the popup: GTK 4 + WebKitGTK 6.0 **or** GTK 3 + WebKitGTK 4.1
+  development packages, plus `pkg-config` and a C toolchain
 - A dictionary SQLite file (see [DICTIONARY.md](DICTIONARY.md)); release
   packages bundle one, or build it with `just dict-build`
 
@@ -50,10 +52,12 @@ At least one line must print for `just build`.
 
 Each stable release publishes a checksummed tarball named
 `lexicon-<version>-linux-<arch>.tar.gz`, where `<arch>` is `amd64` or `arm64`.
-The daemon in the tarball has native Bergamot compiled in.
+The daemon in the tarball has Bergamot compiled in. amd64 binaries target the
+`x86-64-v2` baseline (SSE4.2/POPCNT); they do not require AVX2 or AVX-512, so
+they run on essentially all x86-64 systems.
 
 ```sh
-version=0.1.2
+version=0.1.3
 arch=amd64
 base="https://github.com/PandaX185/lexicon/releases/download/v${version}"
 curl -fsSL "$base/lexicon-${version}-linux-${arch}.tar.gz" \
@@ -80,15 +84,21 @@ source additionally needs the GTK/WebKit development packages.
 
 | Distribution | Runtime | Popup build: GTK4 / WebKitGTK 6.0 | Popup build: GTK3 / WebKitGTK 4.1 |
 | --- | --- | --- | --- |
-| Arch / EndeavourOS | `glibc`, `wl-clipboard`, `blas`, `lapack`, `pcre2`, `gcc-libs` | `gtk4`, `webkitgtk-6.0`, `pkgconf` | `gtk3`, `webkit2gtk-4.1`, `pkgconf` |
-| Debian 12 / Ubuntu 24.04 | `libc6`, `wl-clipboard`, `libblas3`, `liblapack3`, `libpcre2-8-0`, `libstdc++6` | `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, `pkg-config` | `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config` |
-| Fedora 40+ | `glibc`, `wl-clipboard`, `blas`, `lapack`, `pcre2`, `libstdc++` | `gtk4-devel`, `webkitgtk6.0-devel`, `pkgconf-pkg-config` | `gtk3-devel`, `webkit2gtk4.1-devel`, `pkgconf-pkg-config` |
+| Arch / EndeavourOS | `glibc`, `wl-clipboard`, `blas`, `lapack`, `openblas`, `pcre2`, `gcc-libs`, `webkitgtk-6.0` | `gtk4`, `webkitgtk-6.0`, `pkgconf` | `gtk3`, `webkit2gtk-4.1`, `pkgconf` |
+| Debian 12 / Ubuntu 24.04 | `libc6`, `wl-clipboard`, `libblas3`, `liblapack3`, `libopenblas0`, `libpcre2-8-0`, `libstdc++6`, `libwebkitgtk-6.0-4` | `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, `pkg-config` | `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config` |
+| Fedora 40+ | `glibc`, `wl-clipboard`, `blas`, `lapack`, `openblas`, `pcre2`, `libstdc++`, `webkitgtk6.0` | `gtk4-devel`, `webkitgtk6.0-devel`, `pkgconf-pkg-config` | `gtk3-devel`, `webkit2gtk4.1-devel`, `pkgconf-pkg-config` |
 
 Package names can change between distribution releases; the `pkg-config`
-checks above are the authoritative test. The release daemon has Bergamot
-statically linked in, so the BLAS, LAPACK, PCRE2, and C++ runtime libraries are
-its only shared-library dependencies beyond glibc. Model packs are still
-installed at runtime with `lexicon languages install ID`.
+checks above are the authoritative test for building from source. The release
+daemon has Bergamot statically linked in, but links the BLAS runtime as
+`libopenblas.so.0` (CI sets `BERGAMOT_BLAS_LIBS=-lopenblas`). The Wails popup
+embeds the frontend assets but dynamically links the system WebKitGTK engine;
+release builds use the GTK4/WebKitGTK 6.0 variant so package metadata can name
+one ABI. Package installs pull these libraries in through the runtime
+dependencies above; bootstrap or manual installs need them present. PCRE2 and
+the C++ runtime are the daemon's other shared-library dependencies beyond
+glibc. Model packs are still installed at runtime with
+`lexicon languages install ID`.
 
 ## Build and install
 

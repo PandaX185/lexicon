@@ -1,15 +1,17 @@
 # Maintainer: Abdullah <PandaX185@users.noreply.github.com>
 
 pkgname=lexicon
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc="Offline dictionary lookup for the Wayland primary selection"
 arch=('x86_64' 'aarch64')
 url="https://github.com/PandaX185/lexicon"
 license=('MIT')
-# The release daemon has native Bergamot statically compiled in; only its
-# common system shared libraries are needed at runtime.
-depends=('glibc' 'wl-clipboard' 'blas' 'lapack' 'pcre2' 'gcc-libs')
+# The release daemon has Bergamot statically compiled in; only its common
+# system shared libraries are needed at runtime.
+# The release daemon links libopenblas.so.0 (CI sets BERGAMOT_BLAS_LIBS to -lopenblas).
+# The popup links the system WebKitGTK 6.0 engine (release CI builds the GTK4 variant).
+depends=('glibc' 'wl-clipboard' 'blas' 'lapack' 'openblas' 'pcre2' 'gcc-libs' 'webkitgtk-6.0')
 options=(!lto)
 
 case "$CARCH" in
@@ -27,7 +29,7 @@ source=("lexicon-$pkgver-linux-$_goarch.tar.gz::$url/releases/download/v$pkgver/
         "manifest.json::$url/releases/download/dictionary-3.0/manifest.json"
         "WORDNET.txt::$url/releases/download/dictionary-3.0/WORDNET.txt"
         "CMUDICT.txt::$url/releases/download/dictionary-3.0/CMUDICT.txt")
-sha256sums=('a7925304834ae8d21cda1af72edcd2cec08a46ad14f619bf6e5346a0a34da6c6'
+sha256sums=('9ce7995b503d9bc55150f01e5d6d91b1856ea36f9eb4a52e5af595c0fcb254e2'
             '4abacd0b88267af00bff88a731644bb3cc6a3c8f579729c2b69a405fdc03b458'
             '7cf561d001f109101305d475f5d5b71bc48310c1668babd935aabeb4f3e2ef83'
             '09ea11eb6c7cf946318d184fd4988da3d6ed1023dc5a3a67c91b9f9a6d588bb7'

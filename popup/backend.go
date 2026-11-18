@@ -18,18 +18,14 @@ const (
 	eventLookup          = "lexicon:lookup"
 	eventConnection      = "lexicon:connection"
 	eventReady           = "lexicon:ready"
-	eventHide            = "lexicon:hide"
 	eventSettings        = "lexicon:settings"
 	eventLanguagePairs   = "lexicon:language_pairs"
 	eventPairError       = "lexicon:pair_error"
 	eventSetLanguagePair = "lexicon:set-language-pair"
-	eventSelectorOpen    = "lexicon:selector-open"
-	eventSelectorClose   = "lexicon:selector-close"
 
 	dialRetryDelay  = 1500 * time.Millisecond
 	maxDialFailures = 12
 	idleShowDelay   = 900 * time.Millisecond
-	blurGuard       = 350 * time.Millisecond
 )
 
 // connectionState is sent to the frontend so it can distinguish an empty
@@ -63,7 +59,6 @@ type Popup struct {
 	app               *application.App
 	window            *application.WebviewWindow
 	socket            string
-	blurHides         bool
 	showPronunciation bool
 	display           displaySettings
 	logger            *slog.Logger
@@ -71,13 +66,11 @@ type Popup struct {
 	mu         sync.Mutex
 	last       *ipc.LookupResult
 	connection connectionState
-	shownAt    time.Time
 
-	clientMu     sync.Mutex
-	client       *ipc.Client
-	pairMu       sync.Mutex
-	pairState    *ipc.LanguagePairsState
-	selectorOpen bool
+	clientMu  sync.Mutex
+	client    *ipc.Client
+	pairMu    sync.Mutex
+	pairState *ipc.LanguagePairsState
 }
 
 func newPopup(app *application.App, window *application.WebviewWindow, settings settings, logger *slog.Logger) *Popup {
@@ -88,7 +81,6 @@ func newPopup(app *application.App, window *application.WebviewWindow, settings 
 		app:               app,
 		window:            window,
 		socket:            settings.socket,
-		blurHides:         settings.hideOnBlur,
 		showPronunciation: settings.showPronunciation,
 		display: displaySettings{
 			Theme:      settings.theme,
@@ -152,10 +144,6 @@ func (p *Popup) lastQuery() string {
 	return p.last.Query
 }
 
-func shouldHideOnBlur(enabled bool, shownAt, now time.Time, selectorOpen bool) bool {
-	return enabled && !selectorOpen && !shownAt.IsZero() && now.Sub(shownAt) > blurGuard
-}
-
 // start wires frontend requests and begins subscribing. It is called once the
 // Wails application has started, so emitting events is safe.
 func (p *Popup) start(ctx context.Context) {
@@ -181,9 +169,6 @@ func (p *Popup) start(ctx context.Context) {
 			p.app.Event.Emit(eventLanguagePairs, *pairState)
 		}
 	})
-	p.app.Event.On(eventHide, func(*application.CustomEvent) {
-		p.hide()
-	})
 	p.app.Event.On(eventSetLanguagePair, func(event *application.CustomEvent) {
 		var request setLanguagePairRequest
 		if err := decodeEventData(event, &request); err != nil {
@@ -208,17 +193,6 @@ func (p *Popup) start(ctx context.Context) {
 			p.handleResult(*relookup)
 		}
 	})
-	p.app.Event.On(eventSelectorOpen, func(*application.CustomEvent) {
-		p.pairMu.Lock()
-		p.selectorOpen = true
-		p.pairMu.Unlock()
-	})
-	p.app.Event.On(eventSelectorClose, func(*application.CustomEvent) {
-		p.pairMu.Lock()
-		p.selectorOpen = false
-		p.pairMu.Unlock()
-	})
-
 	go p.connectLoop(ctx)
 	go p.showWhenIdle(ctx)
 }
@@ -235,7 +209,7 @@ func (p *Popup) connectLoop(ctx context.Context) {
 			p.setConnection(false, err.Error())
 			if failures >= maxDialFailures {
 				p.logger.Warn("giving up on the daemon", "socket", p.socket, "attempts", failures)
-				p.app.Quit()
+				dismissPopup(p.app, nil)
 				return
 			}
 			if !sleepContext(ctx, dialRetryDelay) {
@@ -339,28 +313,6 @@ func (p *Popup) setConnection(connected bool, message string) {
 func (p *Popup) show() {
 	p.window.Show()
 	p.window.Focus()
-	p.mu.Lock()
-	p.shownAt = time.Now()
-	p.mu.Unlock()
-}
-
-func (p *Popup) hide() {
-	p.mu.Lock()
-	p.shownAt = time.Time{}
-	p.mu.Unlock()
-	p.window.Hide()
-}
-
-func (p *Popup) hideOnBlur() {
-	p.mu.Lock()
-	shownAt := p.shownAt
-	p.mu.Unlock()
-	p.pairMu.Lock()
-	selectorOpen := p.selectorOpen
-	p.pairMu.Unlock()
-	if shouldHideOnBlur(p.blurHides, shownAt, time.Now(), selectorOpen) {
-		p.hide()
-	}
 }
 
 func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, request setLanguagePairRequest) (ipc.LanguagePairsState, *ipc.LookupResult, error) {

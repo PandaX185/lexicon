@@ -230,8 +230,16 @@ func (d *Daemon) AfterLookup(subscribers int) {
 		d.logger.Warn("popup launch failed", "binary", binary, "error", err)
 		return
 	}
-	_ = command.Process.Release()
+	// Reap the detached child when the popup exits. Process.Release would let
+	// every dismissed popup remain in the process table as a zombie.
+	go d.waitForPopup(command)
 	d.logger.Info("popup launched", "binary", binary)
+}
+
+func (d *Daemon) waitForPopup(command *exec.Cmd) {
+	if err := command.Wait(); err != nil {
+		d.logger.Debug("popup exited", "error", err)
+	}
 }
 
 // Status implements ipc.Handler.

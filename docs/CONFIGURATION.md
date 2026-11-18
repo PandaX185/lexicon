@@ -40,7 +40,6 @@ The terminal installer manages only:
 
 - `popup.theme`
 - `dictionary.show_pronunciation`
-- `popup.hide_on_blur`
 - `popup.show_header`, `popup.show_status`, `popup.show_footer`
 - `general.max_query_words`, `general.max_query_chars`
 
@@ -75,7 +74,6 @@ or with `lexicon languages use SRC-TGT`. Both paths write the same config keys:
 | `popup.binary` | string | empty → next to `lexicon-daemon`, then `PATH` | executable path checked at launch |
 | `popup.width` | integer | `420` | 240–1200 logical pixels |
 | `popup.height` | integer | `320` | 160–1200 logical pixels |
-| `popup.hide_on_blur` | boolean | `true` | — |
 | `popup.theme` | string | `system` | see the theme list below |
 | `popup.show_header` | boolean | `false` | show the brand header |
 | `popup.show_status` | boolean | `false` | show the daemon connection badge |
@@ -95,8 +93,11 @@ Notes:
   reports the translator as unavailable and lookups still return definitions.
 - `translation.source_language`/`target_language` select the translation pair
   independently of the dictionary pair. Install packs with `lexicon languages`.
-- The popup is frameless by design. Its result card shows the translation first,
-  then the headword, pronunciation, definitions, and source metadata.
+- The popup is frameless but resizable. Its result card shows the translation
+  first, then the headword, pronunciation, definitions, and source metadata.
+  Closing the window or pressing Escape exits the popup process.
+- The old `popup.hide_on_blur` key is accepted in existing files and ignored;
+  it is no longer written to new configurations.
 - `popup.*` display values are read when the popup process starts. A running
   popup does not hot-reload them; the next popup launch uses the new values.
 - Theme presets are compiled into the popup; there are no theme files or
@@ -155,7 +156,6 @@ auto_launch = true
 binary = ""
 width = 420
 height = 320
-hide_on_blur = true
 theme = "system"
 show_header = false
 show_status = false

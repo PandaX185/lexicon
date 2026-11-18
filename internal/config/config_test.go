@@ -71,6 +71,45 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestLoadIgnoresRemovedHideOnBlurKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	data := "[popup]\nhide_on_blur = true\nwidth = 500\n"
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, exists, err := Load(path)
+	if err != nil {
+		t.Fatalf("load legacy config: %v", err)
+	}
+	if !exists {
+		t.Fatal("exists = false")
+	}
+	if cfg.Popup.Width != 500 {
+		t.Fatalf("width = %d, want 500", cfg.Popup.Width)
+	}
+	if cfg.Popup.AutoLaunch != Default().Popup.AutoLaunch {
+		t.Fatalf("auto_launch = %v, want the default", cfg.Popup.AutoLaunch)
+	}
+	rendered, err := Render(cfg)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if strings.Contains(string(rendered), "hide_on_blur") {
+		t.Fatalf("rendered config still exposes hide_on_blur:\n%s", rendered)
+	}
+}
+
+func TestLoadRejectsUnknownPopupKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("[popup]\nunknown = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Load(path); err == nil {
+		t.Fatal("expected an unknown-key error")
+	}
+}
+
 func TestLoadRejectsInvalidValue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte("[general]\nmax_query_words = 0\n"), 0o600); err != nil {

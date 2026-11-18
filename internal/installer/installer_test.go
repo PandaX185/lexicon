@@ -990,7 +990,6 @@ func TestBuildPlanAppliesAppearanceAndPacks(t *testing.T) {
 		Appearance: AppearanceSettings{
 			Theme:             "nord",
 			ShowPronunciation: &no,
-			HideOnBlur:        &no,
 			ShowHeader:        &no,
 			ShowStatus:        &no,
 			ShowFooter:        &no,
@@ -1007,7 +1006,7 @@ func TestBuildPlanAppliesAppearanceAndPacks(t *testing.T) {
 	if plan.Config.Popup.Theme != "nord" {
 		t.Fatalf("theme = %q", plan.Config.Popup.Theme)
 	}
-	if plan.Config.Dictionary.ShowPronunciation || plan.Config.Popup.HideOnBlur {
+	if plan.Config.Dictionary.ShowPronunciation {
 		t.Fatalf("boolean appearance settings were not applied: %+v", plan.Config)
 	}
 	if plan.Config.General.MaxQueryWords != 6 || plan.Config.General.MaxQueryChars != 200 {

@@ -16,7 +16,9 @@ build_root=${BERGAMOT_BUILD_ROOT:-"$repo_root/build/bergamot"}
 source_dir=${BERGAMOT_ROOT:-"$build_root/src"}
 build_dir=${BERGAMOT_BUILD:-"$build_root/build-native"}
 image=${BERGAMOT_IMAGE:-lexicon-bergamot-build}
-arch=${BERGAMOT_ARCH:-native}
+# Portable amd64 baseline: intgemm needs SSE4.1+, and x86-64-v2 avoids the
+# AVX-512 instructions that `-march=native` can emit on CI runners.
+arch=${BERGAMOT_ARCH:-x86-64-v2}
 jobs=${JOBS:-$(nproc)}
 blas_libs=${BERGAMOT_BLAS_LIBS:--lblas -llapack -lcblas}
 

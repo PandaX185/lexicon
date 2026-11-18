@@ -1,8 +1,13 @@
 package daemon
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -22,6 +27,23 @@ func TestPopupBinaryErrorSuggestsCurrentBuildCommand(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "make popup-build") {
 		t.Fatalf("error = %q, want no stale make guidance", err)
+	}
+}
+
+func TestWaitForPopupReapsChild(t *testing.T) {
+	command := exec.Command("/bin/true")
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pid := command.Process.Pid
+	daemon := &Daemon{
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	daemon.waitForPopup(command)
+
+	if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
+		t.Fatalf("process %d still exists after Wait: %v", pid, err)
 	}
 }
 

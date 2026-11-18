@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -68,12 +69,53 @@ type Popup struct {
 	Binary     string `toml:"binary" comment:"Popup executable. Empty looks next to lexicon-daemon."`
 	Width      int    `toml:"width" comment:"Popup width in logical pixels (240-1200)."`
 	Height     int    `toml:"height" comment:"Popup height in logical pixels (160-1200)."`
-	HideOnBlur bool   `toml:"hide_on_blur" comment:"Hide the popup when it loses focus."`
-
 	Theme      string `toml:"theme" comment:"Built-in colour preset: system, one of the dark presets, or one of the light presets."`
 	ShowHeader bool   `toml:"show_header" comment:"Show the brand header."`
 	ShowStatus bool   `toml:"show_status" comment:"Show the daemon connection badge."`
 	ShowFooter bool   `toml:"show_footer" comment:"Show the timestamp and close hint."`
+}
+
+// UnmarshalTOML accepts the removed popup.hide_on_blur key in existing config
+// files and ignores it. Every other unknown key is still rejected, and values
+// absent from the popup table keep their defaults.
+func (p *Popup) UnmarshalTOML(data []byte) error {
+	raw := struct {
+		AutoLaunch bool   `toml:"auto_launch"`
+		Binary     string `toml:"binary"`
+		Width      int    `toml:"width"`
+		Height     int    `toml:"height"`
+		Theme      string `toml:"theme"`
+		ShowHeader bool   `toml:"show_header"`
+		ShowStatus bool   `toml:"show_status"`
+		ShowFooter bool   `toml:"show_footer"`
+
+		HideOnBlur bool `toml:"hide_on_blur"`
+	}{
+		AutoLaunch: p.AutoLaunch,
+		Binary:     p.Binary,
+		Width:      p.Width,
+		Height:     p.Height,
+		Theme:      p.Theme,
+		ShowHeader: p.ShowHeader,
+		ShowStatus: p.ShowStatus,
+		ShowFooter: p.ShowFooter,
+	}
+	decoder := toml.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&raw); err != nil {
+		return err
+	}
+	*p = Popup{
+		AutoLaunch: raw.AutoLaunch,
+		Binary:     raw.Binary,
+		Width:      raw.Width,
+		Height:     raw.Height,
+		Theme:      raw.Theme,
+		ShowHeader: raw.ShowHeader,
+		ShowStatus: raw.ShowStatus,
+		ShowFooter: raw.ShowFooter,
+	}
+	return nil
 }
 
 // Default returns the built-in configuration.
@@ -106,7 +148,6 @@ func Default() Config {
 			AutoLaunch: true,
 			Width:      420,
 			Height:     320,
-			HideOnBlur: true,
 			Theme:      "system",
 		},
 	}
@@ -128,6 +169,7 @@ func Load(path string) (Config, bool, error) {
 
 	decoder := toml.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
+	decoder.EnableUnmarshalerInterface()
 	if err := decoder.Decode(&cfg); err != nil {
 		return Config{}, false, fmt.Errorf("parse config %s: %w", path, err)
 	}

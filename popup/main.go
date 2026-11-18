@@ -60,31 +60,18 @@ func run() int {
 		},
 	})
 
-	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             "popup",
-		Title:            "Lexicon",
-		Width:            settings.width,
-		Height:           settings.height,
-		MinWidth:         min(settings.width, 360),
-		MinHeight:        min(settings.height, 200),
-		AlwaysOnTop:      true,
-		Frameless:        true,
-		DisableResize:    true,
-		Hidden:           true,
-		InitialPosition:  application.WindowCentered,
-		BackgroundType:   application.BackgroundTypeSolid,
-		BackgroundColour: themeBaseColour(settings.theme),
-		URL:              "/",
-	})
+	window := app.Window.NewWithOptions(popupWindowOptions(app, settings))
 
 	popup := newPopup(app, window, settings, fallback)
 
-	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		event.Cancel()
-		popup.hide()
+	// Hooks run synchronously before Wails' built-in listeners. GTK4 reports a
+	// window-manager close as WindowDeleteEvent, while Close() emits the common
+	// event; both must quit the whole popup process.
+	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		dismissPopup(app, event)
 	})
-	window.OnWindowEvent(events.Common.WindowLostFocus, func(*application.WindowEvent) {
-		popup.hideOnBlur()
+	window.RegisterHook(events.Linux.WindowDeleteEvent, func(event *application.WindowEvent) {
+		dismissPopup(app, event)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -102,6 +89,43 @@ func run() int {
 	return 0
 }
 
+func popupWindowOptions(app *application.App, settings settings) application.WebviewWindowOptions {
+	return application.WebviewWindowOptions{
+		Name:             "popup",
+		Title:            "Lexicon",
+		Width:            settings.width,
+		Height:           settings.height,
+		MinWidth:         min(settings.width, 320),
+		MinHeight:        min(settings.height, 200),
+		AlwaysOnTop:      true,
+		Frameless:        true,
+		Hidden:           true,
+		InitialPosition:  application.WindowCentered,
+		BackgroundType:   application.BackgroundTypeSolid,
+		BackgroundColour: themeBaseColour(settings.theme),
+		URL:              "/",
+		KeyBindings: map[string]func(application.Window){
+			"escape": func(application.Window) {
+				dismissPopup(app, nil)
+			},
+		},
+	}
+}
+
+type popupQuitter interface {
+	Quit()
+}
+
+// dismissPopup cancels the native window close so Wails does not tear down the
+// window independently, then quits the whole popup process. Escape passes a nil
+// event because it has no native close to cancel.
+func dismissPopup(quitter popupQuitter, event *application.WindowEvent) {
+	if event != nil {
+		event.Cancel()
+	}
+	quitter.Quit()
+}
+
 // settings is the subset of configuration the popup display needs. The socket
 // still prefers an explicit flag so a daemon started with a custom
 // configuration always reaches the matching instance.
@@ -109,7 +133,6 @@ type settings struct {
 	socket            string
 	width             int
 	height            int
-	hideOnBlur        bool
 	showPronunciation bool
 	theme             string
 	showHeader        bool
@@ -121,7 +144,6 @@ func loadSettings(configPath, socketPath string, logger *slog.Logger) settings {
 	result := settings{
 		width:             420,
 		height:            320,
-		hideOnBlur:        true,
 		showPronunciation: true,
 		theme:             "system",
 	}
@@ -143,7 +165,6 @@ func loadSettings(configPath, socketPath string, logger *slog.Logger) settings {
 			result.socket = effective.Daemon.Socket
 			result.width = effective.Popup.Width
 			result.height = effective.Popup.Height
-			result.hideOnBlur = effective.Popup.HideOnBlur
 			result.showPronunciation = effective.Dictionary.ShowPronunciation
 			result.theme = strings.ToLower(strings.TrimSpace(effective.Popup.Theme))
 			result.showHeader = effective.Popup.ShowHeader

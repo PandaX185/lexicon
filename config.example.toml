@@ -48,7 +48,6 @@ auto_launch = true
 binary = ""
 width = 420
 height = 320
-hide_on_blur = true
 # system follows the desktop light/dark preference. Built-in presets:
 # dark: dark, nord, catppuccin, gruvbox, rose-pine, dracula, tokyo-night,
 #       one-dark, solarized-dark, github-dark

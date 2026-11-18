@@ -48,6 +48,55 @@ func TestLoadSettingsAppearanceDefaults(t *testing.T) {
 	}
 }
 
+type recordingQuitter struct {
+	quits int
+}
+
+func (q *recordingQuitter) Quit() {
+	q.quits++
+}
+
+func TestWindowCloseQuitsAfterCancelling(t *testing.T) {
+	quitter := &recordingQuitter{}
+	event := application.NewWindowEvent()
+
+	dismissPopup(quitter, event)
+
+	if quitter.quits != 1 {
+		t.Fatalf("quits = %d, want 1", quitter.quits)
+	}
+	if !event.IsCancelled() {
+		t.Fatal("window close was not cancelled; Wails would close the window without quitting the app")
+	}
+}
+
+func TestEscapeQuitsPopup(t *testing.T) {
+	quitter := &recordingQuitter{}
+
+	dismissPopup(quitter, nil)
+
+	if quitter.quits != 1 {
+		t.Fatalf("quits = %d, want 1", quitter.quits)
+	}
+}
+
+func TestPopupWindowIsResizable(t *testing.T) {
+	options := popupWindowOptions(nil, settings{width: 420, height: 320})
+	if options.DisableResize {
+		t.Fatal("popup window must allow edge resizing")
+	}
+	if options.MinWidth > 320 || options.MinHeight > 200 {
+		t.Fatalf("minimum size %dx%d is larger than the compact translation layout", options.MinWidth, options.MinHeight)
+	}
+}
+
+func TestEscapeIsNativeWindowKeyBinding(t *testing.T) {
+	options := popupWindowOptions(nil, settings{})
+	if _, ok := options.KeyBindings["escape"]; !ok {
+		t.Fatal("Escape must be handled by Wails so it works when the webview is not focused")
+	}
+}
+
 func TestThemeBaseColour(t *testing.T) {
 	tests := map[string]application.RGBA{
 		"system":            application.NewRGB(24, 24, 27),

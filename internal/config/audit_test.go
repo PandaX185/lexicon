@@ -30,7 +30,6 @@ func TestKeysAreTheDocumentedSurface(t *testing.T) {
 		"popup.binary",
 		"popup.width",
 		"popup.height",
-		"popup.hide_on_blur",
 		"popup.theme",
 		"popup.show_header",
 		"popup.show_status",

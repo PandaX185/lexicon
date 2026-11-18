@@ -140,7 +140,6 @@ func newModel(ctx context.Context, options installer.Options) model {
 		appearance: installer.AppearanceSettings{
 			Theme:             defaults.Popup.Theme,
 			ShowPronunciation: boolPtr(defaults.Dictionary.ShowPronunciation),
-			HideOnBlur:        boolPtr(defaults.Popup.HideOnBlur),
 			ShowHeader:        boolPtr(defaults.Popup.ShowHeader),
 			ShowStatus:        boolPtr(defaults.Popup.ShowStatus),
 			ShowFooter:        boolPtr(defaults.Popup.ShowFooter),

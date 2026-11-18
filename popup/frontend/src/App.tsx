@@ -16,10 +16,7 @@ const SETTINGS_EVENT = "lexicon:settings";
 const LANGUAGE_PAIRS_EVENT = "lexicon:language_pairs";
 const PAIR_ERROR_EVENT = "lexicon:pair_error";
 const SET_LANGUAGE_PAIR_EVENT = "lexicon:set-language-pair";
-const SELECTOR_OPEN_EVENT = "lexicon:selector-open";
-const SELECTOR_CLOSE_EVENT = "lexicon:selector-close";
 const READY_EVENT = "lexicon:ready";
-const HIDE_EVENT = "lexicon:hide";
 
 export default function App() {
   const [result, setResult] = useState<LookupResult | null>(null);
@@ -51,21 +48,12 @@ export default function App() {
 
     void Events.Emit(READY_EVENT, null);
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        void Events.Emit(HIDE_EVENT, null);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-
     return () => {
       stopLookup();
       stopConnection();
       stopSettings();
       stopPairs();
       stopPairError();
-      window.removeEventListener("keydown", onKeyDown);
     };
   }, []);
 
@@ -74,46 +62,42 @@ export default function App() {
     void Events.Emit(SET_LANGUAGE_PAIR_EVENT, { source, target });
   }, []);
 
-  const setSelectorOpen = useCallback((open: boolean) => {
-    void Events.Emit(open ? SELECTOR_OPEN_EVENT : SELECTOR_CLOSE_EVENT, null);
-  }, []);
-
   const showHeader = settings?.show_header === true;
   const showStatus = settings?.show_status === true;
   const showFooter = settings?.show_footer === true;
 
+  const translationControl = pairs ? (
+    <LanguagePairSelector state={pairs} error={pairError} onChange={changePair} />
+  ) : pairError ? (
+    <p className="max-w-[28ch] break-words text-[10px] text-red-400">{pairError}</p>
+  ) : null;
+
   return (
     <main className="popup-card relative flex h-full flex-col text-ink">
-      {pairs ? (
-        <div className="absolute right-3 top-3 z-10">
-          <LanguagePairSelector
-            state={pairs}
-            error={pairError}
-            onChange={changePair}
-            onOpenChange={setSelectorOpen}
-          />
-        </div>
-      ) : pairError ? (
-        <div className="absolute right-3 top-3 z-10 max-w-[30ch] rounded-md border border-line bg-surface px-2 py-1 text-[10px] text-red-400">
-          {pairError}
+      {translationControl && !showHeader ? (
+        <div className="flex shrink-0 items-center justify-end border-b border-line px-5 py-2">
+          {translationControl}
         </div>
       ) : null}
 
       {showHeader ? (
-        <header className="flex shrink-0 items-center justify-between border-b border-line px-5 py-2.5">
-          <div className="flex items-center gap-2">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-5 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
             <BookIcon />
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
               Lexicon
             </span>
           </div>
-          {showStatus ? <ConnectionBadge connection={connection} /> : null}
+          <div className="flex shrink-0 items-center gap-3">
+            {showStatus ? <ConnectionBadge connection={connection} /> : null}
+            {translationControl}
+          </div>
         </header>
       ) : null}
 
       <section
         aria-live="polite"
-        className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-[13px] select-text"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-5 text-[13px] select-text"
       >
         {result ? (
           result.found && result.entry ? (
@@ -146,20 +130,26 @@ function ResultView({ result, entry }: { result: LookupResult; entry: Entry }) {
   const hasMetadata = Boolean(metadata.source || metadata.license);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       {result.translation ? (
-        <div className="rounded-xl border border-accent/20 bg-accent-soft px-4 py-3">
+        <div
+          aria-label="Translation"
+          className="min-w-0 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3"
+        >
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
             Translation
           </div>
-          <p className="text-[17px] leading-snug font-medium text-ink" dir="auto">
+          <p
+            className="text-[17px] leading-snug font-medium text-ink break-words"
+            dir="auto"
+          >
             {result.translation}
           </p>
         </div>
       ) : null}
 
       {result.translation_error ? (
-        <p className="text-[11px] leading-relaxed text-faint">
+        <p className="text-[11px] leading-relaxed text-faint break-words">
           Translation unavailable: {result.translation_error}
         </p>
       ) : null}
