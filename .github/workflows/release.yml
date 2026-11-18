@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag against PKGBUILD
+        id: meta
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "error: tag must be v<major>.<minor>.<patch>, got: $tag" >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          pkgver="$(grep -E '^pkgver=' packaging/arch/PKGBUILD | cut -d= -f2)"
+          if [[ "$version" != "$pkgver" ]]; then
+            echo "error: tag $tag does not match PKGBUILD pkgver $pkgver" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release version: $version"
+
+  build:
+    name: Build (${{ matrix.goarch }})
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            goarch: amd64
+            just_arch: x86_64
+          - runner: ubuntu-24.04-arm
+            goarch: arm64
+            just_arch: aarch64
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: popup/frontend/package-lock.json
+
+      - name: Install just
+        run: |
+          version=1.59.0
+          curl -fsSL "https://github.com/casey/just/releases/download/${version}/just-${version}-${{ matrix.just_arch }}-unknown-linux-musl.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin just
+          just --version
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libblas-dev liblapack-dev libpcre2-dev g++ \
+            libglib2.0-dev pkg-config
+          if ! sudo apt-get install -y --no-install-recommends \
+                 libgtk-4-dev libwebkitgtk-6.0-dev; then
+            sudo apt-get install -y --no-install-recommends \
+              libgtk-3-dev libwebkit2gtk-4.1-dev
+            echo "POPUP_GO_TAGS=gtk3" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install frontend dependencies
+        run: just popup-deps
+
+      - name: Build native Bergamot
+        run: just bergamot-build
+
+      - name: Assemble release artifact
+        run: just release "${{ needs.validate.outputs.version }}"
+
+      - name: Verify artifact
+        run: |
+          version="${{ needs.validate.outputs.version }}"
+          stage="build/release/lexicon-${version}-linux-${{ matrix.goarch }}"
+          ( cd "$stage" && sha256sum -c checksums.sha256 )
+          "$stage/bin/lex" version | grep -q "^lex ${version} "
+          test -x "$stage/bin/lexicon-daemon"
+
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-path: build/release/lexicon-*.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-${{ matrix.goarch }}
+          path: build/release/lexicon-*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-linux-*
+          merge-multiple: true
+
+      - name: Build combined checksums
+        run: |
+          cd dist
+          sha256sum lexicon-*.tar.gz | sort -k2 > checksums.sha256
+          cat checksums.sha256
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release create "$tag" dist/lexicon-*.tar.gz dist/checksums.sha256 \
+            --title "Lexicon ${{ needs.validate.outputs.version }}" \
+            --generate-notes

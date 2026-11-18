@@ -21,6 +21,14 @@ lex doctor
 `translation.enabled = true` is a valid configuration. The daemon reports the
 translator as unavailable and keeps serving lookups.
 
+## Release packages
+
+Stable tarballs and the Arch package ship a daemon with Bergamot compiled in,
+so `lex doctor` reports the translator as available without a local C++ build.
+Bundling the engine does not install any models: install a pack explicitly with
+`lex languages install ID` before enabling a language pair. Definitions always
+work, including when no pack is installed or a translation fails.
+
 ## Building the engine
 
 The `bergamot` build tag selects the C++ bridge in

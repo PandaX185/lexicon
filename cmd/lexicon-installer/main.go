@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/PandaX185/lexicon/internal/installer"
 	"github.com/PandaX185/lexicon/internal/installer/tui"
@@ -29,7 +30,29 @@ func main() {
 	flag.BoolVar(&options.Force, "force", false, "replace an existing configuration, dictionary, or unit")
 	flag.BoolVar(&options.Yes, "yes", false, "run without the TUI and accept the flag values")
 	flag.BoolVar(&options.DryRun, "dry-run", false, "print the resolved plan without changing anything")
+	theme := flag.String("theme", "", "popup theme preset")
+	showPronunciation := flag.Bool("show-pronunciation", true, "show pronunciation when present")
+	hideOnBlur := flag.Bool("hide-on-blur", true, "hide the popup when it loses focus")
+	showHeader := flag.Bool("show-header", false, "show the popup header")
+	showStatus := flag.Bool("show-status", false, "show the popup connection badge")
+	showFooter := flag.Bool("show-footer", false, "show the popup footer")
+	maxQueryWords := flag.Int("max-query-words", 4, "maximum words in a lookup")
+	maxQueryChars := flag.Int("max-query-chars", 128, "maximum characters in a lookup")
+	var packs stringList
+	flag.Var(&packs, "pack", "model pack id to install; repeatable")
 	flag.Parse()
+
+	options.Appearance = installer.AppearanceSettings{
+		Theme:             *theme,
+		ShowPronunciation: showPronunciation,
+		HideOnBlur:        hideOnBlur,
+		ShowHeader:        showHeader,
+		ShowStatus:        showStatus,
+		ShowFooter:        showFooter,
+		MaxQueryWords:     maxQueryWords,
+		MaxQueryChars:     maxQueryChars,
+	}
+	options.Packs = append([]string(nil), packs...)
 
 	ctx := context.Background()
 	var err error
@@ -51,4 +74,17 @@ func main() {
 func isTerminal(file *os.File) bool {
 	info, err := file.Stat()
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func (s *stringList) Set(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return errors.New("value must not be empty")
+	}
+	*s = append(*s, value)
+	return nil
 }

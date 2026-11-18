@@ -13,6 +13,7 @@ import (
 
 	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/PandaX185/lexicon/internal/installer"
+	"github.com/PandaX185/lexicon/internal/translation"
 	_ "modernc.org/sqlite"
 )
 
@@ -269,7 +270,7 @@ func TestDictionaryScreenAllowsEmpty(t *testing.T) {
 	}
 }
 
-func TestLanguageTranslationAndServiceFlow(t *testing.T) {
+func TestLanguageAppearancePacksAndServiceFlow(t *testing.T) {
 	options := testOptions(t)
 	m := newModel(context.Background(), options)
 	m = withChecks(m,
@@ -285,20 +286,31 @@ func TestLanguageTranslationAndServiceFlow(t *testing.T) {
 	if m.focus != 1 {
 		t.Fatalf("focus = %d, want the target field", m.focus)
 	}
-	m = press(t, m, keyEnter()) // continue to translation
-	if m.screen != screenTranslation {
-		t.Fatalf("screen = %d, want translation", m.screen)
+	m = press(t, m, keyEnter()) // continue to appearance
+	if m.screen != screenAppearance {
+		t.Fatalf("screen = %d, want appearance", m.screen)
 	}
 	if m.settings.SourceLang != "en" || m.settings.TargetLang != "de" {
 		t.Fatalf("languages = %q/%q, want en/de", m.settings.SourceLang, m.settings.TargetLang)
 	}
 
+	m = press(t, m, keyEnter()) // appearance defaults are valid; continue to packs
+	if m.screen != screenPacks {
+		t.Fatalf("screen = %d, want packs", m.screen)
+	}
+	updated, _ := m.Update(packCatalogMsg{entries: []translation.CatalogEntry{
+		{ID: "bergamot-en-de-tiny11", Source: "en", Target: "de"},
+	}})
+	m = updated.(model)
 	m = press(t, m, keySpace(), keyEnter())
 	if m.screen != screenService {
 		t.Fatalf("screen = %d, want service", m.screen)
 	}
 	if !m.settings.Translation {
-		t.Fatal("space must enable translation")
+		t.Fatal("selecting a pack must enable translation")
+	}
+	if len(m.settings.PackIDs) != 1 || m.settings.PackIDs[0] != "bergamot-en-de-tiny11" {
+		t.Fatalf("pack ids = %q", m.settings.PackIDs)
 	}
 
 	m = press(t, m, keySpace())
@@ -324,13 +336,12 @@ func TestServiceUnavailableCannotBeEnabled(t *testing.T) {
 	}
 }
 
-func TestTranslationViewShowsModelDirectory(t *testing.T) {
-	options := testOptions(t)
-	options.ModelDir = filepath.Join(t.TempDir(), "models")
-	m := newModel(context.Background(), options)
-	m.screen = screenTranslation
-	if !strings.Contains(m.View(), options.ModelDir) {
-		t.Fatalf("translation view does not show %s:\n%s", options.ModelDir, m.View())
+func TestAppearanceViewShowsTheme(t *testing.T) {
+	m := newModel(context.Background(), testOptions(t))
+	m.screen = screenAppearance
+	view := m.View()
+	if !strings.Contains(view, "Appearance") || !strings.Contains(view, config.PopupThemes[0]) {
+		t.Fatalf("appearance view does not show the theme:\n%s", view)
 	}
 }
 
@@ -432,7 +443,7 @@ func TestViewsRenderEveryScreen(t *testing.T) {
 	}
 	for _, screen := range []screen{
 		screenWelcome, screenPreflight, screenExisting, screenPaths, screenDictionary,
-		screenLanguages, screenTranslation, screenService, screenSummary,
+		screenLanguages, screenAppearance, screenPacks, screenService, screenSummary,
 		screenProgress, screenDone, screenError,
 	} {
 		m.screen = screen
@@ -564,5 +575,18 @@ func TestDownloadURLSkipsDictionaryScreen(t *testing.T) {
 	m = press(t, m, keyEsc())
 	if m.screen != screenPaths {
 		t.Fatalf("screen = %d, want paths", m.screen)
+	}
+}
+
+func TestScreenName(t *testing.T) {
+	tests := map[screen]string{
+		screenWelcome:   "welcome",
+		screenPreflight: "preflight",
+		screenDone:      "done",
+	}
+	for value, want := range tests {
+		if got := screenName(value); got != want {
+			t.Fatalf("screenName(%d) = %q, want %q", value, got, want)
+		}
 	}
 }

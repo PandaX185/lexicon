@@ -7,51 +7,59 @@ pkgdesc="Offline dictionary lookup for the Wayland primary selection"
 arch=('x86_64' 'aarch64')
 url="https://github.com/PandaX185/lexicon"
 license=('MIT')
-depends=('glibc' 'wl-clipboard')
-makedepends=('git' 'go' 'just' 'nodejs' 'npm' 'pkgconf' 'gtk4' 'webkitgtk-6.0')
+# The release daemon has native Bergamot statically compiled in; only its
+# common system shared libraries are needed at runtime.
+depends=('glibc' 'wl-clipboard' 'blas' 'lapack' 'pcre2' 'gcc-libs')
 options=(!lto)
 
-# The dictionary is versioned separately from the application. Both artifacts
-# are checksum-pinned; the manifest is installed next to the database so the
-# installer can verify it before using the packaged copy.
-source=("$pkgname::git+$url.git#tag=v$pkgver"
+case "$CARCH" in
+    x86_64)  _goarch=amd64 ;;
+    aarch64) _goarch=arm64 ;;
+    *) echo "unsupported arch: $CARCH" >&2; exit 1 ;;
+esac
+
+# This is a binary package: the release workflow builds Bergamot and assembles
+# the tarball in CI. The first sha256sum below must be refreshed from the CI
+# artifact for each new release tag. The dictionary is versioned separately
+# and stays pinned at dictionary-3.0.
+source=("lexicon-$pkgver-linux-$_goarch.tar.gz::$url/releases/download/v$pkgver/lexicon-$pkgver-linux-$_goarch.tar.gz"
         "en.sqlite::$url/releases/download/dictionary-3.0/en.sqlite"
         "manifest.json::$url/releases/download/dictionary-3.0/manifest.json"
         "WORDNET.txt::$url/releases/download/dictionary-3.0/WORDNET.txt"
         "CMUDICT.txt::$url/releases/download/dictionary-3.0/CMUDICT.txt")
-sha256sums=('SKIP'
+sha256sums=('dd6e9019e2171fb06e0935c8c959ac6ebd3b1581d3206f09de5eb56f02832465'
             '4abacd0b88267af00bff88a731644bb3cc6a3c8f579729c2b69a405fdc03b458'
             '7cf561d001f109101305d475f5d5b71bc48310c1668babd935aabeb4f3e2ef83'
             '09ea11eb6c7cf946318d184fd4988da3d6ed1023dc5a3a67c91b9f9a6d588bb7'
             'c47ab1d5adbb8927b1aabe805efd6b9e6699f31e8343cf7fe2b4479c92642c00')
 
-build() {
-    cd "$pkgname"
-    just build
-}
-
 package() {
-    cd "$pkgname"
+    local stage="$srcdir/lexicon-$pkgver-linux-$_goarch"
 
-    install -Dm755 bin/lex "$pkgdir/usr/bin/lex"
+    # Refuse to install a tarball whose contents do not match its manifest.
+    ( cd "$stage" && sha256sum -c checksums.sha256 )
+
+    install -Dm755 "$stage/bin/lex" "$pkgdir/usr/bin/lex"
     ln -s lex "$pkgdir/usr/bin/lexicon"
-    install -Dm755 bin/lexicon-daemon "$pkgdir/usr/bin/lexicon-daemon"
-    install -Dm755 bin/lexicon-installer "$pkgdir/usr/bin/lexicon-installer"
-    install -Dm755 bin/lexicon-popup "$pkgdir/usr/bin/lexicon-popup"
+    install -Dm755 "$stage/bin/lexicon-daemon" "$pkgdir/usr/bin/lexicon-daemon"
+    install -Dm755 "$stage/bin/lexicon-installer" "$pkgdir/usr/bin/lexicon-installer"
+    install -Dm755 "$stage/bin/lexicon-popup" "$pkgdir/usr/bin/lexicon-popup"
 
-    install -Dm644 packaging/systemd/lexicon.service \
+    install -Dm644 "$stage/share/lexicon/lexicon.service" \
         "$pkgdir/usr/lib/systemd/user/lexicon.service"
 
     install -Dm644 "$srcdir/en.sqlite" \
         "$pkgdir/usr/share/lexicon/dictionaries/en.sqlite"
     install -Dm644 "$srcdir/manifest.json" \
         "$pkgdir/usr/share/lexicon/dictionaries/manifest.json"
+
     install -Dm644 "$srcdir/WORDNET.txt" \
         "$pkgdir/usr/share/licenses/$pkgname/WORDNET.txt"
     install -Dm644 "$srcdir/CMUDICT.txt" \
         "$pkgdir/usr/share/licenses/$pkgname/CMUDICT.txt"
-    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "$stage/share/licenses/lexicon/LICENSE" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
     install -d "$pkgdir/usr/share/doc/$pkgname"
-    install -m644 docs/*.md "$pkgdir/usr/share/doc/$pkgname/"
+    install -m644 "$stage/share/doc/lexicon/"*.md "$pkgdir/usr/share/doc/$pkgname/"
 }

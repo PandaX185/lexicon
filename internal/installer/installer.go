@@ -18,6 +18,7 @@ import (
 	"github.com/PandaX185/lexicon/internal/dictionary"
 	"github.com/PandaX185/lexicon/internal/paths"
 	"github.com/PandaX185/lexicon/internal/systemd"
+	"github.com/PandaX185/lexicon/internal/translation"
 )
 
 // Options carries command-line flags and process streams.
@@ -36,6 +37,13 @@ type Options struct {
 	Yes              bool
 	DryRun           bool
 
+	Appearance AppearanceSettings
+	Packs      []string
+
+	// PackInstall and PackCatalog are test seams. Nil uses production behavior.
+	PackInstall PackInstaller
+	PackCatalog []translation.CatalogEntry
+
 	// DictionarySearchDirs overrides the packaged dictionary locations. Tests
 	// use it; the command line leaves it empty for paths.PackagedDictionaryDirs.
 	DictionarySearchDirs []string
@@ -46,6 +54,23 @@ type Options struct {
 	Stdout io.Writer
 	Stderr io.Writer
 }
+
+// AppearanceSettings is the curated subset of config exposed by the installer.
+// Nil pointers leave the corresponding default untouched.
+type AppearanceSettings struct {
+	Theme             string
+	ShowPronunciation *bool
+	HideOnBlur        *bool
+	ShowHeader        *bool
+	ShowStatus        *bool
+	ShowFooter        *bool
+	MaxQueryWords     *int
+	MaxQueryChars     *int
+}
+
+// PackInstaller installs one catalog pack. Tests replace it; production uses
+// translation.InstallPack.
+type PackInstaller func(context.Context, translation.CatalogEntry, string, *http.Client) (string, error)
 
 // Settings are the choices collected by the TUI. Non-interactive runs derive
 // them from Options.
@@ -58,6 +83,9 @@ type Settings struct {
 	Translation    bool
 	InstallService bool
 	ReplaceConfig  bool
+
+	Appearance AppearanceSettings
+	PackIDs    []string
 }
 
 // Plan is the resolved set of actions, also useful in dry-run mode.
@@ -82,6 +110,8 @@ type Plan struct {
 
 	Checks []Check
 	Notes  []string
+
+	PackIDs []string
 }
 
 // FailedChecks returns the preflight failures that must block installation.
@@ -145,6 +175,21 @@ func BuildPlan(ctx context.Context, options Options, settings Settings) (Plan, e
 	plan.ConfigExists = exists
 	replaceConfig := options.Force || settings.ReplaceConfig
 
+	packIDs := settings.PackIDs
+	if len(packIDs) == 0 {
+		packIDs = options.Packs
+	}
+	for _, id := range packIDs {
+		if !translation.ValidPackID(id) {
+			return plan, fmt.Errorf("invalid model pack id %q", id)
+		}
+		if _, found, err := translation.FindCatalogEntry(id); err != nil {
+			return plan, fmt.Errorf("validate model pack %s: %w", id, err)
+		} else if !found {
+			return plan, fmt.Errorf("unknown model pack %q", id)
+		}
+	}
+
 	if exists && !replaceConfig {
 		plan.Config = config.Effective(existing)
 		plan.WriteConfig = false
@@ -173,7 +218,10 @@ func BuildPlan(ctx context.Context, options Options, settings Settings) (Plan, e
 		cfg.Dictionary.DatabasePath = plan.DictionaryTarget
 		cfg.Dictionary.SourceLanguage = strings.TrimSpace(sourceLang)
 		cfg.Dictionary.TargetLanguage = strings.TrimSpace(targetLang)
-		cfg.Translation.Enabled = settings.Translation
+		cfg.Translation.Enabled = settings.Translation || len(packIDs) > 0
+		if err := applyAppearance(&cfg, settings.Appearance); err != nil {
+			return plan, err
+		}
 		if modelDir := firstNonEmpty(settings.ModelDir, options.ModelDir); modelDir != "" {
 			expanded, err := paths.ExpandHome(modelDir)
 			if err != nil {
@@ -187,6 +235,8 @@ func BuildPlan(ctx context.Context, options Options, settings Settings) (Plan, e
 		plan.Config = cfg
 	}
 
+	plan.PackIDs = append([]string(nil), packIDs...)
+
 	plan.InstallUnit, plan.EnableUnit, plan.UnitPath, plan.Unit, err = resolveService(options, settings, configPath)
 	if err != nil {
 		return plan, err
@@ -195,6 +245,43 @@ func BuildPlan(ctx context.Context, options Options, settings Settings) (Plan, e
 		plan.Notes = append(plan.Notes, "systemd unit will be written to "+plan.UnitPath)
 	}
 	return plan, nil
+}
+
+func applyAppearance(cfg *config.Config, appearance AppearanceSettings) error {
+	if strings.TrimSpace(appearance.Theme) != "" {
+		if !config.ValidPopupTheme(appearance.Theme) {
+			return fmt.Errorf("unknown popup theme %q", appearance.Theme)
+		}
+		cfg.Popup.Theme = strings.ToLower(strings.TrimSpace(appearance.Theme))
+	}
+	if appearance.ShowPronunciation != nil {
+		cfg.Dictionary.ShowPronunciation = *appearance.ShowPronunciation
+	}
+	if appearance.HideOnBlur != nil {
+		cfg.Popup.HideOnBlur = *appearance.HideOnBlur
+	}
+	if appearance.ShowHeader != nil {
+		cfg.Popup.ShowHeader = *appearance.ShowHeader
+	}
+	if appearance.ShowStatus != nil {
+		cfg.Popup.ShowStatus = *appearance.ShowStatus
+	}
+	if appearance.ShowFooter != nil {
+		cfg.Popup.ShowFooter = *appearance.ShowFooter
+	}
+	if appearance.MaxQueryWords != nil {
+		cfg.General.MaxQueryWords = *appearance.MaxQueryWords
+	}
+	if appearance.MaxQueryChars != nil {
+		cfg.General.MaxQueryChars = *appearance.MaxQueryChars
+	}
+	return cfg.Validate()
+}
+
+// ValidateAppearance validates curated values without needing a full plan.
+func ValidateAppearance(appearance AppearanceSettings) error {
+	cfg := config.Default()
+	return applyAppearance(&cfg, appearance)
 }
 
 type dictionaryResolution struct {
@@ -355,6 +442,8 @@ func Run(ctx context.Context, options Options) error {
 		Translation:    options.Translation,
 		InstallService: !options.SkipService,
 		ReplaceConfig:  options.Force,
+		Appearance:     options.Appearance,
+		PackIDs:        append([]string(nil), options.Packs...),
 	}
 
 	plan, err := BuildPlan(ctx, options, settings)
@@ -373,6 +462,8 @@ func Run(ctx context.Context, options Options) error {
 	if err := Apply(ctx, plan, textReporter(options.Stdout)); err != nil {
 		return err
 	}
+	results := InstallPacks(ctx, options, plan, nil)
+	WritePackResults(options.Stdout, results)
 	WriteNextSteps(options.Stdout, plan)
 	return nil
 }

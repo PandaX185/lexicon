@@ -22,6 +22,50 @@ pkg-config --exists webkit2gtk-4.1 gtk+-3.0 && echo "GTK3/WebKitGTK 4.1 availabl
 
 At least one line must print for `just build`.
 
+## Install from a release
+
+Each stable release publishes a checksummed tarball named
+`lexicon-<version>-linux-<arch>.tar.gz`, where `<arch>` is `amd64` or `arm64`.
+The daemon in the tarball has native Bergamot compiled in.
+
+```sh
+version=0.1.0
+arch=amd64
+base="https://github.com/PandaX185/lexicon/releases/download/v${version}"
+curl -fsSL "$base/lexicon-${version}-linux-${arch}.tar.gz" \
+  -o "lexicon-${version}-linux-${arch}.tar.gz"
+curl -fsSL "$base/checksums.sha256" -o checksums.sha256
+grep "lexicon-${version}-linux-${arch}.tar.gz" checksums.sha256 | sha256sum -c -
+tar -xzf "lexicon-${version}-linux-${arch}.tar.gz"
+cd "lexicon-${version}-linux-${arch}"
+sha256sum -c checksums.sha256
+```
+
+Then run `./bin/lexicon-installer --yes` with a dictionary (the Arch package
+installs one at `/usr/share/lexicon/dictionaries/en.sqlite`), or copy the files
+from `bin/` into a directory on your `PATH`. The tarball also carries the
+systemd unit, docs, and licenses under `share/`.
+
+The tarball does **not** include the dictionary; it stays a separate pinned
+release asset (see [DICTIONARY.md](DICTIONARY.md)).
+
+### Supported distributions and dependency names
+
+The release binaries need only a small set of runtime libraries. Building from
+source additionally needs the GTK/WebKit development packages.
+
+| Distribution | Runtime | Popup build: GTK4 / WebKitGTK 6.0 | Popup build: GTK3 / WebKitGTK 4.1 |
+| --- | --- | --- | --- |
+| Arch / EndeavourOS | `glibc`, `wl-clipboard`, `blas`, `lapack`, `pcre2`, `gcc-libs` | `gtk4`, `webkitgtk-6.0`, `pkgconf` | `gtk3`, `webkit2gtk-4.1`, `pkgconf` |
+| Debian 12 / Ubuntu 24.04 | `libc6`, `wl-clipboard`, `libblas3`, `liblapack3`, `libpcre2-8-0`, `libstdc++6` | `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, `pkg-config` | `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config` |
+| Fedora 40+ | `glibc`, `wl-clipboard`, `blas`, `lapack`, `pcre2`, `libstdc++` | `gtk4-devel`, `webkitgtk6.0-devel`, `pkgconf-pkg-config` | `gtk3-devel`, `webkit2gtk4.1-devel`, `pkgconf-pkg-config` |
+
+Package names can change between distribution releases; the `pkg-config`
+checks above are the authoritative test. The release daemon has Bergamot
+statically linked in, so the BLAS, LAPACK, PCRE2, and C++ runtime libraries are
+its only shared-library dependencies beyond glibc. Model packs are still
+installed at runtime with `lex languages install ID`.
+
 ## Build and install
 
 ```sh

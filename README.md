@@ -28,7 +28,22 @@ clipboard.
 
 If your distribution provides a Lexicon package, install it with your package
 manager. The package includes the English dictionary and the systemd user
-service.
+service. On Arch, `packaging/arch/PKGBUILD` installs the release tarball.
+
+### From a release tarball
+
+Stable releases publish `lexicon-<version>-linux-<arch>.tar.gz` and a
+`checksums.sha256` file. Verify before extracting:
+
+```sh
+grep "lexicon-0.1.0-linux-amd64.tar.gz" checksums.sha256 | sha256sum -c -
+tar -xzf lexicon-0.1.0-linux-amd64.tar.gz
+```
+
+The daemon in the tarball has offline Bergamot translation built in. The
+dictionary is a separate pinned asset; see the
+[installation guide](docs/INSTALL.md#install-from-a-release) for the full
+procedure, supported distributions, and dependency names.
 
 ### From source
 

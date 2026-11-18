@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 // WriteChecks prints preflight results for the non-interactive path.
@@ -50,6 +51,9 @@ func WriteSummary(w io.Writer, plan Plan) {
 		}
 		fmt.Fprintf(w, "  models:      %s\n", modelDir)
 	}
+	if len(plan.PackIDs) > 0 {
+		fmt.Fprintf(w, "  packs:       %s\n", strings.Join(plan.PackIDs, ", "))
+	}
 	switch {
 	case plan.InstallUnit:
 		fmt.Fprintf(w, "  service:     %s\n", plan.UnitPath)
@@ -60,6 +64,22 @@ func WriteSummary(w io.Writer, plan Plan) {
 	}
 	for _, note := range plan.Notes {
 		fmt.Fprintf(w, "  note:        %s\n", note)
+	}
+}
+
+// WritePackResults prints best-effort pack outcomes and retry commands.
+func WritePackResults(w io.Writer, results []PackResult) {
+	if len(results) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nModel packs")
+	for _, result := range results {
+		if result.Error == nil {
+			fmt.Fprintf(w, "  installed  %s (%s -> %s)\n", result.ID, result.Source, result.Target)
+			continue
+		}
+		fmt.Fprintf(w, "  failed     %s: %v\n", result.ID, result.Error)
+		fmt.Fprintf(w, "             retry: %s\n", result.RetryCommand())
 	}
 }
 

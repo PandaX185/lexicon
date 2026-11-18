@@ -206,6 +206,11 @@ The release directory is published as a GitHub release under the
 install it to `/usr/share/lexicon/dictionaries/en.sqlite` together with
 `manifest.json` and the licenses; see `packaging/README.md`.
 
+The application tarball does not include the dictionary. Downloading a stable
+app release alone is therefore not enough for lookups: install a package that
+bundles the dictionary, or pass the dictionary asset to the installer
+explicitly.
+
 When the installer discovers a packaged copy, it verifies the manifest's size
 and checksum before writing the configuration. It points
 `dictionary.database_path` at the packaged file instead of copying 47 MB into

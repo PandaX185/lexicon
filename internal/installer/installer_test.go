@@ -971,3 +971,52 @@ func containsNote(notes []string, fragment string) bool {
 	}
 	return false
 }
+
+func TestBuildPlanAppliesAppearanceAndPacks(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+	no := false
+	words := 6
+	chars := 200
+	options := Options{
+		ConfigPath:  configPath,
+		Force:       true,
+		SkipService: true,
+	}
+	settings := Settings{
+		ConfigPath:     configPath,
+		ReplaceConfig:  true,
+		InstallService: false,
+		Appearance: AppearanceSettings{
+			Theme:             "nord",
+			ShowPronunciation: &no,
+			HideOnBlur:        &no,
+			ShowHeader:        &no,
+			ShowStatus:        &no,
+			ShowFooter:        &no,
+			MaxQueryWords:     &words,
+			MaxQueryChars:     &chars,
+		},
+		PackIDs: []string{"bergamot-en-de-tiny11"},
+	}
+
+	plan, err := BuildPlan(context.Background(), options, settings)
+	if err != nil {
+		t.Fatalf("BuildPlan: %v", err)
+	}
+	if plan.Config.Popup.Theme != "nord" {
+		t.Fatalf("theme = %q", plan.Config.Popup.Theme)
+	}
+	if plan.Config.Dictionary.ShowPronunciation || plan.Config.Popup.HideOnBlur {
+		t.Fatalf("boolean appearance settings were not applied: %+v", plan.Config)
+	}
+	if plan.Config.General.MaxQueryWords != 6 || plan.Config.General.MaxQueryChars != 200 {
+		t.Fatalf("limits = %d/%d", plan.Config.General.MaxQueryWords, plan.Config.General.MaxQueryChars)
+	}
+	if !plan.Config.Translation.Enabled {
+		t.Fatal("selected packs must enable translation")
+	}
+	if len(plan.PackIDs) != 1 || plan.PackIDs[0] != "bergamot-en-de-tiny11" {
+		t.Fatalf("pack ids = %q", plan.PackIDs)
+	}
+}

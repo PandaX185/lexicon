@@ -5,14 +5,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/PandaX185/lexicon/internal/installer"
 	"github.com/PandaX185/lexicon/internal/paths"
+	"github.com/PandaX185/lexicon/internal/translation"
 )
 
 type screen int
@@ -24,7 +27,8 @@ const (
 	screenPaths
 	screenDictionary
 	screenLanguages
-	screenTranslation
+	screenAppearance
+	screenPacks
 	screenService
 	screenSummary
 	screenProgress
@@ -57,6 +61,20 @@ type model struct {
 	replaceConfig  bool
 	dictionaryErr  string
 
+	appearance      installer.AppearanceSettings
+	appearanceField int
+	themeInput      textinput.Model
+	maxWordsInput   textinput.Model
+	maxCharsInput   textinput.Model
+	appearanceErr   string
+
+	packEntries  []translation.CatalogEntry
+	packSelected map[string]bool
+	packCursor   int
+	packErr      string
+
+	shortcutIndex int
+
 	plan     installer.Plan
 	planErr  error
 	applyErr error
@@ -64,6 +82,8 @@ type model struct {
 	progress   installer.Progress
 	progressCh chan installer.Progress
 	spinner    spinner.Model
+
+	packResults []installer.PackResult
 }
 
 // Run starts the installer UI and returns any installation error.
@@ -96,6 +116,7 @@ func newModel(ctx context.Context, options installer.Options) model {
 
 	spin := spinner.New()
 	spin.Spinner = spinner.Dot
+	defaults := config.Default()
 
 	m := model{
 		ctx:     ctx,
@@ -116,7 +137,21 @@ func newModel(ctx context.Context, options installer.Options) model {
 		dictionaryInput: newInput("Dictionary .sqlite path (empty to configure later)", options.Dictionary),
 		sourceInput:     newInput("Headword language", sourceLang),
 		targetInput:     newInput("Definition language", targetLang),
-		spinner:         spin,
+		appearance: installer.AppearanceSettings{
+			Theme:             defaults.Popup.Theme,
+			ShowPronunciation: boolPtr(defaults.Dictionary.ShowPronunciation),
+			HideOnBlur:        boolPtr(defaults.Popup.HideOnBlur),
+			ShowHeader:        boolPtr(defaults.Popup.ShowHeader),
+			ShowStatus:        boolPtr(defaults.Popup.ShowStatus),
+			ShowFooter:        boolPtr(defaults.Popup.ShowFooter),
+			MaxQueryWords:     intPtr(defaults.General.MaxQueryWords),
+			MaxQueryChars:     intPtr(defaults.General.MaxQueryChars),
+		},
+		themeInput:    newInput("Theme preset", defaults.Popup.Theme),
+		maxWordsInput: newInput("Max query words", strconv.Itoa(defaults.General.MaxQueryWords)),
+		maxCharsInput: newInput("Max query characters", strconv.Itoa(defaults.General.MaxQueryChars)),
+		packSelected:  map[string]bool{},
+		spinner:       spin,
 	}
 	m.syncFocus()
 	return m
@@ -132,6 +167,15 @@ func newInput(placeholder, value string) textinput.Model {
 	return input
 }
 
+func boolPtr(value bool) *bool { return &value }
+
+func intPtr(value int) *int { return &value }
+
+func (m model) startService() (tea.Model, tea.Cmd) {
+	m.screen = screenService
+	return m, nil
+}
+
 type preflightMsg struct {
 	checks          []installer.Check
 	configExists    bool
@@ -142,7 +186,8 @@ type preflightMsg struct {
 type progressMsg installer.Progress
 
 type applyDoneMsg struct {
-	err error
+	err   error
+	packs []installer.PackResult
 }
 
 func (m model) Init() tea.Cmd {
@@ -192,6 +237,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case progressMsg:
 		m.progress = installer.Progress(msg)
 		return m, waitForProgress(m.progressCh)
+	case packCatalogMsg:
+		(&m).applyPackCatalog(msg)
+		return m, nil
 	case applyDoneMsg:
 		if msg.err != nil {
 			m.applyErr = msg.err
@@ -199,6 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.applyErr = nil
+		m.packResults = msg.packs
 		m.screen = screenDone
 		return m, nil
 	case tea.KeyMsg:
@@ -350,8 +399,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.settings.SourceLang = languageOrEnglish(m.sourceInput.Value())
 			m.settings.TargetLang = languageOrEnglish(m.targetInput.Value())
-			m.screen = screenTranslation
-			return m, nil
+			return m.startAppearance()
 		}
 		var cmd tea.Cmd
 		if m.focus == 0 {
@@ -361,25 +409,16 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
-	case screenTranslation:
-		switch key {
-		case "esc":
-			m.screen = screenLanguages
-			m.focus = 1
-			return m, m.syncFocus()
-		case " ", "t":
-			m.settings.Translation = !m.settings.Translation
-			return m, nil
-		case "enter":
-			m.screen = screenService
-			return m, nil
-		}
+	case screenAppearance:
+		return m.updateAppearance(msg)
+
+	case screenPacks:
+		return m.updatePacks(msg)
 
 	case screenService:
 		switch key {
 		case "esc":
-			m.screen = screenTranslation
-			return m, nil
+			return m.startPacks()
 		case " ", "s":
 			if m.serviceAvailable() {
 				m.settings.InstallService = !m.settings.InstallService
@@ -407,17 +446,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.screen = screenDone
 				return m, nil
 			}
+			total := len(m.plan.Steps()) + len(m.plan.PackIDs)
 			m.progressCh = make(chan installer.Progress, 8)
-			m.progress = installer.Progress{Step: "Preparing", Total: len(m.plan.Steps())}
+			m.progress = installer.Progress{Step: "Preparing", Total: total}
 			m.screen = screenProgress
-			return m, tea.Batch(applyCmd(m.ctx, m.plan, m.progressCh), waitForProgress(m.progressCh))
+			return m, tea.Batch(installCmd(m.ctx, m.options, m.plan, m.progressCh), waitForProgress(m.progressCh))
 		}
 
 	case screenDone:
-		switch key {
-		case "enter", "q", "esc":
-			return m, tea.Quit
-		}
+		return m.updateDone(msg)
 
 	case screenError:
 		switch key {
@@ -469,6 +506,15 @@ func (m *model) syncFocus() tea.Cmd {
 			return m.sourceInput.Focus()
 		}
 		return m.targetInput.Focus()
+	case screenAppearance:
+		switch m.appearanceField {
+		case fieldTheme:
+			return m.themeInput.Focus()
+		case fieldMaxWords:
+			return m.maxWordsInput.Focus()
+		case fieldMaxChars:
+			return m.maxCharsInput.Focus()
+		}
 	}
 	return nil
 }
@@ -494,11 +540,23 @@ func (m *model) showSummary() {
 	m.screen = screenSummary
 }
 
-func applyCmd(ctx context.Context, plan installer.Plan, ch chan<- installer.Progress) tea.Cmd {
+func installCmd(ctx context.Context, options installer.Options, plan installer.Plan, ch chan<- installer.Progress) tea.Cmd {
 	return func() tea.Msg {
-		err := installer.Apply(ctx, plan, func(progress installer.Progress) { ch <- progress })
+		base := len(plan.Steps())
+		total := base + len(plan.PackIDs)
+		if err := installer.Apply(ctx, plan, func(progress installer.Progress) { ch <- progress }); err != nil {
+			close(ch)
+			return applyDoneMsg{err: err}
+		}
+		results := installer.InstallPacks(ctx, options, plan, func(progress installer.PackProgress) {
+			ch <- installer.Progress{
+				Step:  progress.Step(),
+				Index: base + progress.Index,
+				Total: total,
+			}
+		})
 		close(ch)
-		return applyDoneMsg{err: err}
+		return applyDoneMsg{packs: results}
 	}
 }
 
@@ -554,8 +612,10 @@ func (m model) View() string {
 		body, help = m.viewDictionary()
 	case screenLanguages:
 		body, help = m.viewLanguages()
-	case screenTranslation:
-		body, help = m.viewTranslation()
+	case screenAppearance:
+		body, help = m.viewAppearance()
+	case screenPacks:
+		body, help = m.viewPacks()
 	case screenService:
 		body, help = m.viewService()
 	case screenSummary:
@@ -574,296 +634,35 @@ func (m model) View() string {
 	return header + "\n" + body + "\n" + helpStyle.Render(help)
 }
 
-func (m model) viewWelcome() (string, string) {
-	body := strings.Join([]string{
-		"This wizard configures Lexicon and starts its background service.",
-		"",
-		"It writes only user files under your home directory.",
-		"System files are never modified.",
-		"",
-		"You can change every setting later with `lex config`.",
-	}, "\n")
-	return body, "enter  begin    q  quit"
-}
-
-func (m model) viewPreflight() (string, string) {
-	var b strings.Builder
-	b.WriteString("Checking this system\n\n")
-	for _, check := range m.checks {
-		b.WriteString(renderCheck(check) + "\n")
-	}
-	if m.hasFailure() {
-		b.WriteString("\n" + failStyle.Render("Fix the failures above before continuing."))
-	}
-	return b.String(), "enter  continue    r  recheck    esc  back    q  quit"
-}
-
-func (m model) viewExisting() (string, string) {
-	options := []string{
-		"Keep it and repair the service",
-		"Replace it with new settings",
-		"Cancel",
-	}
-	var b strings.Builder
-	b.WriteString("A configuration already exists\n\n")
-	b.WriteString("  " + valueStyle.Render(m.settings.ConfigPath) + "\n\n")
-	for i, option := range options {
-		cursor := "  "
-		style := valueStyle
-		if i == m.existingChoice {
-			cursor = "> "
-			style = selectedStyle
-		}
-		b.WriteString(cursor + style.Render(option) + "\n")
-	}
-	return b.String(), "up/down  choose    enter  confirm    q  quit"
-}
-
-func (m model) viewPaths() (string, string) {
-	body := "Install paths\n\n" +
-		labelStyle.Render("Configuration file") + "\n" +
-		m.configInput.View() + "\n\n" +
-		labelStyle.Render("Dictionary location") + "\n" +
-		valueStyle.Render(dictionaryLocation(m)) + "\n\n" +
-		subtitleStyle.Render("A packaged dictionary is used in place; a local file is copied.")
-	return body, "enter  continue    esc  back"
-}
-
-func dictionaryLocation(m model) string {
-	if m.packagedPath != "" {
-		return m.packagedPath + " (packaged)"
-	}
-	if target, err := paths.DefaultDictionaryPath(); err == nil {
-		return target
-	}
-	return "~/.local/share/lexicon/dictionary.sqlite"
-}
-
-func (m model) viewDictionary() (string, string) {
-	var b strings.Builder
-	b.WriteString("Dictionary\n\n")
-	if m.packagedPath != "" {
-		version := ""
-		if m.packagedVersion != "" {
-			version = " version " + m.packagedVersion
-		}
-		b.WriteString(okStyle.Render("Found packaged dictionary") + ": " + m.packagedPath + version + "\n\n")
-	} else {
-		b.WriteString(warnStyle.Render("No packaged dictionary found.") + " Download one from the releases page,\n")
-		b.WriteString("or leave this empty and configure it later.\n\n")
-	}
-	b.WriteString(m.dictionaryInput.View() + "\n")
-	if m.dictionaryErr != "" {
-		b.WriteString("\n" + failStyle.Render(m.dictionaryErr) + "\n")
-	}
-	return b.String(), "enter  continue    esc  back"
-}
-
-func (m model) viewLanguages() (string, string) {
-	body := "Languages\n\n" +
-		labelStyle.Render("Headword language") + "\n" +
-		m.sourceInput.View() + "\n\n" +
-		labelStyle.Render("Definition language") + "\n" +
-		m.targetInput.View() + "\n\n" +
-		subtitleStyle.Render("BCP 47 tags, for example en, de, or pt-BR.")
-	return body, "tab  next field    enter  continue    esc  back"
-}
-
-func (m model) viewTranslation() (string, string) {
-	body := "Offline translation\n\n" +
-		toggle(m.settings.Translation) + " Enable translation when languages differ\n\n" +
-		labelStyle.Render("Model directory") + "  " + valueStyle.Render(m.modelDirectory()) + "\n\n" +
-		subtitleStyle.Render("Translation needs a Bergamot-enabled build and an installed model pack.\n"+
-			"Lexicon works without it. See docs/TRANSLATION.md.")
-	return body, "space  toggle    enter  continue    esc  back"
-}
-
-func (m model) modelDirectory() string {
-	if strings.TrimSpace(m.settings.ModelDir) != "" {
-		return m.settings.ModelDir
-	}
-	if dir, err := paths.DefaultModelDir(); err == nil {
-		return dir
-	}
-	return "~/.local/share/lexicon/models"
-}
-
-func (m model) viewService() (string, string) {
-	var b strings.Builder
-	b.WriteString("Background service\n\n")
-	available := m.serviceAvailable()
-	if available {
-		b.WriteString(toggle(m.settings.InstallService) + " Install and start the systemd user service\n\n")
-		if path := m.daemonPath(); path != "" {
-			b.WriteString(labelStyle.Render("Daemon") + "  " + path + "\n")
-		}
-		b.WriteString(subtitleStyle.Render("The service starts on login and launches the popup."))
-	} else {
-		b.WriteString(warnStyle.Render("The service is unavailable on this system.") + "\n")
-		for _, check := range m.checks {
-			if (check.Name == "daemon" || check.Name == "systemd") && check.Status != installer.StatusOK {
-				b.WriteString("  " + check.Detail + "\n")
-			}
-		}
-	}
-	return b.String(), "space  toggle    enter  continue    esc  back"
-}
-
-func (m model) daemonPath() string {
-	for _, check := range m.checks {
-		if check.Name == "daemon" && check.Status == installer.StatusOK {
-			return check.Detail
-		}
-	}
-	return ""
-}
-
-func (m model) viewSummary() (string, string) {
-	plan := m.plan
-	var b strings.Builder
-	b.WriteString("Summary\n\n")
-	config := plan.ConfigPath + " (new)"
-	if !plan.WriteConfig {
-		config = plan.ConfigPath + " (kept)"
-	}
-	fmt.Fprintf(&b, "  %-14s %s\n", labelStyle.Render("configuration"), config)
-	fmt.Fprintf(&b, "  %-14s %s\n", labelStyle.Render("dictionary"), summaryDictionary(plan))
-	fmt.Fprintf(&b, "  %-14s %s -> %s\n", labelStyle.Render("languages"),
-		plan.Config.Dictionary.SourceLanguage, plan.Config.Dictionary.TargetLanguage)
-	fmt.Fprintf(&b, "  %-14s %s\n", labelStyle.Render("translation"), onOff(plan.Config.Translation.Enabled))
-	if plan.Config.Translation.Enabled {
-		modelDir := plan.Config.Translation.ModelDirectory
-		if modelDir == "" {
-			modelDir = "(default model directory)"
-		}
-		fmt.Fprintf(&b, "  %-14s %s\n", labelStyle.Render("models"), modelDir)
-	}
-	fmt.Fprintf(&b, "  %-14s %s\n", labelStyle.Render("service"), summaryService(plan))
-
-	for _, note := range plan.Notes {
-		b.WriteString("\n" + subtitleStyle.Render(note))
-	}
-	if failed := plan.FailedChecks(); len(failed) > 0 {
-		b.WriteString("\n")
-		for _, check := range failed {
-			b.WriteString(failStyle.Render("✗ "+check.Name+": "+check.Detail) + "\n")
-		}
-	}
-	if m.options.DryRun {
-		b.WriteString("\n" + warnStyle.Render("Dry run: no changes will be made."))
-	}
-	return b.String(), summaryHelp(m.options.DryRun)
-}
-
-func summaryHelp(dryRun bool) string {
-	if dryRun {
-		return "enter  finish (dry run)    esc  back    q  quit"
-	}
-	return "enter  install    esc  back    q  quit"
-}
-
-func summaryDictionary(plan installer.Plan) string {
-	switch {
-	case plan.DictionaryPackaged:
-		version := ""
-		if plan.DictionaryVersion != "" {
-			version = " " + plan.DictionaryVersion
-		}
-		return plan.DictionaryTarget + " (packaged" + version + ", no copy)"
-	case plan.DownloadURL != "":
-		return plan.DownloadURL + " -> " + plan.DictionaryTarget
-	case plan.CopyDictionary:
-		return plan.DictionarySource + " -> " + plan.DictionaryTarget
-	case plan.DictionaryTarget != "":
-		return plan.DictionaryTarget + " (unchanged)"
+func screenName(value screen) string {
+	switch value {
+	case screenWelcome:
+		return "welcome"
+	case screenPreflight:
+		return "preflight"
+	case screenExisting:
+		return "existing"
+	case screenPaths:
+		return "paths"
+	case screenDictionary:
+		return "dictionary"
+	case screenLanguages:
+		return "languages"
+	case screenAppearance:
+		return "appearance"
+	case screenPacks:
+		return "packs"
+	case screenService:
+		return "service"
+	case screenSummary:
+		return "summary"
+	case screenProgress:
+		return "progress"
+	case screenDone:
+		return "done"
+	case screenError:
+		return "error"
 	default:
-		return "not configured"
+		return "unknown"
 	}
-}
-
-func summaryService(plan installer.Plan) string {
-	switch {
-	case plan.InstallUnit:
-		return plan.UnitPath
-	case plan.EnableUnit:
-		return "existing unit at " + plan.UnitPath + " will be started"
-	default:
-		return "not installed"
-	}
-}
-
-func (m model) viewProgress() (string, string) {
-	var b strings.Builder
-	b.WriteString("Installing\n\n")
-	if m.progress.Total > 0 {
-		fmt.Fprintf(&b, "  [%d/%d] %s\n", m.progress.Index, m.progress.Total, m.progress.Step)
-	} else {
-		b.WriteString("  " + m.progress.Step + "\n")
-	}
-	b.WriteString("\n" + m.spinner.View() + " working...\n")
-	return b.String(), "installing — please wait"
-}
-
-func (m model) viewDone() string {
-	if m.options.DryRun {
-		return "Dry run complete\n\nNo changes were made.\n"
-	}
-	var b strings.Builder
-	b.WriteString(okStyle.Render("Setup complete") + "\n\n")
-	b.WriteString("Next steps:\n\n")
-	b.WriteString("  lex doctor\n")
-	if m.plan.InstallUnit || m.plan.EnableUnit {
-		b.WriteString("  systemctl --user status lexicon.service\n")
-	} else {
-		b.WriteString("  lexicon-daemon --config " + m.plan.ConfigPath + "\n")
-	}
-	b.WriteString("  systemctl --user import-environment WAYLAND_DISPLAY\n\n")
-	b.WriteString(subtitleStyle.Render("Then bind `lex lookup` to a keyboard shortcut in your desktop settings."))
-	return b.String()
-}
-
-func (m model) viewError() (string, string) {
-	err := m.applyErr
-	if err == nil {
-		err = m.planErr
-	}
-	var b strings.Builder
-	b.WriteString(failStyle.Render("Setup failed") + "\n\n")
-	if err != nil {
-		b.WriteString(err.Error() + "\n")
-	}
-	b.WriteString("\n")
-	if m.applyErr != nil {
-		b.WriteString("Previous files were restored where possible.\n")
-	}
-	b.WriteString("Run `lex doctor` for more detail.\n")
-	return b.String(), "esc  try again    q  quit"
-}
-
-func renderCheck(check installer.Check) string {
-	marker := "✓"
-	style := okStyle
-	switch check.Status {
-	case installer.StatusWarn:
-		marker = "!"
-		style = warnStyle
-	case installer.StatusFail:
-		marker = "✗"
-		style = failStyle
-	}
-	return style.Render(marker) + " " + labelStyle.Render(fmt.Sprintf("%-18s", check.Name)) + check.Detail
-}
-
-func toggle(on bool) string {
-	if on {
-		return okStyle.Render("[x]")
-	}
-	return labelStyle.Render("[ ]")
-}
-
-func onOff(on bool) string {
-	if on {
-		return "on"
-	}
-	return "off"
 }

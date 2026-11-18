@@ -4,6 +4,7 @@ go := env("GO", "go")
 npm := env("NPM", "npm")
 prefix := env("PREFIX", home_directory() / ".local")
 destdir := env("DESTDIR", "")
+release_dir := env("RELEASE_DIR", "build/release")
 
 daemon_go_tags := env("DAEMON_GO_TAGS", "")
 golangci_lint_version := env("GOLANGCI_LINT_VERSION", "v2.15.0")
@@ -107,6 +108,55 @@ bergamot-test pack:
     source build/bergamot/env.sh
     pack="$(realpath "{{ pack }}")"
     LEXICON_BERGAMOT_TEST_PACK="$pack" {{ go }} test -tags bergamot -run TestBergamot -v ./internal/translation
+
+# Assemble a checksummed release tarball from a prepared Bergamot build.
+# Run `just bergamot-build` first; then `just release 0.1.0`.
+release app_version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Untracked files do not affect build outputs, so only tracked changes block a release.
+    # RELEASE_ALLOW_DIRTY is for local artifact testing only; CI never sets it.
+    if [[ "${RELEASE_ALLOW_DIRTY:-0}" != "1" ]] && \
+       [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+        echo "error: release requires a clean working tree" >&2
+        echo "       (set RELEASE_ALLOW_DIRTY=1 only for local artifact testing)" >&2
+        exit 1
+    fi
+    if [[ ! -f build/bergamot/env.sh ]]; then
+        echo "error: run 'just bergamot-build' first" >&2
+        exit 1
+    fi
+    goarch="$({{ go }} env GOARCH)"
+    case "$goarch" in
+        amd64|arm64) ;;
+        *) echo "error: unsupported GOARCH: $goarch" >&2; exit 1 ;;
+    esac
+    target="linux-$goarch"
+    stage="{{ release_dir }}/lexicon-{{ app_version }}-$target"
+    rm -rf "$stage"
+    mkdir -p "$stage/bin" "$stage/share/lexicon" \
+             "$stage/share/doc/lexicon" "$stage/share/licenses/lexicon"
+    export VERSION="{{ app_version }}"
+    export DAEMON_GO_TAGS=bergamot
+    # shellcheck disable=SC1091
+    source build/bergamot/env.sh
+    just core
+    just build-popup
+    cp bin/lex bin/lexicon-daemon bin/lexicon-installer \
+       bin/lexicon-popup "$stage/bin/"
+    ln -s lex "$stage/bin/lexicon"
+    cp packaging/systemd/lexicon.service "$stage/share/lexicon/"
+    cp docs/*.md "$stage/share/doc/lexicon/"
+    cp LICENSE licenses/WORDNET.txt licenses/CMUDICT.txt \
+       "$stage/share/licenses/lexicon/"
+    (
+        cd "$stage"
+        find . -type f ! -name checksums.sha256 -print0 \
+          | sort -z | xargs -0 sha256sum > checksums.sha256
+    )
+    tar -czf "{{ release_dir }}/lexicon-{{ app_version }}-$target.tar.gz" \
+        -C "{{ release_dir }}" "$(basename "$stage")"
+    echo "release: {{ release_dir }}/lexicon-{{ app_version }}-$target.tar.gz"
 
 # Build the English dictionary from WordNet 3.0 and CMUdict. Both paths are
 # build-time inputs; the generated asset is not tracked.
