@@ -315,6 +315,43 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 			if err := s.send(connection, Message{Type: TypeAck, ID: message.ID}); err != nil {
 				return
 			}
+		case TypeLanguagePairs:
+			handler, ok := s.handler.(LanguagePairHandler)
+			if !ok {
+				s.protocolError(connection, message.ID, "unsupported", "language pairs are not supported by this daemon")
+				continue
+			}
+			state := handler.LanguagePairs()
+			if err := s.send(connection, Message{
+				Type:          TypeLanguagePairsResult,
+				ID:            message.ID,
+				LanguagePairs: &state,
+			}); err != nil {
+				return
+			}
+		case TypeSetLanguagePair:
+			if connection.role != RolePopup {
+				s.protocolError(connection, message.ID, "role", "only popup clients may change the language pair")
+				continue
+			}
+			handler, ok := s.handler.(LanguagePairHandler)
+			if !ok {
+				s.protocolError(connection, message.ID, "unsupported", "language pairs are not supported by this daemon")
+				continue
+			}
+			state, err := handler.SetLanguagePair(ctx, message.SourceLanguage, message.TargetLanguage)
+			if err != nil {
+				s.protocolError(connection, message.ID, "set_language_pair", err.Error())
+				continue
+			}
+			if err := s.send(connection, Message{
+				Type:          TypeLanguagePairsResult,
+				ID:            message.ID,
+				LanguagePairs: &state,
+			}); err != nil {
+				return
+			}
+			s.broadcastLanguagePairs(state)
 		case TypePing:
 			if err := s.send(connection, Message{Type: TypePong, ID: message.ID}); err != nil {
 				return
@@ -349,6 +386,26 @@ func (s *Server) broadcast(result *LookupResult) {
 
 	for _, connection := range connections {
 		if err := s.send(connection, Message{Type: TypeLookupEvent, Result: result}); err != nil {
+			s.mu.Lock()
+			delete(s.subscribers, connection)
+			s.mu.Unlock()
+			_ = connection.conn.Close()
+		}
+	}
+}
+
+func (s *Server) broadcastLanguagePairs(state LanguagePairsState) {
+	s.mu.RLock()
+	connections := make([]*connection, 0, len(s.subscribers))
+	for connection := range s.subscribers {
+		connections = append(connections, connection)
+	}
+	s.mu.RUnlock()
+	for _, connection := range connections {
+		if err := s.send(connection, Message{
+			Type:          TypeLanguagePairsEvent,
+			LanguagePairs: &state,
+		}); err != nil {
 			s.mu.Lock()
 			delete(s.subscribers, connection)
 			s.mu.Unlock()

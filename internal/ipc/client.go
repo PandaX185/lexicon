@@ -25,10 +25,11 @@ type Client struct {
 	pendingMu sync.Mutex
 	pending   map[uint64]chan Message
 
-	events        chan LookupResult
-	done          chan struct{}
-	closed        atomic.Bool
-	hasLastResult bool
+	events             chan LookupResult
+	languagePairEvents chan LanguagePairsState
+	done               chan struct{}
+	closed             atomic.Bool
+	hasLastResult      bool
 }
 
 // Dial connects and performs the version handshake.
@@ -45,11 +46,12 @@ func Dial(ctx context.Context, path string, role Role) (*Client, error) {
 	}
 
 	client := &Client{
-		conn:    conn,
-		role:    role,
-		pending: map[uint64]chan Message{},
-		events:  make(chan LookupResult, 8),
-		done:    make(chan struct{}),
+		conn:               conn,
+		role:               role,
+		pending:            map[uint64]chan Message{},
+		events:             make(chan LookupResult, 8),
+		languagePairEvents: make(chan LanguagePairsState, 4),
+		done:               make(chan struct{}),
 	}
 
 	_ = conn.SetDeadline(time.Now().Add(DefaultDialTimeout))
@@ -131,6 +133,37 @@ func (c *Client) Reload(ctx context.Context) error {
 	return err
 }
 
+// LanguagePairs returns the installed translation pairs and the active pair.
+func (c *Client) LanguagePairs(ctx context.Context) (*LanguagePairsState, error) {
+	reply, err := c.request(ctx, Message{Type: TypeLanguagePairs})
+	if err != nil {
+		return nil, err
+	}
+	if reply.LanguagePairs == nil {
+		return nil, errors.New("daemon returned an empty language-pair state")
+	}
+	return reply.LanguagePairs, nil
+}
+
+// SetLanguagePair persists a new active pair and returns the resulting state.
+func (c *Client) SetLanguagePair(ctx context.Context, source, target string) (*LanguagePairsState, error) {
+	reply, err := c.request(ctx, Message{
+		Type:           TypeSetLanguagePair,
+		SourceLanguage: source,
+		TargetLanguage: target,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if reply.LanguagePairs == nil {
+		return nil, errors.New("daemon returned an empty language-pair state")
+	}
+	return reply.LanguagePairs, nil
+}
+
+// LanguagePairEvents receives broadcasts after successful pair changes.
+func (c *Client) LanguagePairEvents() <-chan LanguagePairsState { return c.languagePairEvents }
+
 // Ping verifies liveness.
 func (c *Client) Ping(ctx context.Context) error {
 	_, err := c.request(ctx, Message{Type: TypePing})
@@ -190,6 +223,7 @@ func (c *Client) readLoop(reader *frameReader) {
 		}
 		close(c.done)
 		close(c.events)
+		close(c.languagePairEvents)
 	}()
 
 	for {
@@ -209,6 +243,12 @@ func (c *Client) readLoop(reader *frameReader) {
 		}
 		if message.Type == TypeLookupEvent && message.Result != nil {
 			c.emit(*message.Result)
+		}
+		if message.Type == TypeLanguagePairsEvent && message.LanguagePairs != nil {
+			select {
+			case c.languagePairEvents <- *message.LanguagePairs:
+			default:
+			}
 		}
 	}
 }

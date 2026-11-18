@@ -22,18 +22,22 @@ const MaxFrame = 1 << 20
 type Type string
 
 const (
-	TypeHello        Type = "hello"
-	TypeWelcome      Type = "welcome"
-	TypeLookup       Type = "lookup"
-	TypeLookupResult Type = "lookup_result"
-	TypeLookupEvent  Type = "lookup_event"
-	TypeStatus       Type = "status"
-	TypeStatusResult Type = "status_result"
-	TypeReload       Type = "reload"
-	TypeAck          Type = "ack"
-	TypePing         Type = "ping"
-	TypePong         Type = "pong"
-	TypeError        Type = "error"
+	TypeHello               Type = "hello"
+	TypeWelcome             Type = "welcome"
+	TypeLookup              Type = "lookup"
+	TypeLookupResult        Type = "lookup_result"
+	TypeLookupEvent         Type = "lookup_event"
+	TypeStatus              Type = "status"
+	TypeStatusResult        Type = "status_result"
+	TypeReload              Type = "reload"
+	TypeAck                 Type = "ack"
+	TypePing                Type = "ping"
+	TypePong                Type = "pong"
+	TypeError               Type = "error"
+	TypeLanguagePairs       Type = "language_pairs"
+	TypeLanguagePairsResult Type = "language_pairs_result"
+	TypeSetLanguagePair     Type = "set_language_pair"
+	TypeLanguagePairsEvent  Type = "language_pairs_event"
 )
 
 // Role identifies what a client is. The server uses it for logging and to
@@ -73,6 +77,10 @@ type Message struct {
 	// HasLastResult is set on welcome so a freshly connected popup can tell
 	// whether the daemon will replay a result or needs a fresh selection read.
 	HasLastResult bool `json:"has_last_result,omitempty"`
+
+	LanguagePairs  *LanguagePairsState `json:"language_pairs,omitempty"`
+	SourceLanguage string              `json:"source_language,omitempty"`
+	TargetLanguage string              `json:"target_language,omitempty"`
 }
 
 // ProtocolError is a transport or request-level failure.
