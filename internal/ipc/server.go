@@ -245,7 +245,14 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 		s.mu.Unlock()
 	}
 
-	if err := s.send(connection, Message{Type: TypeWelcome, Subscribers: s.SubscriberCount()}); err != nil {
+	s.mu.RLock()
+	hasLast := s.last != nil
+	s.mu.RUnlock()
+	if err := s.send(connection, Message{
+		Type:          TypeWelcome,
+		Subscribers:   s.SubscriberCount(),
+		HasLastResult: hasLast,
+	}); err != nil {
 		s.mu.Lock()
 		delete(s.subscribers, connection)
 		s.mu.Unlock()

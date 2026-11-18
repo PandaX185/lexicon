@@ -70,6 +70,9 @@ type Message struct {
 	Status      *Status        `json:"status,omitempty"`
 	Error       *ProtocolError `json:"error,omitempty"`
 	Subscribers int            `json:"subscribers,omitempty"`
+	// HasLastResult is set on welcome so a freshly connected popup can tell
+	// whether the daemon will replay a result or needs a fresh selection read.
+	HasLastResult bool `json:"has_last_result,omitempty"`
 }
 
 // ProtocolError is a transport or request-level failure.

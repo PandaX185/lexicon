@@ -55,7 +55,7 @@ for unsolicited events.
 | Type | Direction | Purpose |
 | --- | --- | --- |
 | `hello` | client → server | First message; declares role |
-| `welcome` | server → client | Handshake accepted; includes subscriber count |
+| `welcome` | server → client | Handshake accepted; includes subscriber count and `has_last_result` |
 | `lookup` | client → server | Resolve text, or the primary selection when text is empty |
 | `lookup_result` | server → client | Reply to a lookup request |
 | `lookup_event` | server → popup | Result pushed after a lookup; replayed on subscribe |
@@ -70,13 +70,16 @@ for unsolicited events.
 
 ```json
 {"v":1,"type":"hello","role":"cli"}
-{"v":1,"type":"welcome","subscribers":0}
+{"v":1,"type":"welcome","subscribers":0,"has_last_result":false}
 ```
 
 The server rejects a bad version, a non-`hello` first message, or an unknown
 role. After `welcome`, a `popup` immediately receives the most recent **found**
 lookup result as a `lookup_event`, if one exists. Not-found and failed lookups
-are not replayed.
+are not replayed. `has_last_result` tells a newly connected popup whether that
+replay is coming; when it is false, the popup sends an empty-text `lookup` so
+the daemon reads the current primary selection. Older daemons omit the field,
+which is treated as false.
 
 ## Lookup
 

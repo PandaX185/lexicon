@@ -127,6 +127,7 @@ func (p *Popup) connectLoop(ctx context.Context) {
 
 		failures = 0
 		p.setConnection(true, "")
+		requestStartupLookup(ctx, client, p.logger)
 		p.consume(ctx, client)
 		_ = client.Close()
 		if ctx.Err() != nil {
@@ -136,6 +137,20 @@ func (p *Popup) connectLoop(ctx context.Context) {
 		if !sleepContext(ctx, 500*time.Millisecond) {
 			return
 		}
+	}
+}
+
+// requestStartupLookup makes a manually launched popup immediately show the
+// current Wayland primary selection. The daemon only reads PRIMARY when a
+// lookup arrives, so subscribing alone is not enough. When it already has a
+// result to replay (the auto-launch path), skip this to avoid looking up and
+// translating the same word twice.
+func requestStartupLookup(ctx context.Context, client *ipc.Client, logger *slog.Logger) {
+	if client.HasLastResult() {
+		return
+	}
+	if _, err := client.Lookup(ctx, ""); err != nil {
+		logger.Debug("startup selection lookup failed", "error", err)
 	}
 }
 

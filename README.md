@@ -103,6 +103,8 @@ lex lookup --json hello
 
 To use the popup, bind `lex lookup` to a keyboard shortcut in your desktop's
 keyboard settings. Any shortcut works; Lexicon does not register one itself.
+You can also launch `lexicon-popup` directly: on startup it asks the daemon to
+read the current highlight and shows the definition right away.
 
 ### Everyday commands
 

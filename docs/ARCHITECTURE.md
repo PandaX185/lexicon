@@ -110,9 +110,13 @@ client roles. Details are in [IPC.md](IPC.md).
 - The popup is a normal child process launched with an explicit `--socket` and
   `--config`, so a daemon started with a custom configuration reaches the
   matching instance.
-- The popup starts hidden. It shows on a replayed or live lookup result, or
-  after a short idle delay when launched manually. It hides on window close,
-  blur (config-gated), or Escape.
+- The popup starts hidden. It shows on a replayed or live lookup result. On
+  connect it checks `has_last_result` in the IPC welcome: if the daemon has no
+  result to replay, it sends an empty-text lookup so the daemon reads the
+  current Wayland primary selection immediately. This makes a manually launched
+  popup show the highlighted word without a separate `lex lookup`; the
+  auto-launch path keeps its replay and does not look up or translate twice.
+  It hides on window close, blur (config-gated), or Escape.
 - The window is frameless and solid. Appearance is read from `[popup]` at
   startup: one of 20 built-in colour presets (10 dark, 10 light; `system`
   follows the desktop light/dark preference) plus optional brand/status/footer

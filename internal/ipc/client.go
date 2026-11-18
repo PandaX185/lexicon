@@ -25,9 +25,10 @@ type Client struct {
 	pendingMu sync.Mutex
 	pending   map[uint64]chan Message
 
-	events chan LookupResult
-	done   chan struct{}
-	closed atomic.Bool
+	events        chan LookupResult
+	done          chan struct{}
+	closed        atomic.Bool
+	hasLastResult bool
 }
 
 // Dial connects and performs the version handshake.
@@ -72,10 +73,16 @@ func Dial(ctx context.Context, path string, role Role) (*Client, error) {
 		return nil, errors.New("ipc handshake rejected")
 	}
 	_ = conn.SetDeadline(time.Time{})
+	client.hasLastResult = welcome.HasLastResult
 
 	go client.readLoop(reader)
 	return client, nil
 }
+
+// HasLastResult reports whether the daemon advertised a result it will replay
+// to this subscriber. A false value means a newly connected popup should ask
+// for the current primary selection itself.
+func (c *Client) HasLastResult() bool { return c.hasLastResult }
 
 // Events returns lookup results pushed while subscribed as a popup. The channel
 // closes when the connection ends.

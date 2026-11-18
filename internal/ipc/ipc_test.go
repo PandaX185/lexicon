@@ -167,6 +167,38 @@ func TestPopupReceivesReplay(t *testing.T) {
 	}
 }
 
+func TestWelcomeAdvertisesReplayableResult(t *testing.T) {
+	_, path := startServer(t, &fakeHandler{})
+	ctx := context.Background()
+
+	first, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial first popup: %v", err)
+	}
+	defer func() { _ = first.Close() }()
+	if first.HasLastResult() {
+		t.Fatal("fresh daemon reported a replayable result")
+	}
+
+	cli, err := Dial(ctx, path, RoleCLI)
+	if err != nil {
+		t.Fatalf("dial cli: %v", err)
+	}
+	defer func() { _ = cli.Close() }()
+	if _, err := cli.Lookup(ctx, "hello"); err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+
+	second, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial second popup: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+	if !second.HasLastResult() {
+		t.Fatal("daemon did not advertise its replayable result")
+	}
+}
+
 func TestReloadErrorIsReported(t *testing.T) {
 	handler := &fakeHandler{reloadErr: errors.New("bad config")}
 	_, path := startServer(t, handler)
