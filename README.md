@@ -36,12 +36,6 @@ bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.1.5/
 
 The bootstrap verifies the release tarball, checksums, and pinned dictionary, installs the binaries into `~/.local/bin` (or `$XDG_BIN_HOME`), then launches the terminal installer. No root access is required. Run it in an interactive terminal so the installer can prompt you (piping through `sh` will exit early); if `~/.local/bin` is not on your `PATH`, the script tells you how to add it.
 
-Once installed, run:
-
-```sh
-lexicon-installer
-```
-
 The installer checks your system, configures Lexicon, installs the dictionary, and sets up the background service.
 
 Check your installation:
@@ -73,16 +67,10 @@ lexicon lookup
 Bind the following command to a keyboard shortcut in your desktop's keyboard settings:
 
 ```sh
-lexicon lookup
+lexicon-popup
 ```
 
 The popup appears with the definition of your current selection.
-
-You can also launch the popup directly:
-
-```sh
-lexicon-popup
-```
 
 ### Machine-readable output
 
@@ -119,9 +107,7 @@ See [Offline translation](docs/TRANSLATION.md) for supported languages, model in
 - Linux running Wayland (X11 is not currently supported).
 - `wl-clipboard` for reading the primary selection.
 - systemd user manager for the background service.
-- An English dictionary, included in release packages or installed separately.
-
-Explicit lookups such as `lexicon lookup hello` can work without the background service or selection backend.
+- An English dictionary, included in release packages.
 
 ## Installation options
 
