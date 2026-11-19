@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -27,6 +28,28 @@ func TestPopupBinaryErrorSuggestsCurrentBuildCommand(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "make popup-build") {
 		t.Fatalf("error = %q, want no stale make guidance", err)
+	}
+}
+
+func TestPopupArgumentsIncludeReplayForAutoLaunch(t *testing.T) {
+	cfg := config.Default()
+	cfg.Daemon.Socket = "/tmp/lexicon-test.sock"
+
+	got := popupArguments(cfg, "/tmp/lexicon-test.toml", true)
+	want := []string{"--socket", "/tmp/lexicon-test.sock", "--replay", "--config", "/tmp/lexicon-test.toml"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("auto-launch arguments = %q, want %q", got, want)
+	}
+}
+
+func TestPopupArgumentsOmitReplayForManualLaunch(t *testing.T) {
+	cfg := config.Default()
+	cfg.Daemon.Socket = "/tmp/lexicon-test.sock"
+
+	got := popupArguments(cfg, "", false)
+	want := []string{"--socket", "/tmp/lexicon-test.sock"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("manual arguments = %q, want %q", got, want)
 	}
 }
 

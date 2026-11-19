@@ -227,10 +227,9 @@ func (d *Daemon) AfterLookup(subscribers int) {
 		d.logger.Warn("popup launch skipped", "error", err)
 		return
 	}
-	arguments := []string{"--socket", cfg.Daemon.Socket}
-	if d.configPath != "" {
-		arguments = append(arguments, "--config", d.configPath)
-	}
+	// Only daemon-launched popups replay the lookup that triggered them. A
+	// manually started popup must read the current PRIMARY instead.
+	arguments := popupArguments(cfg, d.configPath, true)
 	// binary is resolved from config or next to the daemon executable.
 	//nolint:gosec // user-configurable popup binary path
 	command := exec.Command(binary, arguments...)
@@ -394,6 +393,19 @@ func closeStore(store *dictionary.Store) {
 	if store != nil {
 		_ = store.Close()
 	}
+}
+
+// popupArguments builds the popup command line. The replay flag is set only
+// for daemon launches, which already have a result waiting on the socket.
+func popupArguments(cfg config.Config, configPath string, replay bool) []string {
+	arguments := []string{"--socket", cfg.Daemon.Socket}
+	if replay {
+		arguments = append(arguments, "--replay")
+	}
+	if configPath != "" {
+		arguments = append(arguments, "--config", configPath)
+	}
+	return arguments
 }
 
 func popupBinary(cfg config.Config) (string, error) {

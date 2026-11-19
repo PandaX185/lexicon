@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PandaX185/lexicon/internal/dictionary"
@@ -69,6 +70,13 @@ type Popup struct {
 	showPronunciation bool
 	display           displaySettings
 	logger            *slog.Logger
+	// replay marks a daemon-launched popup, which should display the result
+	// already waiting on the socket instead of reading PRIMARY again.
+	replay      bool
+	startupDone atomic.Bool
+	// emitResult is a test seam for observing displayed results without a
+	// running Wails application. Production leaves it nil.
+	emitResult func(ipc.LookupResult)
 
 	mu           sync.Mutex
 	last         *ipc.LookupResult
@@ -82,7 +90,7 @@ type Popup struct {
 	pairState *ipc.LanguagePairsState
 }
 
-func newPopup(app *application.App, window *application.WebviewWindow, settings settings, logger *slog.Logger) *Popup {
+func newPopup(app *application.App, window *application.WebviewWindow, settings settings, logger *slog.Logger, replay bool) *Popup {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -99,6 +107,7 @@ func newPopup(app *application.App, window *application.WebviewWindow, settings 
 			ShowFooter: settings.showFooter,
 		},
 		logger: logger.With("component", "popup"),
+		replay: replay,
 	}
 }
 
@@ -250,7 +259,10 @@ func (p *Popup) connectLoop(ctx context.Context) {
 				p.pairErrorMessage("This popup needs a newer Lexicon daemon. Update Lexicon to use the language pair controls.")
 			}
 		}
-		requestStartupLookup(ctx, client, p.logger)
+		// Each connection gets its own startup window: a reconnect must not
+		// treat results replayed on the new socket as already validated.
+		p.startupDone.Store(false)
+		p.requestStartupLookup(ctx, client)
 		p.consume(ctx, client)
 		p.setClient(nil)
 		_ = client.Close()
@@ -266,15 +278,43 @@ func (p *Popup) connectLoop(ctx context.Context) {
 
 // requestStartupLookup makes a manually launched popup immediately show the
 // current Wayland primary selection. The daemon only reads PRIMARY when a
-// lookup arrives, so subscribing alone is not enough. When it already has a
-// result to replay (the auto-launch path), skip this to avoid looking up and
-// translating the same word twice.
-func requestStartupLookup(ctx context.Context, client *ipc.Client, logger *slog.Logger) {
-	if client.HasLastResult() {
+// lookup arrives, so subscribing alone is not enough. A daemon-launched popup
+// (replay=true) already has the triggering result on the socket and skips this
+// lookup, avoiding a duplicate read and translation.
+//
+// The direct reply is displayed here rather than relying on the broadcast, so
+// the fresh selection is shown even when its queued event is dropped below.
+func (p *Popup) requestStartupLookup(ctx context.Context, client *ipc.Client) {
+	if p.replay && client.HasLastResult() {
 		return
 	}
-	if _, err := client.Lookup(ctx, ""); err != nil {
-		logger.Debug("startup selection lookup failed", "error", err)
+	result, err := client.Lookup(ctx, "")
+	if err != nil {
+		p.logger.Debug("startup selection lookup failed", "error", err)
+	}
+	if !p.replay {
+		p.discardReplayEvents(client)
+	}
+	p.startupDone.Store(true)
+	if err == nil && result != nil {
+		p.handleResult(*result)
+	}
+}
+
+// discardReplayEvents drops lookup events queued before the direct startup
+// reply. The server writes the subscribe replay before it can write the reply
+// on the same connection, so a stale result is already buffered by the time
+// Lookup returns. No lock is held while reading the channel.
+func (p *Popup) discardReplayEvents(client *ipc.Client) {
+	for {
+		select {
+		case _, ok := <-client.Events():
+			if !ok {
+				return
+			}
+		default:
+			return
+		}
 	}
 }
 
@@ -289,6 +329,11 @@ func (p *Popup) consume(ctx context.Context, client *ipc.Client) {
 		case result, ok := <-client.Events():
 			if !ok {
 				return
+			}
+			// A manual popup must not display the replay sent on subscribe:
+			// it can contain a selection from before this popup existed.
+			if !p.replay && !p.startupDone.Load() {
+				continue
 			}
 			p.handleResult(result)
 		case state, ok := <-client.LanguagePairEvents():
@@ -313,6 +358,10 @@ func (p *Popup) handleResult(result ipc.LookupResult) {
 	p.last = &copied
 	p.mu.Unlock()
 
+	if p.emitResult != nil {
+		p.emitResult(result)
+		return
+	}
 	p.app.Event.Emit(eventLookup, result)
 	p.show()
 }

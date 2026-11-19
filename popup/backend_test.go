@@ -75,14 +75,18 @@ func TestStartupLookupReadsSelection(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 
-	requestStartupLookup(ctx, client, newTestLogger(t))
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(ipc.LookupResult) {},
+	}
+	popup.requestStartupLookup(ctx, client)
 
 	if got := handler.recorded(); len(got) != 1 || got[0] != "" {
 		t.Fatalf("lookups = %q, want one empty-text selection lookup", got)
 	}
 }
 
-func TestStartupLookupSkippedWhenDaemonHasReplay(t *testing.T) {
+func TestManualStartupLookupReadsSelectionDespiteReplayAdvertisement(t *testing.T) {
 	handler := &recordingHandler{}
 	path := startIPCServer(t, handler)
 	ctx := context.Background()
@@ -102,11 +106,206 @@ func TestStartupLookupSkippedWhenDaemonHasReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = client.Close() }()
+	if !client.HasLastResult() {
+		t.Fatal("test setup: daemon must advertise a replay result")
+	}
 
-	requestStartupLookup(ctx, client, newTestLogger(t))
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(ipc.LookupResult) {},
+	}
+	popup.requestStartupLookup(ctx, client)
 
-	if got := handler.recorded(); len(got) != 1 {
-		t.Fatalf("lookups = %q, want only the seeding lookup", got)
+	if got := handler.recorded(); len(got) != 2 || got[0] != "hello" || got[1] != "" {
+		t.Fatalf("lookups = %q, want the seeding lookup followed by an empty-text selection lookup", got)
+	}
+}
+
+func TestReplayStartupLookupSkipsFreshLookup(t *testing.T) {
+	handler := &recordingHandler{}
+	path := startIPCServer(t, handler)
+	ctx := context.Background()
+
+	seed, err := ipc.Dial(ctx, path, ipc.RoleCLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Lookup(ctx, "hello"); err != nil {
+		t.Fatal(err)
+	}
+	_ = seed.Close()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+	if !client.HasLastResult() {
+		t.Fatal("test setup: daemon must advertise a replay result")
+	}
+
+	popup := &Popup{replay: true, logger: newTestLogger(t)}
+	popup.requestStartupLookup(ctx, client)
+
+	if got := handler.recorded(); len(got) != 1 || got[0] != "hello" {
+		t.Fatalf("lookups = %q, want only the seeding lookup for a replay popup", got)
+	}
+}
+
+// gatedLookupHandler holds the startup selection lookup open so the test can
+// observe events that arrive before the direct reply completes.
+type gatedLookupHandler struct {
+	recordingHandler
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (h *gatedLookupHandler) Lookup(ctx context.Context, text string) *ipc.LookupResult {
+	if text == "" {
+		h.once.Do(func() { close(h.entered) })
+		select {
+		case <-h.release:
+		case <-ctx.Done():
+		}
+	}
+	return h.recordingHandler.Lookup(ctx, text)
+}
+
+func newReplaySeed(t *testing.T, ctx context.Context, path, query string) {
+	t.Helper()
+	seed, err := ipc.Dial(ctx, path, ipc.RoleCLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = seed.Close() }()
+	if _, err := seed.Lookup(ctx, query); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitForDisplayedQuery(t *testing.T, shown <-chan ipc.LookupResult, want string) {
+	t.Helper()
+	timeout := time.After(3 * time.Second)
+	for {
+		select {
+		case result := <-shown:
+			if result.Query == "stale" {
+				t.Fatal("stale replay result reached the UI")
+			}
+			if result.Query == want {
+				return
+			}
+		case <-timeout:
+			t.Fatalf("timed out waiting for displayed result %q", want)
+		}
+	}
+}
+
+func TestManualPopupIgnoresReplayEventBeforeStartupCompletes(t *testing.T) {
+	handler := &gatedLookupHandler{entered: make(chan struct{}), release: make(chan struct{})}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	newReplaySeed(t, ctx, path, "stale")
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	shown := make(chan ipc.LookupResult, 16)
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(result ipc.LookupResult) { shown <- result },
+	}
+
+	startupDone := make(chan struct{})
+	go func() {
+		popup.requestStartupLookup(ctx, client)
+		close(startupDone)
+	}()
+	select {
+	case <-handler.entered:
+	case <-ctx.Done():
+		t.Fatal("startup lookup never reached the daemon")
+	}
+
+	consumeDone := make(chan struct{})
+	go func() {
+		popup.consume(ctx, client)
+		close(consumeDone)
+	}()
+
+	// The replay result is already queued; it must not reach the UI while the
+	// fresh selection lookup is still in flight.
+	select {
+	case result := <-shown:
+		t.Fatalf("replay shown before startup completed: query %q", result.Query)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(handler.release)
+	select {
+	case <-startupDone:
+	case <-ctx.Done():
+		t.Fatal("startup lookup did not complete")
+	}
+	waitForDisplayedQuery(t, shown, "")
+
+	// A real broadcast after startup must flow normally.
+	newReplaySeed(t, ctx, path, "fresh")
+	waitForDisplayedQuery(t, shown, "fresh")
+
+	cancel()
+	_ = client.Close()
+	select {
+	case <-consumeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consume did not exit")
+	}
+}
+
+func TestManualPopupDropsReplayBufferedBeforeConsumeStarts(t *testing.T) {
+	handler := &recordingHandler{}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	newReplaySeed(t, ctx, path, "stale")
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	shown := make(chan ipc.LookupResult, 16)
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(result ipc.LookupResult) { shown <- result },
+	}
+
+	// Production ordering: the startup lookup finishes before consume starts,
+	// so the stale replay is already buffered on the events channel.
+	popup.requestStartupLookup(ctx, client)
+	waitForDisplayedQuery(t, shown, "")
+
+	consumeDone := make(chan struct{})
+	go func() {
+		popup.consume(ctx, client)
+		close(consumeDone)
+	}()
+
+	newReplaySeed(t, ctx, path, "fresh")
+	waitForDisplayedQuery(t, shown, "fresh")
+
+	cancel()
+	_ = client.Close()
+	select {
+	case <-consumeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consume did not exit")
 	}
 }
 

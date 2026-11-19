@@ -126,9 +126,20 @@ func TestRegisterPopupHooksDismissOnFocusLoss(t *testing.T) {
 
 func TestNewPopupUsesAppAsQuitter(t *testing.T) {
 	var app *application.App
-	popup := newPopup(app, nil, settings{}, newTestLogger(t))
+	popup := newPopup(app, nil, settings{}, newTestLogger(t), false)
 	if popup.quitter != app {
 		t.Fatal("popup must quit the Wails app when the blur guard passes")
+	}
+	if popup.replay {
+		t.Fatal("manual popup must not be marked as a replay popup")
+	}
+}
+
+func TestNewPopupKeepsReplayFlag(t *testing.T) {
+	var app *application.App
+	popup := newPopup(app, nil, settings{}, newTestLogger(t), true)
+	if !popup.replay {
+		t.Fatal("--replay must be carried into the popup backend")
 	}
 }
 

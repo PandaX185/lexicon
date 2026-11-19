@@ -35,6 +35,7 @@ func run() int {
 	configPath := flags.String("config", "", "configuration file (default: XDG config path)")
 	socketPath := flags.String("socket", "", "daemon Unix socket (overrides configuration)")
 	showVersion := flags.Bool("version", false, "print the version and exit")
+	replay := flags.Bool("replay", false, "show the daemon's replayed result instead of reading the primary selection")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return 2
 	}
@@ -43,7 +44,7 @@ func run() int {
 		return 0
 	}
 	if flags.NArg() != 0 {
-		fmt.Fprintln(os.Stderr, "usage: lexicon-popup [--config PATH] [--socket PATH]")
+		fmt.Fprintln(os.Stderr, "usage: lexicon-popup [--config PATH] [--socket PATH] [--replay]")
 		return 2
 	}
 
@@ -62,7 +63,7 @@ func run() int {
 
 	window := app.Window.NewWithOptions(popupWindowOptions(app, settings))
 
-	popup := newPopup(app, window, settings, fallback)
+	popup := newPopup(app, window, settings, fallback, *replay)
 
 	registerPopupHooks(window, app, popup)
 

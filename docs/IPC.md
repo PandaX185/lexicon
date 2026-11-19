@@ -81,9 +81,12 @@ The server rejects a bad version, a non-`hello` first message, or an unknown
 role. After `welcome`, a `popup` immediately receives the most recent **found**
 lookup result as a `lookup_event`, if one exists. Not-found and failed lookups
 are not replayed. `has_last_result` tells a newly connected popup whether that
-replay is coming; when it is false, the popup sends an empty-text `lookup` so
-the daemon reads the current primary selection. Older daemons omit the field,
-which is treated as false.
+replay is coming. A daemon-launched popup passes `--replay` and displays that
+result. A manually launched popup (no `--replay`) sends an empty-text `lookup`
+even when `has_last_result` is true: the replay may contain a selection from
+before this popup existed, so the popup discards it and displays the direct
+reply with the current primary selection. Older daemons omit the field, which
+is treated as false.
 
 ## Lookup
 

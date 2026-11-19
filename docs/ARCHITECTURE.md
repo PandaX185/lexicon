@@ -61,8 +61,9 @@ module so the core build never needs WebKitGTK.
 5. The daemon replies to the requester, remembers found results for replay, and
    broadcasts a lookup event to subscribed popups.
 6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
-   launch `lexicon-popup` at most once every two seconds. The popup connects,
-   receives the replayed result, and displays it.
+   launch `lexicon-popup --replay` at most once every two seconds. The popup
+   connects, receives the replayed result, and displays it. A manually launched
+   popup has no `--replay` and reads the current selection instead.
 
 The daemon logs whether a lookup succeeded, query length, duration, error class,
 and a translation error detail when one occurs. It never logs the query, the
@@ -113,12 +114,14 @@ client roles. Details are in [IPC.md](IPC.md).
 - The popup is a normal child process launched with an explicit `--socket` and
   `--config`, so a daemon started with a custom configuration reaches the
   matching instance.
-- The popup starts hidden. It shows on a replayed or live lookup result. On
-  connect it checks `has_last_result` in the IPC welcome: if the daemon has no
-  result to replay, it sends an empty-text lookup so the daemon reads the
-  current Wayland primary selection immediately. This makes a manually launched
-  popup show the highlighted word without a separate `lexicon lookup`; the
-  auto-launch path keeps its replay and does not look up or translate twice.
+- The popup starts hidden. It shows on a replayed or live lookup result. The
+  daemon passes `--replay` only when it auto-launches a popup for a lookup that
+  already has a result on the socket, so that path keeps its replay and does not
+  look up or translate twice. A manually launched popup has no `--replay`: on
+  connect it sends an empty-text lookup even if the welcome advertises
+  `has_last_result`, discards the stale replay event, and displays the fresh
+  reply. This makes a manually launched popup show the current highlighted word
+  without a separate `lexicon lookup`.
   Closing the window, pressing Escape, or losing focus quits the popup process,
   so no popup stays resident after dismissal. Focus loss is guarded: it is
   ignored for 350 ms after the popup is shown and while the language-pair
