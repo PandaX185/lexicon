@@ -23,8 +23,6 @@ func writePairTestConfig(t *testing.T, modelDir string) string {
 	cfg.Selection.Provider = "none"
 	cfg.Translation.Enabled = true
 	cfg.Translation.ModelDirectory = modelDir
-	cfg.Translation.SourceLanguage = "en"
-	cfg.Translation.TargetLanguage = "en"
 	path := filepath.Join(dir, "config.toml")
 	if err := config.Write(path, cfg); err != nil {
 		t.Fatal(err)
@@ -52,7 +50,7 @@ func writePairPack(t *testing.T, dir, id, source, target string) {
 	}
 }
 
-func TestSetLanguagePairPersistsAndReloads(t *testing.T) {
+func TestSetLanguagePairValidatesAndReportsPair(t *testing.T) {
 	modelDir := t.TempDir()
 	writePairPack(t, modelDir, "en-de", "en", "de")
 	configPath := writePairTestConfig(t, modelDir)
@@ -69,14 +67,6 @@ func TestSetLanguagePairPersistsAndReloads(t *testing.T) {
 	}
 	if state.Source != "en" || state.Target != "de" || len(state.Pairs) != 1 {
 		t.Fatalf("state = %+v", state)
-	}
-
-	cfg, _, err := config.Load(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Translation.SourceLanguage != "en" || cfg.Translation.TargetLanguage != "de" {
-		t.Fatalf("persisted pair = %s -> %s", cfg.Translation.SourceLanguage, cfg.Translation.TargetLanguage)
 	}
 
 	offline, err := d.SetLanguagePair(context.Background(), "de", "fr")

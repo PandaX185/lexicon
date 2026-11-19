@@ -135,14 +135,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 	case !effective.Translation.Enabled:
 		add("ok", "translation", "disabled")
 	case available:
-		source := translation.CanonicalLanguageCode(effective.Translation.SourceLanguage)
-		target := translation.CanonicalLanguageCode(effective.Translation.TargetLanguage)
-		pair := source + "->" + target
-		if _, err := translation.FindPack(effective.Translation.ModelDirectory, source, target); err != nil {
-			add("warn", "translation", fmt.Sprintf("%s (%s): no installed model pack", engineName, pair))
-		} else {
-			add("ok", "translation", fmt.Sprintf("%s (%s)", engineName, pair))
-		}
+		add("ok", "translation", engineName)
 	default:
 		add("warn", "translation", engineName)
 	}

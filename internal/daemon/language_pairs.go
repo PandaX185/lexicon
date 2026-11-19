@@ -25,8 +25,8 @@ func (d *Daemon) LanguagePairs() ipc.LanguagePairsState {
 	return languagePairsFromConfig(cfg, available)
 }
 
-// SetLanguagePair validates, persists, and reloads a new active pair. The raw
-// config is modified so unrelated defaults are not written to disk.
+// SetLanguagePair validates a requested pair and reports it in the returned
+// state. The pair is not persisted to configuration.
 func (d *Daemon) SetLanguagePair(ctx context.Context, source, target string) (ipc.LanguagePairsState, error) {
 	source = translation.CanonicalLanguageCode(source)
 	target = translation.CanonicalLanguageCode(target)
@@ -62,23 +62,15 @@ func (d *Daemon) SetLanguagePair(ctx context.Context, source, target string) (ip
 		}
 	}
 
-	raw.Translation.SourceLanguage = source
-	raw.Translation.TargetLanguage = target
-	if err := config.Write(d.configPath, raw); err != nil {
-		return state, fmt.Errorf("write configuration: %w", err)
-	}
-	if err := d.Reload(ctx); err != nil {
-		return state, fmt.Errorf("reload after pair change: %w", err)
-	}
-	return d.LanguagePairs(), nil
+	state.Source = source
+	state.Target = target
+	return state, nil
 }
 
 func languagePairsFromConfig(cfg config.Config, available bool) ipc.LanguagePairsState {
 	state := ipc.LanguagePairsState{
 		Enabled:   cfg.Translation.Enabled,
 		Available: available,
-		Source:    translation.CanonicalLanguageCode(cfg.Translation.SourceLanguage),
-		Target:    translation.CanonicalLanguageCode(cfg.Translation.TargetLanguage),
 		Pairs:     []ipc.LanguagePair{},
 	}
 	packs, err := translation.InstalledPacks(cfg.Translation.ModelDirectory)

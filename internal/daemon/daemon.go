@@ -123,6 +123,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 	started := time.Now()
 
+	// Resolve the pair before taking the read lock: LanguagePairs takes its own
+	// lock and a writer waiting in between would deadlock a nested RLock.
+	source, target := "", ""
+	if d.translator != nil && d.translator.Available() {
+		pair := d.LanguagePairs()
+		source, target = pair.Source, pair.Target
+	}
+
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -177,16 +185,12 @@ func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 
 	result.Found = true
 	result.Entry = entry
-	if d.translator.Available() {
-		source := translation.CanonicalLanguageCode(d.cfg.Translation.SourceLanguage)
-		target := translation.CanonicalLanguageCode(d.cfg.Translation.TargetLanguage)
-		if source != target {
-			translated, translateErr := d.translator.Translate(ctx, normalized, source, target)
-			if translateErr != nil {
-				result.TranslationError = translateErr.Error()
-			} else {
-				result.Translation = translated
-			}
+	if d.translator.Available() && source != "" && target != "" && source != target {
+		translated, translateErr := d.translator.Translate(ctx, normalized, source, target)
+		if translateErr != nil {
+			result.TranslationError = translateErr.Error()
+		} else {
+			result.Translation = translated
 		}
 	}
 	d.logLookup(result, started)
