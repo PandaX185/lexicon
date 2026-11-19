@@ -46,9 +46,14 @@ The terminal installer manages only:
 Everything else — sockets, paths, timeouts, selection tuning, and binary
 overrides — remains in `lexicon config` and `lexicon config edit`.
 
-The active translation pair can now be changed from the popup's language chip
-or with `lexicon languages use SRC-TGT`. Both paths write the same config keys:
-`translation.source_language` and `translation.target_language`.
+The active translation pair is daemon session state, not a config key. Change it
+with the `Next` control under the popup definition. Use
+`lexicon languages use SRC-TGT` to validate an installed pair; it points to that
+control and writes no config. The choice resets to the first installed pair when
+the daemon restarts.
+Old files containing the removed `translation.source_language` and
+`translation.target_language` keys still load; the keys are accepted and
+ignored.
 
 ## Keys
 
@@ -67,8 +72,6 @@ or with `lexicon languages use SRC-TGT`. Both paths write the same config keys:
 | `dictionary.show_pronunciation` | boolean | `true` | — |
 | `translation.enabled` | boolean | `false` | — |
 | `translation.model_directory` | string | empty → `$XDG_DATA_HOME/lexicon/models` | directory scanned at use time |
-| `translation.source_language` | string | `en` | lowercase BCP 47-shaped tag |
-| `translation.target_language` | string | `en` | lowercase BCP 47-shaped tag |
 | `translation.timeout_seconds` | integer | `30` | 5–300 |
 | `popup.auto_launch` | boolean | `true` | — |
 | `popup.binary` | string | empty → next to `lexicon-daemon`, then `PATH` | executable path checked at launch |
@@ -91,13 +94,21 @@ Notes:
   lowercase tag.
 - `translation.enabled = true` on a default build is accepted; the daemon
   reports the translator as unavailable and lookups still return definitions.
-- `translation.source_language`/`target_language` select the translation pair
-  independently of the dictionary pair. Install packs with `lexicon languages`.
-- The popup is frameless but resizable. Its result card shows the translation
-  first, then the headword, pronunciation, definitions, and source metadata.
-  Closing the window or pressing Escape exits the popup process.
+- Install translation packs with `lexicon languages`, then select a pair in the
+  popup. `lexicon languages use SRC-TGT` only validates the pair and points to
+  the popup control. The active pair is session-only and independent of the
+  dictionary pair; no language keys are written to the config file.
+- The popup is frameless but resizable. Its result card shows the headword,
+  pronunciation, definitions, the translation of the queried word (or its
+  error), the installed source/destination codes with a `Next` cycle, and
+  source metadata. Closing the window, pressing Escape, or losing focus quits
+  the popup process. Focus loss is ignored only for the first 350 ms after the
+  popup appears; later focus loss dismisses it even when a control has focus.
+  Only one popup is kept: when a newer popup connects, the daemon asks every
+  older popup to quit its whole process, so an earlier window never lingers.
 - The old `popup.hide_on_blur` key is accepted in existing files and ignored;
-  it is no longer written to new configurations.
+  it is no longer written to new configurations. Focus loss always quits the
+  popup, rather than just hiding its window.
 - `popup.*` display values are read when the popup process starts. A running
   popup does not hot-reload them; the next popup launch uses the new values.
 - Theme presets are compiled into the popup; there are no theme files or
@@ -147,8 +158,6 @@ show_pronunciation = true
 [translation]
 enabled = false
 model_directory = ""
-source_language = "en"
-target_language = "en"
 timeout_seconds = 30
 
 [popup]

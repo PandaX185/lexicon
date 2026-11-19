@@ -3,6 +3,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -25,7 +26,6 @@ const (
 	screenPreflight
 	screenExisting
 	screenPaths
-	screenDictionary
 	screenLanguages
 	screenAppearance
 	screenPacks
@@ -56,10 +56,10 @@ type model struct {
 	sourceInput     textinput.Model
 	targetInput     textinput.Model
 	focus           int
+	pathsField      pathField
 
 	existingChoice int
 	replaceConfig  bool
-	dictionaryErr  string
 
 	appearance      installer.AppearanceSettings
 	appearanceField int
@@ -78,6 +78,7 @@ type model struct {
 	plan     installer.Plan
 	planErr  error
 	applyErr error
+	err      error
 
 	progress   installer.Progress
 	progressCh chan installer.Progress
@@ -341,53 +342,38 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.screen = screenPreflight
 			return m, nil
-		case "enter", "tab":
-			m.settings.ConfigPath = strings.TrimSpace(m.configInput.Value())
-			if m.settings.ConfigPath == "" {
-				m.settings.ConfigPath = m.options.ConfigPath
-			}
-			return m.startDictionary()
-		}
-		var cmd tea.Cmd
-		m.configInput, cmd = m.configInput.Update(msg)
-		return m, cmd
-
-	case screenDictionary:
-		switch key {
-		case "esc":
-			return m.startPaths()
-		case "enter", "tab":
-			value := strings.TrimSpace(m.dictionaryInput.Value())
-			if value == "" {
-				m.settings.Dictionary = ""
-				m.dictionaryErr = ""
-				return m.startLanguages()
-			}
-			expanded, err := paths.ExpandHome(value)
+		case "tab", "shift+tab":
+			m.pathsField = (m.pathsField + 1) % 2
+			return m, m.syncFocus()
+		case "enter":
+			m.err = nil
+			configPath, err := validateConfigPath(m.configInput.Value(), m.options.ConfigPath)
 			if err != nil {
-				m.dictionaryErr = err.Error()
+				m.err = err
 				return m, nil
 			}
-			if err := installer.ValidateDictionary(m.ctx, expanded); err != nil {
-				m.dictionaryErr = err.Error()
+			dictPath, err := validateDictionaryValue(m.ctx, m.dictionaryInput.Value())
+			if err != nil {
+				m.err = err
 				return m, nil
 			}
-			m.settings.Dictionary = expanded
-			m.dictionaryInput.SetValue(expanded)
-			m.dictionaryErr = ""
+			m.settings.ConfigPath = configPath
+			m.settings.Dictionary = dictPath
 			return m.startLanguages()
+		default:
+			input := &m.configInput
+			if m.pathsField == pathFieldDictionary {
+				input = &m.dictionaryInput
+			}
+			var cmd tea.Cmd
+			*input, cmd = input.Update(msg)
+			return m, cmd
 		}
-		var cmd tea.Cmd
-		m.dictionaryInput, cmd = m.dictionaryInput.Update(msg)
-		return m, cmd
 
 	case screenLanguages:
 		switch key {
 		case "esc":
-			if m.options.DictionaryURL != "" {
-				return m.startPaths()
-			}
-			return m.startDictionary()
+			return m.startPaths()
 		case "tab", "shift+tab":
 			m.focus = 1 - m.focus
 			return m, m.syncFocus()
@@ -473,14 +459,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) startPaths() (tea.Model, tea.Cmd) {
 	m.screen = screenPaths
-	return m, m.syncFocus()
-}
-
-func (m model) startDictionary() (tea.Model, tea.Cmd) {
-	if m.options.DictionaryURL != "" {
-		return m.startLanguages()
-	}
-	m.screen = screenDictionary
+	m.pathsField = pathFieldConfig
+	m.err = nil
 	return m, m.syncFocus()
 }
 
@@ -497,9 +477,10 @@ func (m *model) syncFocus() tea.Cmd {
 	m.targetInput.Blur()
 	switch m.screen {
 	case screenPaths:
+		if m.pathsField == pathFieldDictionary {
+			return m.dictionaryInput.Focus()
+		}
 		return m.configInput.Focus()
-	case screenDictionary:
-		return m.dictionaryInput.Focus()
 	case screenLanguages:
 		if m.focus == 0 {
 			return m.sourceInput.Focus()
@@ -519,10 +500,14 @@ func (m *model) syncFocus() tea.Cmd {
 }
 
 func (m *model) showSummary() {
-	m.settings.ConfigPath = strings.TrimSpace(m.configInput.Value())
-	if m.settings.ConfigPath == "" {
-		m.settings.ConfigPath = m.options.ConfigPath
+	configPath, err := validateConfigPath(m.configInput.Value(), m.options.ConfigPath)
+	if err != nil {
+		m.planErr = err
+		m.applyErr = nil
+		m.screen = screenError
+		return
 	}
+	m.settings.ConfigPath = configPath
 	m.settings.SourceLang = languageOrEnglish(m.sourceInput.Value())
 	m.settings.TargetLang = languageOrEnglish(m.targetInput.Value())
 
@@ -587,6 +572,44 @@ func (m model) serviceAvailable() bool {
 	return true
 }
 
+// validateConfigPath expands a leading ~/ and rejects a directory. A missing
+// parent directory is allowed: the installer creates it with MkdirAll.
+func validateConfigPath(raw, fallback string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		value = strings.TrimSpace(fallback)
+	}
+	if value == "" {
+		return "", errors.New("configuration path cannot be empty")
+	}
+	expanded, err := paths.ExpandHome(value)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+		return "", fmt.Errorf("configuration path is a directory: %s", expanded)
+	}
+	return expanded, nil
+}
+
+// validateDictionaryValue expands a leading ~/ and checks that a supplied
+// dictionary path points at a usable SQLite dictionary. An empty value means
+// the dictionary will be configured later.
+func validateDictionaryValue(ctx context.Context, raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", nil
+	}
+	expanded, err := paths.ExpandHome(value)
+	if err != nil {
+		return "", err
+	}
+	if err := installer.ValidateDictionary(ctx, expanded); err != nil {
+		return "", err
+	}
+	return expanded, nil
+}
+
 func languageOrEnglish(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -607,8 +630,6 @@ func (m model) View() string {
 		body, help = m.viewExisting()
 	case screenPaths:
 		body, help = m.viewPaths()
-	case screenDictionary:
-		body, help = m.viewDictionary()
 	case screenLanguages:
 		body, help = m.viewLanguages()
 	case screenAppearance:
@@ -643,8 +664,6 @@ func screenName(value screen) string {
 		return "existing"
 	case screenPaths:
 		return "paths"
-	case screenDictionary:
-		return "dictionary"
 	case screenLanguages:
 		return "languages"
 	case screenAppearance:

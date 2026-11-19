@@ -162,7 +162,7 @@ func (a *App) languagesInstall(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 	fmt.Fprintf(a.Stdout, "installed %s in %s\n", entry.ID, target)
-	fmt.Fprintf(a.Stdout, "hint: select it with \"lexicon languages use %s\"\n",
+	fmt.Fprintf(a.Stdout, "hint: check it with \"lexicon languages use %s\", then select it in the popup\n",
 		pairArgument(entry.Source, entry.Target))
 	if !effective.Translation.Enabled {
 		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lexicon config set translation.enabled true\"")
@@ -226,16 +226,10 @@ func (a *App) languagesRemove(args []string) int {
 		return ExitFailure
 	}
 	fmt.Fprintf(a.Stdout, "removed %s\n", id)
-
-	source := translation.CanonicalLanguageCode(effective.Translation.SourceLanguage)
-	dest := translation.CanonicalLanguageCode(effective.Translation.TargetLanguage)
-	if _, err := translation.FindPack(effective.Translation.ModelDirectory, source, dest); errors.Is(err, translation.ErrNoModel) {
-		fmt.Fprintf(a.Stderr, "warning: no model pack remains for the configured pair %s -> %s\n", source, dest)
-	}
 	return ExitOK
 }
 
-func (a *App) languagesUse(ctx context.Context, args []string) int {
+func (a *App) languagesUse(_ context.Context, args []string) int {
 	if len(args) != 1 {
 		a.errorf("usage: lexicon languages use SRC-TGT")
 		return ExitUsage
@@ -263,30 +257,16 @@ func (a *App) languagesUse(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 
-	cfg, _, err := a.loadConfig()
-	if err != nil {
-		a.errorf("%v", err)
-		return ExitFailure
-	}
-	cfg.Translation.SourceLanguage = source
-	cfg.Translation.TargetLanguage = target
-	if err := config.Write(a.ConfigPath, cfg); err != nil {
-		a.errorf("write config: %v", err)
-		return ExitFailure
-	}
-	fmt.Fprintf(a.Stdout, "translation pair: %s -> %s\n", source, target)
-	if !cfg.Translation.Enabled {
+	fmt.Fprintf(a.Stdout, "translation pair %s -> %s is installed; press Next under the popup definition to select it as the active pair for the current session only\n", source, target)
+	if !previous.Translation.Enabled {
 		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lexicon config set translation.enabled true\"")
 	}
-	a.reloadDaemon(ctx, previous.Daemon.Socket)
 	return ExitOK
 }
 
 func buildLanguagesReport(effective config.Config) (languagesReport, error) {
 	report := languagesReport{
 		Enabled:        effective.Translation.Enabled,
-		Source:         translation.CanonicalLanguageCode(effective.Translation.SourceLanguage),
-		Target:         translation.CanonicalLanguageCode(effective.Translation.TargetLanguage),
 		ModelDirectory: effective.Translation.ModelDirectory,
 		Installed:      []languagePack{},
 		Catalog:        []languageCatalogEntry{},
@@ -295,6 +275,10 @@ func buildLanguagesReport(effective config.Config) (languagesReport, error) {
 	packs, err := translation.InstalledPacks(effective.Translation.ModelDirectory)
 	if err != nil {
 		return languagesReport{}, err
+	}
+	if len(packs) > 0 {
+		report.Source = translation.CanonicalLanguageCode(packs[0].Source)
+		report.Target = translation.CanonicalLanguageCode(packs[0].Target)
 	}
 	installed := make(map[string]bool, len(packs)*2)
 	for _, pack := range packs {

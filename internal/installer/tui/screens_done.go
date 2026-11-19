@@ -39,7 +39,7 @@ func (m model) viewDone() string {
 	shortcut := shortcuts[m.shortcutIndex]
 	b.WriteString("Global shortcut\n")
 	fmt.Fprintf(&b, "  %s: %s\n\n", shortcut.Name, shortcut.Hint)
-	b.WriteString("Open the popup and use the language chip to choose an installed pair.\n")
+	b.WriteString("Open the popup and press Next below the definition to cycle installed pairs.\n")
 
 	if m.plan.InstallUnit || m.plan.EnableUnit {
 		b.WriteString("\nService: systemctl --user status lexicon.service\n")

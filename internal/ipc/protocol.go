@@ -38,6 +38,9 @@ const (
 	TypeLanguagePairsResult Type = "language_pairs_result"
 	TypeSetLanguagePair     Type = "set_language_pair"
 	TypeLanguagePairsEvent  Type = "language_pairs_event"
+	// TypeDismissPopup tells an older popup that a newer one has taken over.
+	// The receiver quits its whole process, enforcing a single popup instance.
+	TypeDismissPopup Type = "dismiss_popup"
 )
 
 // Role identifies what a client is. The server uses it for logging and to

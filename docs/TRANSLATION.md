@@ -94,7 +94,7 @@ catalog entry pins an HTTPS tarball, its SHA-256, and its exact size.
 ```sh
 lexicon languages list                 # installed packs and the catalog
 lexicon languages install bergamot-en-de-tiny11
-lexicon languages use en-de            # sets translation.source/target_language
+lexicon languages use en-de            # validates an installed pair; select it in the popup
 lexicon config set translation.enabled true
 lexicon languages remove bergamot-en-de-tiny11
 ```
@@ -197,24 +197,33 @@ You can also install a specific pack later:
 ~~~sh
 lexicon languages list
 lexicon languages install bergamot-en-de-tiny11
-lexicon languages use en-de
+lexicon languages use en-de             # validates; pair selection stays in the popup
 ~~~
 
 ## Choosing the active pair in the popup
 
-When translation is enabled and at least one pack is installed, a small language
-chip appears in the top-right of the popup. Click it to choose the source and
-target languages from installed packs only. Closing the popup or restarting the
-daemon does not lose the choice: the popup asks the daemon to persist it and
-reload the translation engine.
+When translation is enabled and at least one pack is installed, the result view
+lists the installed source and destination BCP 47 codes as rows directly below
+the definitions. `Next` cycles through all installed pairs in sorted order and
+wraps around. Only codes are shown; pack metadata is available from
+`lexicon languages list`.
+
+The popup emits `lexicon:set-language-pair`. The daemon validates the pair
+against installed packs, updates the active pair for the current session,
+broadcasts the new state, and relooks up the last query so the translation
+matches the selected pair. No config file is written: closing the popup keeps
+the choice while the daemon lives, but restarting the daemon resets it to the
+first installed pair. `lexicon languages use SRC-TGT` validates an installed
+pair and points to this control; it does not change the active pair or write
+config.
 
 ## Runtime behavior
 
 - Translation runs only when a dictionary entry was found, translation is
-  enabled and available, and the translation pair's source and target differ
-  after canonicalization. The pair is `translation.source_language` →
-  `translation.target_language`, independent of the dictionary pair, so a
-  monolingual English dictionary can translate into another language.
+  enabled and available, and the active session pair's source and target differ
+  after canonicalization. The selected pair is independent of the dictionary
+  pair, so a monolingual English dictionary can translate into another
+  language.
 - The normalized query is translated, not the original selection.
 - `translation.timeout_seconds` bounds a call when no earlier deadline exists.
   The native call is bounded by that deadline, but C++ cancellation is not

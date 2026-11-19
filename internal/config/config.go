@@ -59,8 +59,6 @@ type Dictionary struct {
 type Translation struct {
 	Enabled        bool   `toml:"enabled" comment:"Translate the looked-up word when source and target differ."`
 	ModelDirectory string `toml:"model_directory" comment:"Installed Bergamot model packs. Empty uses $XDG_DATA_HOME/lexicon/models."`
-	SourceLanguage string `toml:"source_language" comment:"BCP 47 tag translated from."`
-	TargetLanguage string `toml:"target_language" comment:"BCP 47 tag translated to."`
 	TimeoutSeconds int    `toml:"timeout_seconds" comment:"Translation timeout in seconds (5-300)."`
 }
 
@@ -118,6 +116,36 @@ func (p *Popup) UnmarshalTOML(data []byte) error {
 	return nil
 }
 
+// UnmarshalTOML accepts the removed translation.source_language and
+// translation.target_language keys in existing config files and ignores them.
+// Every other unknown key is still rejected, and values absent from the
+// translation table keep their defaults.
+func (t *Translation) UnmarshalTOML(data []byte) error {
+	raw := struct {
+		Enabled        bool   `toml:"enabled"`
+		ModelDirectory string `toml:"model_directory"`
+		TimeoutSeconds int    `toml:"timeout_seconds"`
+
+		SourceLanguage string `toml:"source_language"`
+		TargetLanguage string `toml:"target_language"`
+	}{
+		Enabled:        t.Enabled,
+		ModelDirectory: t.ModelDirectory,
+		TimeoutSeconds: t.TimeoutSeconds,
+	}
+	decoder := toml.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&raw); err != nil {
+		return err
+	}
+	*t = Translation{
+		Enabled:        raw.Enabled,
+		ModelDirectory: raw.ModelDirectory,
+		TimeoutSeconds: raw.TimeoutSeconds,
+	}
+	return nil
+}
+
 // Default returns the built-in configuration.
 func Default() Config {
 	return Config{
@@ -140,8 +168,6 @@ func Default() Config {
 		},
 		Translation: Translation{
 			Enabled:        false,
-			SourceLanguage: "en",
-			TargetLanguage: "en",
 			TimeoutSeconds: 30,
 		},
 		Popup: Popup{
@@ -268,8 +294,6 @@ func (c Config) Validate() error {
 
 	check(c.Translation.TimeoutSeconds >= 5 && c.Translation.TimeoutSeconds <= 300,
 		"translation.timeout_seconds must be between 5 and 300")
-	check(validLanguage(c.Translation.SourceLanguage), "translation.source_language must be a lowercase BCP 47 tag")
-	check(validLanguage(c.Translation.TargetLanguage), "translation.target_language must be a lowercase BCP 47 tag")
 
 	check(c.Popup.Width >= 240 && c.Popup.Width <= 1200,
 		"popup.width must be between 240 and 1200")

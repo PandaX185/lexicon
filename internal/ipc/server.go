@@ -53,6 +53,7 @@ type Server struct {
 
 	mu          sync.RWMutex
 	subscribers map[*connection]struct{}
+	popupSeq    uint64
 	last        *LookupResult
 
 	done      chan struct{}
@@ -63,7 +64,10 @@ type Server struct {
 type connection struct {
 	conn net.Conn
 	role Role
-	mu   sync.Mutex
+	// seq orders popup subscriptions so the newest popup dismisses older ones
+	// without two simultaneous launches dismissing each other.
+	seq uint64
+	mu  sync.Mutex
 }
 
 // NewServer creates the runtime directory, takes the single-instance lock, and
@@ -151,6 +155,31 @@ func (s *Server) SubscriberCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.subscribers)
+}
+
+// dismissOlderPopups tells every popup that subscribed before the given one to
+// quit. The daemon owns the subscriber set, so this enforces a single popup
+// regardless of whether the popups were auto-launched or started by hand. The
+// sequence comparison keeps two simultaneous launches from dismissing each
+// other: only the older one is asked to quit.
+func (s *Server) dismissOlderPopups(newest *connection) {
+	s.mu.RLock()
+	older := make([]*connection, 0, len(s.subscribers))
+	for connection := range s.subscribers {
+		if connection != newest && connection.seq < newest.seq {
+			older = append(older, connection)
+		}
+	}
+	s.mu.RUnlock()
+
+	for _, connection := range older {
+		if err := s.send(connection, Message{Type: TypeDismissPopup}); err != nil {
+			s.mu.Lock()
+			delete(s.subscribers, connection)
+			s.mu.Unlock()
+			_ = connection.conn.Close()
+		}
+	}
 }
 
 // Serve accepts connections until ctx is cancelled or the listener fails.
@@ -241,8 +270,11 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 	subscribed := hello.Role == RolePopup
 	if subscribed {
 		s.mu.Lock()
+		s.popupSeq++
+		connection.seq = s.popupSeq
 		s.subscribers[connection] = struct{}{}
 		s.mu.Unlock()
+		s.dismissOlderPopups(connection)
 	}
 
 	s.mu.RLock()

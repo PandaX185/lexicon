@@ -1,10 +1,65 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
+
+func TestTranslationLanguageKeysAreNotExposed(t *testing.T) {
+	keys := Keys()
+	for _, removed := range []string{"translation.source_language", "translation.target_language"} {
+		if slices.Contains(keys, removed) {
+			t.Fatalf("Keys() still exposes %q: %v", removed, keys)
+		}
+	}
+}
+
+func TestLoadIgnoresRemovedTranslationLanguageKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	data := "[translation]\nenabled = true\nsource_language = \"en\"\ntarget_language = \"de\"\ntimeout_seconds = 30\n"
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, exists, err := Load(path)
+	if err != nil {
+		t.Fatalf("load legacy config: %v", err)
+	}
+	if !exists {
+		t.Fatal("exists = false")
+	}
+	if !cfg.Translation.Enabled || cfg.Translation.TimeoutSeconds != 30 {
+		t.Fatalf("unexpected translation config: %+v", cfg.Translation)
+	}
+	rendered, err := Render(cfg)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	start := strings.Index(string(rendered), "[translation]")
+	end := strings.Index(string(rendered), "[popup]")
+	if start < 0 || end < 0 || end < start {
+		t.Fatalf("unexpected rendered config:\n%s", rendered)
+	}
+	section := string(rendered[start:end])
+	if strings.Contains(section, "source_language") || strings.Contains(section, "target_language") {
+		t.Fatalf("rendered translation table still exposes removed keys:\n%s", section)
+	}
+}
+
+func TestLoadRejectsUnknownTranslationKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("[translation]\nunknown = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Load(path); err == nil {
+		t.Fatal("expected an unknown-key error")
+	}
+}
 
 // TestKeysAreTheDocumentedSurface pins the complete configuration surface.
 // Adding or renaming a key must be a deliberate update here and in docs.
@@ -23,8 +78,6 @@ func TestKeysAreTheDocumentedSurface(t *testing.T) {
 		"dictionary.show_pronunciation",
 		"translation.enabled",
 		"translation.model_directory",
-		"translation.source_language",
-		"translation.target_language",
 		"translation.timeout_seconds",
 		"popup.auto_launch",
 		"popup.binary",
@@ -119,8 +172,6 @@ func TestEnumAndLanguageValidation(t *testing.T) {
 	languageKeys := []string{
 		"dictionary.source_language",
 		"dictionary.target_language",
-		"translation.source_language",
-		"translation.target_language",
 	}
 	for _, key := range languageKeys {
 		for _, value := range []string{"en", "de", "zh-hant"} {

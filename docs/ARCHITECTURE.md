@@ -55,15 +55,15 @@ module so the core build never needs WebKitGTK.
    `general.max_query_words` and `general.max_query_chars`.
 3. The dictionary store tries the headword, transliteration, and inflected form
    in that order. Definitions are read in `sense_order, id` order.
-4. If translation is enabled, available, and `translation.source_language`
-   differs from `translation.target_language`, the daemon attempts a best-effort
-   translation. A translation failure is reported separately and never discards
-   the definition.
+4. If translation is enabled, available, and the active session pair's source
+   differs from its target, the daemon attempts a best-effort translation. A
+   translation failure is reported separately and never discards the definition.
 5. The daemon replies to the requester, remembers found results for replay, and
    broadcasts a lookup event to subscribed popups.
 6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
-   launch `lexicon-popup` at most once every two seconds. The popup connects,
-   receives the replayed result, and displays it.
+   launch `lexicon-popup --replay` at most once every two seconds. The popup
+   connects and displays the replayed result when one is available; a manually
+   launched popup has no `--replay` and reads the current selection instead.
 
 The daemon logs whether a lookup succeeded, query length, duration, error class,
 and a translation error detail when one occurs. It never logs the query, the
@@ -85,6 +85,11 @@ swaps them under the write lock and closes the old ones.
 - The IPC server serializes writes per connection and multiplexes request IDs on
   the client side. A popup's event channel keeps the newest result if the
   frontend is slow.
+- The active translation pair is separate from the config-backed resources: the
+  daemon guards it with its own mutex, validates `set_language_pair` against
+  installed packs, and broadcasts `language_pairs_event`. It is session-only;
+  a restart selects the first installed pair. On a change the popup relooks up
+  its last query, so the displayed translation follows the selected pair.
 
 ## IPC and security
 
@@ -109,25 +114,34 @@ client roles. Details are in [IPC.md](IPC.md).
 - The popup is a normal child process launched with an explicit `--socket` and
   `--config`, so a daemon started with a custom configuration reaches the
   matching instance.
-- The popup starts hidden. It shows on a replayed or live lookup result. On
-  connect it checks `has_last_result` in the IPC welcome: if the daemon has no
-  result to replay, it sends an empty-text lookup so the daemon reads the
-  current Wayland primary selection immediately. This makes a manually launched
-  popup show the highlighted word without a separate `lexicon lookup`; the
-  auto-launch path keeps its replay and does not look up or translate twice.
-  Closing the window or pressing Escape quits the popup process, so no popup
-  stays resident after dismissal.
-- The window is frameless, solid, and resizable by dragging its edges. The
-  language chip stays visible above the result and its dropdown is no longer
-  tied to window focus. Appearance is read from `[popup]` at
-  startup: one of 20 built-in colour presets (10 dark, 10 light; `system`
-  follows the desktop light/dark preference) plus optional brand/status/footer
-  chrome. No theme files or downloads are involved. Go maps the preset to the
-  opaque window base colour to avoid a first-paint flash and sends the same
-  values to the frontend over `lexicon:settings`; the result view puts the
-  translation above the headword. Window transparency and backdrop blur were
-  deliberately omitted: WebKitGTK's `backdrop-filter` cannot reach other
-  X11/Wayland windows, so neither has a visible effect.
+- The popup starts hidden. It shows on a replayed or live lookup result. The
+  daemon passes `--replay` on every auto-launch; when the lookup produced a found
+  result it is already stored for replay, so that path displays the replay and
+  does not look up or translate the same word twice. A manually launched popup
+  has no `--replay`: on connect it sends an empty-text lookup even if the welcome
+  advertises `has_last_result`, discards the stale replay event, and displays
+  the fresh reply. This makes a manually launched popup show the current
+  highlighted word without a separate `lexicon lookup`.
+  Closing the window, pressing Escape, or losing focus quits the popup process,
+  so no popup stays resident after dismissal. Focus loss is ignored only for
+  350 ms after the popup is shown; later focus loss quits even when an
+  in-webview control has focus. The daemon also keeps a single popup instance:
+  each new subscriber is given a sequence number, and older popup subscribers
+  receive a `dismiss_popup` IPC message that quits their entire process. The
+  legacy `popup.hide_on_blur` key remains
+  ignored; Wails `HideOnFocusLost` is not used because it only hides the window
+  and is unreliable on Hyprland, Sway, and i3.
+- The window is frameless, solid, and resizable by dragging its edges. Appearance
+  is read from `[popup]` at startup: one of 20 built-in colour presets (10 dark,
+  10 light; `system` follows the desktop light/dark preference) plus optional
+  brand/status/footer chrome. No theme files or downloads are involved. Go maps
+  the preset to the opaque window base colour to avoid a first-paint flash and
+  sends the same values to the frontend over `lexicon:settings`. The result view
+  shows the headword, pronunciation, definitions, the translation of the queried
+  word (or its error), and then the installed source/destination codes with a
+  `Next` pair cycle. Window transparency and backdrop blur were deliberately
+  omitted: WebKitGTK's `backdrop-filter` cannot reach other X11/Wayland windows,
+  so neither has a visible effect.
 
 ## Build split
 

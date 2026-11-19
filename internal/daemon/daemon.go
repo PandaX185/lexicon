@@ -44,6 +44,12 @@ type Daemon struct {
 	started time.Time
 	server  atomic.Pointer[ipc.Server]
 
+	// The active translation pair lives only in this process; a restart falls
+	// back to the first installed pair.
+	pairMu     sync.Mutex
+	pairSource string
+	pairTarget string
+
 	popupMu      sync.Mutex
 	lastPopupTry time.Time
 }
@@ -123,8 +129,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 	started := time.Now()
 
+	// LanguagePairs takes its own RLock. It completes before d.mu.RLock() below,
+	// so a writer waiting in between cannot deadlock a nested RLock.
+	pair := d.LanguagePairs()
+
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+	translator := d.translator
 
 	result := &ipc.LookupResult{
 		Query: strings.TrimSpace(raw),
@@ -177,16 +188,12 @@ func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 
 	result.Found = true
 	result.Entry = entry
-	if d.translator.Available() {
-		source := translation.CanonicalLanguageCode(d.cfg.Translation.SourceLanguage)
-		target := translation.CanonicalLanguageCode(d.cfg.Translation.TargetLanguage)
-		if source != target {
-			translated, translateErr := d.translator.Translate(ctx, normalized, source, target)
-			if translateErr != nil {
-				result.TranslationError = translateErr.Error()
-			} else {
-				result.Translation = translated
-			}
+	if pair.Available && translator != nil && translator.Available() && pair.Source != "" && pair.Target != "" && pair.Source != pair.Target {
+		translated, translateErr := translator.Translate(ctx, normalized, pair.Source, pair.Target)
+		if translateErr != nil {
+			result.TranslationError = translateErr.Error()
+		} else {
+			result.Translation = translated
 		}
 	}
 	d.logLookup(result, started)
@@ -217,10 +224,9 @@ func (d *Daemon) AfterLookup(subscribers int) {
 		d.logger.Warn("popup launch skipped", "error", err)
 		return
 	}
-	arguments := []string{"--socket", cfg.Daemon.Socket}
-	if d.configPath != "" {
-		arguments = append(arguments, "--config", d.configPath)
-	}
+	// Only daemon-launched popups replay the lookup that triggered them. A
+	// manually started popup must read the current PRIMARY instead.
+	arguments := popupArguments(cfg, d.configPath, true)
 	// binary is resolved from config or next to the daemon executable.
 	//nolint:gosec // user-configurable popup binary path
 	command := exec.Command(binary, arguments...)
@@ -384,6 +390,19 @@ func closeStore(store *dictionary.Store) {
 	if store != nil {
 		_ = store.Close()
 	}
+}
+
+// popupArguments builds the popup command line. The replay flag is set only
+// for daemon launches, which already have a result waiting on the socket.
+func popupArguments(cfg config.Config, configPath string, replay bool) []string {
+	arguments := []string{"--socket", cfg.Daemon.Socket}
+	if replay {
+		arguments = append(arguments, "--replay")
+	}
+	if configPath != "" {
+		arguments = append(arguments, "--config", configPath)
+	}
+	return arguments
 }
 
 func popupBinary(cfg config.Config) (string, error) {

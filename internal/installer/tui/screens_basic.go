@@ -8,6 +8,13 @@ import (
 	"github.com/PandaX185/lexicon/internal/paths"
 )
 
+type pathField int
+
+const (
+	pathFieldConfig pathField = iota
+	pathFieldDictionary
+)
+
 func (m model) viewWelcome() (string, string) {
 	body := strings.Join([]string{
 		"This wizard configures Lexicon and starts its background service.",
@@ -60,13 +67,25 @@ func (m model) viewExisting() (string, string) {
 }
 
 func (m model) viewPaths() (string, string) {
+	configMarker, dictionaryMarker := "  ", "  "
+	if m.pathsField == pathFieldDictionary {
+		dictionaryMarker = "> "
+	} else {
+		configMarker = "> "
+	}
+	dictionaryInput := m.dictionaryInput
+	dictionaryInput.Placeholder = dictionaryLocation(m)
+
 	body := "Install paths\n\n" +
-		labelStyle.Render("Configuration file") + "\n" +
+		configMarker + labelStyle.Render("Configuration file") + "\n" +
 		m.configInput.View() + "\n\n" +
-		labelStyle.Render("Dictionary location") + "\n" +
-		valueStyle.Render(dictionaryLocation(m)) + "\n\n" +
+		dictionaryMarker + labelStyle.Render("Dictionary location") + "\n" +
+		dictionaryInput.View() + "\n\n" +
 		subtitleStyle.Render("A packaged dictionary is used in place; a local file is copied.")
-	return body, "enter/tab  continue    esc  back"
+	if m.err != nil {
+		body += "\n" + failStyle.Render(m.err.Error()) + "\n"
+	}
+	return body, "tab  next field    enter  continue    esc  back"
 }
 
 func dictionaryLocation(m model) string {
@@ -77,30 +96,6 @@ func dictionaryLocation(m model) string {
 		return target
 	}
 	return "~/.local/share/lexicon/dictionary.sqlite"
-}
-
-func (m model) viewDictionary() (string, string) {
-	var b strings.Builder
-	b.WriteString("Dictionary\n\n")
-	if m.packagedPath != "" {
-		version := ""
-		if m.packagedVersion != "" {
-			version = " version " + m.packagedVersion
-		}
-		b.WriteString(okStyle.Render("Found packaged dictionary"))
-		b.WriteString(": ")
-		b.WriteString(m.packagedPath)
-		b.WriteString(version)
-		b.WriteString("\n\n")
-	} else {
-		b.WriteString(warnStyle.Render("No packaged dictionary found.") + " Download one from the releases page,\n")
-		b.WriteString("or leave this empty and configure it later.\n\n")
-	}
-	b.WriteString(m.dictionaryInput.View() + "\n")
-	if m.dictionaryErr != "" {
-		b.WriteString("\n" + failStyle.Render(m.dictionaryErr) + "\n")
-	}
-	return b.String(), "enter/tab  continue    esc  back"
 }
 
 func (m model) viewLanguages() (string, string) {

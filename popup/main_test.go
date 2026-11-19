@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 func TestLoadSettingsAppearance(t *testing.T) {
@@ -77,6 +79,106 @@ func TestEscapeQuitsPopup(t *testing.T) {
 
 	if quitter.quits != 1 {
 		t.Fatalf("quits = %d, want 1", quitter.quits)
+	}
+}
+
+type recordedHook struct {
+	eventType events.WindowEventType
+	callback  func(*application.WindowEvent)
+}
+
+// fakeWindow records RegisterHook calls so tests can fire the registered
+// callbacks without starting a Wails application.
+type fakeWindow struct {
+	hooks []recordedHook
+}
+
+func (w *fakeWindow) RegisterHook(eventType events.WindowEventType, callback func(*application.WindowEvent)) func() {
+	w.hooks = append(w.hooks, recordedHook{eventType: eventType, callback: callback})
+	return func() {}
+}
+
+func (w *fakeWindow) hook(eventType events.WindowEventType) func(*application.WindowEvent) {
+	for _, hook := range w.hooks {
+		if hook.eventType == eventType {
+			return hook.callback
+		}
+	}
+	return nil
+}
+
+func TestRegisterPopupHooksDismissOnFocusLoss(t *testing.T) {
+	window := &fakeWindow{}
+	quitter := &recordingQuitter{}
+	popup := &Popup{quitter: quitter, shownAt: time.Now().Add(-time.Second)}
+
+	registerPopupHooks(window, quitter, popup)
+
+	focusLost := window.hook(events.Common.WindowLostFocus)
+	if focusLost == nil {
+		t.Fatalf("no WindowLostFocus hook registered; got %d hooks", len(window.hooks))
+	}
+	focusLost(nil)
+	if quitter.quits != 1 {
+		t.Fatalf("quits = %d after focus loss, want 1", quitter.quits)
+	}
+}
+
+func TestWindowLostFocusRespectsEarlyBlurGuard(t *testing.T) {
+	window := &fakeWindow{}
+	quitter := &recordingQuitter{}
+	popup := &Popup{quitter: quitter, shownAt: time.Now()}
+
+	registerPopupHooks(window, quitter, popup)
+
+	focusLost := window.hook(events.Common.WindowLostFocus)
+	if focusLost == nil {
+		t.Fatalf("no WindowLostFocus hook registered; got %d hooks", len(window.hooks))
+	}
+	focusLost(nil)
+	if quitter.quits != 0 {
+		t.Fatalf("quits = %d inside the early-blur guard, want 0", quitter.quits)
+	}
+}
+
+func TestNewPopupUsesAppAsQuitter(t *testing.T) {
+	var app *application.App
+	popup := newPopup(app, nil, settings{}, newTestLogger(t), false)
+	if popup.quitter != app {
+		t.Fatal("popup must quit the Wails app when the blur guard passes")
+	}
+	if popup.replay {
+		t.Fatal("manual popup must not be marked as a replay popup")
+	}
+}
+
+func TestNewPopupKeepsReplayFlag(t *testing.T) {
+	var app *application.App
+	popup := newPopup(app, nil, settings{}, newTestLogger(t), true)
+	if !popup.replay {
+		t.Fatal("--replay must be carried into the popup backend")
+	}
+}
+
+func TestRegisterPopupHooksKeepCloseDismissal(t *testing.T) {
+	window := &fakeWindow{}
+	quitter := &recordingQuitter{}
+
+	registerPopupHooks(window, quitter, &Popup{})
+
+	for _, eventType := range []events.WindowEventType{events.Common.WindowClosing, events.Linux.WindowDeleteEvent} {
+		callback := window.hook(eventType)
+		if callback == nil {
+			t.Fatalf("no hook registered for %v", eventType)
+		}
+		event := application.NewWindowEvent()
+		callback(event)
+		if !event.IsCancelled() {
+			t.Fatalf("close event %v was not cancelled", eventType)
+		}
+	}
+	if quitter.quits != 2 {
+		t.Fatalf("quits = %d after two close events, want 2", quitter.quits)
 	}
 }
 
