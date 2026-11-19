@@ -104,6 +104,8 @@ Notes:
   source metadata. Closing the window, pressing Escape, or losing focus quits
   the popup process. Focus loss is ignored only for the first 350 ms after the
   popup appears; later focus loss dismisses it even when a control has focus.
+  Only one popup is kept: when a newer popup connects, the daemon asks every
+  older popup to quit its whole process, so an earlier window never lingers.
 - The old `popup.hide_on_blur` key is accepted in existing files and ignored;
   it is no longer written to new configurations. Focus loss always quits the
   popup, rather than just hiding its window.

@@ -27,6 +27,7 @@ type Client struct {
 
 	events             chan LookupResult
 	languagePairEvents chan LanguagePairsState
+	dismiss            chan struct{}
 	done               chan struct{}
 	closed             atomic.Bool
 	hasLastResult      bool
@@ -51,6 +52,7 @@ func Dial(ctx context.Context, path string, role Role) (*Client, error) {
 		pending:            map[uint64]chan Message{},
 		events:             make(chan LookupResult, 8),
 		languagePairEvents: make(chan LanguagePairsState, 4),
+		dismiss:            make(chan struct{}, 1),
 		done:               make(chan struct{}),
 	}
 
@@ -165,6 +167,11 @@ func (c *Client) SetLanguagePair(ctx context.Context, source, target string) (*L
 // LanguagePairEvents receives broadcasts after successful pair changes.
 func (c *Client) LanguagePairEvents() <-chan LanguagePairsState { return c.languagePairEvents }
 
+// DismissEvents receives a single signal when a newer popup takes over. The
+// channel closes when the connection ends. Popups must quit their process on a
+// received signal so only one popup is ever on screen.
+func (c *Client) DismissEvents() <-chan struct{} { return c.dismiss }
+
 // Ping verifies liveness.
 func (c *Client) Ping(ctx context.Context) error {
 	_, err := c.request(ctx, Message{Type: TypePing})
@@ -225,6 +232,7 @@ func (c *Client) readLoop(reader *frameReader) {
 		close(c.done)
 		close(c.events)
 		close(c.languagePairEvents)
+		close(c.dismiss)
 	}()
 
 	for {
@@ -248,6 +256,12 @@ func (c *Client) readLoop(reader *frameReader) {
 		if message.Type == TypeLanguagePairsEvent && message.LanguagePairs != nil {
 			select {
 			case c.languagePairEvents <- *message.LanguagePairs:
+			default:
+			}
+		}
+		if message.Type == TypeDismissPopup {
+			select {
+			case c.dismiss <- struct{}{}:
 			default:
 			}
 		}

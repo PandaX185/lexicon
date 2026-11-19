@@ -324,6 +324,51 @@ func (h *pairIPCHandler) SetLanguagePair(_ context.Context, source, target strin
 	return h.state, nil
 }
 
+type channelQuitter struct {
+	quit chan struct{}
+	once sync.Once
+}
+
+func (q *channelQuitter) Quit() { q.once.Do(func() { close(q.quit) }) }
+
+func TestDismissSignalQuitsPopupProcess(t *testing.T) {
+	path := startIPCServer(t, &recordingHandler{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	first, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = first.Close() }()
+
+	quitter := &channelQuitter{quit: make(chan struct{})}
+	popup := &Popup{logger: newTestLogger(t), quitter: quitter}
+	consumeDone := make(chan struct{})
+	go func() {
+		popup.consume(ctx, first)
+		close(consumeDone)
+	}()
+
+	// A second popup taking over must make the first quit its whole process.
+	second, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = second.Close() }()
+
+	select {
+	case <-quitter.quit:
+	case <-ctx.Done():
+		t.Fatal("popup process was not quit when another popup subscribed")
+	}
+	select {
+	case <-consumeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consume did not stop after dismiss")
+	}
+}
+
 func TestSetLanguagePairEventCarriesRequestedPair(t *testing.T) {
 	if eventSetLanguagePair != "lexicon:set-language-pair" {
 		t.Fatalf("eventSetLanguagePair = %q, want lexicon:set-language-pair", eventSetLanguagePair)

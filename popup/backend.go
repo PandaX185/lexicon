@@ -311,6 +311,7 @@ func (p *Popup) discardReplayEvents(client *ipc.Client) {
 // channel is closed after the reader loop drains buffered results, so no
 // result is lost on a clean disconnect.
 func (p *Popup) consume(ctx context.Context, client *ipc.Client) {
+	dismiss := client.DismissEvents()
 	for {
 		select {
 		case <-ctx.Done():
@@ -330,6 +331,15 @@ func (p *Popup) consume(ctx context.Context, client *ipc.Client) {
 				return
 			}
 			p.publishPairs(state)
+		case _, ok := <-dismiss:
+			if !ok {
+				dismiss = nil
+				continue
+			}
+			// A newer popup took over. Quit the entire process so the old
+			// window cannot linger behind the replacement.
+			dismissPopup(p.quitter, nil)
+			return
 		}
 	}
 }

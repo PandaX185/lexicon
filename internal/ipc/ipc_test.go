@@ -81,6 +81,42 @@ func waitForSubscriber(t *testing.T, server *Server) {
 	}
 }
 
+func TestSecondPopupDismissesFirst(t *testing.T) {
+	handler := &fakeHandler{}
+	server, path := startServer(t, handler)
+	ctx := context.Background()
+
+	first, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial first popup: %v", err)
+	}
+	defer func() { _ = first.Close() }()
+	waitForSubscriber(t, server)
+
+	second, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial second popup: %v", err)
+	}
+	defer func() { _ = second.Close() }()
+
+	select {
+	case _, ok := <-first.DismissEvents():
+		if !ok {
+			t.Fatal("first popup disconnected instead of receiving a dismiss")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first popup was not dismissed by the second popup")
+	}
+
+	select {
+	case _, ok := <-second.DismissEvents():
+		if ok {
+			t.Fatal("second popup dismissed itself")
+		}
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func TestLookupBroadcastAndStatus(t *testing.T) {
 	handler := &fakeHandler{}
 	server, path := startServer(t, handler)
