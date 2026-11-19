@@ -32,9 +32,15 @@ export default function TranslationPairCycle({
   }, [revision, state.source, state.target]);
 
   // Release the backend's focus-loss guard if the control disappears while
-  // focused (for example when a new lookup has no language pairs).
+  // focused (for example when a new lookup has no language pairs), or if the OS
+  // window loses focus: the DOM blur event is not guaranteed to fire then.
   useEffect(() => {
+    const handleWindowBlur = () => {
+      void Events.Emit(SELECTOR_CLOSED_EVENT, null);
+    };
+    window.addEventListener("blur", handleWindowBlur);
     return () => {
+      window.removeEventListener("blur", handleWindowBlur);
       void Events.Emit(SELECTOR_CLOSED_EVENT, null);
     };
   }, []);

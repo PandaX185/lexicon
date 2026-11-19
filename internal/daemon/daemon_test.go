@@ -49,7 +49,13 @@ func TestPopupArgumentsOmitReplayForManualLaunch(t *testing.T) {
 	got := popupArguments(cfg, "", false)
 	want := []string{"--socket", "/tmp/lexicon-test.sock"}
 	if !slices.Equal(got, want) {
-		t.Fatalf("manual arguments = %q, want %q", got, want)
+		t.Fatalf("manual arguments without a config = %q, want %q", got, want)
+	}
+
+	got = popupArguments(cfg, "/tmp/lexicon-manual.toml", false)
+	want = []string{"--socket", "/tmp/lexicon-test.sock", "--config", "/tmp/lexicon-manual.toml"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("manual arguments with a config = %q, want %q", got, want)
 	}
 }
 

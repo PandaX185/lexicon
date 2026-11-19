@@ -62,8 +62,8 @@ module so the core build never needs WebKitGTK.
    broadcasts a lookup event to subscribed popups.
 6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
    launch `lexicon-popup --replay` at most once every two seconds. The popup
-   connects, receives the replayed result, and displays it. A manually launched
-   popup has no `--replay` and reads the current selection instead.
+   connects and displays the replayed result when one is available; a manually
+   launched popup has no `--replay` and reads the current selection instead.
 
 The daemon logs whether a lookup succeeded, query length, duration, error class,
 and a translation error detail when one occurs. It never logs the query, the
@@ -115,13 +115,13 @@ client roles. Details are in [IPC.md](IPC.md).
   `--config`, so a daemon started with a custom configuration reaches the
   matching instance.
 - The popup starts hidden. It shows on a replayed or live lookup result. The
-  daemon passes `--replay` only when it auto-launches a popup for a lookup that
-  already has a result on the socket, so that path keeps its replay and does not
-  look up or translate twice. A manually launched popup has no `--replay`: on
-  connect it sends an empty-text lookup even if the welcome advertises
-  `has_last_result`, discards the stale replay event, and displays the fresh
-  reply. This makes a manually launched popup show the current highlighted word
-  without a separate `lexicon lookup`.
+  daemon passes `--replay` on every auto-launch; when the lookup produced a found
+  result it is already stored for replay, so that path displays the replay and
+  does not look up or translate the same word twice. A manually launched popup
+  has no `--replay`: on connect it sends an empty-text lookup even if the welcome
+  advertises `has_last_result`, discards the stale replay event, and displays
+  the fresh reply. This makes a manually launched popup show the current
+  highlighted word without a separate `lexicon lookup`.
   Closing the window, pressing Escape, or losing focus quits the popup process,
   so no popup stays resident after dismissal. Focus loss is guarded: it is
   ignored for 350 ms after the popup is shown and while the language-pair

@@ -229,7 +229,7 @@ func (a *App) languagesRemove(args []string) int {
 	return ExitOK
 }
 
-func (a *App) languagesUse(ctx context.Context, args []string) int {
+func (a *App) languagesUse(_ context.Context, args []string) int {
 	if len(args) != 1 {
 		a.errorf("usage: lexicon languages use SRC-TGT")
 		return ExitUsage
