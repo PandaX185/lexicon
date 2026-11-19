@@ -8,6 +8,13 @@ import (
 	"github.com/PandaX185/lexicon/internal/paths"
 )
 
+type pathField int
+
+const (
+	pathFieldConfig pathField = iota
+	pathFieldDictionary
+)
+
 func (m model) viewWelcome() (string, string) {
 	body := strings.Join([]string{
 		"This wizard configures Lexicon and starts its background service.",

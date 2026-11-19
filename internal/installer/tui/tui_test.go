@@ -91,6 +91,16 @@ func press(t *testing.T, m model, keys ...tea.KeyMsg) model {
 	return m
 }
 
+func pressReturnModel(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
+	t.Helper()
+	updated, cmd := m.Update(key)
+	next, ok := updated.(model)
+	if !ok {
+		t.Fatalf("Update returned %T, want model", updated)
+	}
+	return next, cmd
+}
+
 func withChecks(m model, checks ...installer.Check) model {
 	updated, _ := m.Update(preflightMsg{checks: checks})
 	return updated.(model)
@@ -598,6 +608,28 @@ func TestConfigPathIsKeptWhenInputIsEmpty(t *testing.T) {
 	m = press(t, m, keyEnter())
 	if m.settings.ConfigPath != options.ConfigPath {
 		t.Fatalf("config = %q, want %s", m.settings.ConfigPath, options.ConfigPath)
+	}
+}
+
+func TestPathsTabCyclesFieldsWithoutAdvancingScreen(t *testing.T) {
+	m := newModel(context.Background(), installer.Options{ConfigPath: "/tmp/c.toml"})
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m.configInput.SetValue("/custom/config.toml")
+
+	m, _ = pressReturnModel(t, m, keyTab())
+	if m.screen != screenPaths {
+		t.Fatalf("Tab must stay on paths screen, got %v", m.screen)
+	}
+	if m.pathsField != pathFieldDictionary {
+		t.Fatalf("Tab must focus dictionary field, got %v", m.pathsField)
+	}
+	if !m.dictionaryInput.Focused() {
+		t.Fatal("dictionary input must be focused after Tab")
+	}
+	m, _ = pressReturnModel(t, m, keyTab())
+	if m.pathsField != pathFieldConfig || !m.configInput.Focused() {
+		t.Fatal("second Tab must wrap to config field")
 	}
 }
 

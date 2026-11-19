@@ -56,6 +56,7 @@ type model struct {
 	sourceInput     textinput.Model
 	targetInput     textinput.Model
 	focus           int
+	pathsField      pathField
 
 	existingChoice int
 	replaceConfig  bool
@@ -341,16 +342,24 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.screen = screenPreflight
 			return m, nil
-		case "enter", "tab":
-			m.settings.ConfigPath = strings.TrimSpace(m.configInput.Value())
-			if m.settings.ConfigPath == "" {
-				m.settings.ConfigPath = m.options.ConfigPath
+		case "tab", "shift+tab":
+			if msg.String() == "tab" {
+				m.pathsField = (m.pathsField + 1) % 2
+			} else {
+				m.pathsField = (m.pathsField + 1) % 2
 			}
-			return m.startDictionary()
+			return m, m.syncFocus()
+		case "enter":
+			return m.startDictionary() // unchanged until Task 2
+		default:
+			input := &m.configInput
+			if m.pathsField == pathFieldDictionary {
+				input = &m.dictionaryInput
+			}
+			var cmd tea.Cmd
+			*input, cmd = input.Update(msg)
+			return m, cmd
 		}
-		var cmd tea.Cmd
-		m.configInput, cmd = m.configInput.Update(msg)
-		return m, cmd
 
 	case screenDictionary:
 		switch key {
@@ -473,6 +482,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) startPaths() (tea.Model, tea.Cmd) {
 	m.screen = screenPaths
+	m.pathsField = pathFieldConfig
 	return m, m.syncFocus()
 }
 
@@ -497,6 +507,9 @@ func (m *model) syncFocus() tea.Cmd {
 	m.targetInput.Blur()
 	switch m.screen {
 	case screenPaths:
+		if m.pathsField == pathFieldDictionary {
+			return m.dictionaryInput.Focus()
+		}
 		return m.configInput.Focus()
 	case screenDictionary:
 		return m.dictionaryInput.Focus()
