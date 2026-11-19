@@ -6,7 +6,13 @@ Lexicon is a lightweight, offline dictionary for Linux Wayland desktops. Select 
 
 No browser tabs. No accounts. No cloud services. Just your dictionary, right where you need it.
 
-<!-- Add a real popup screenshot or demo GIF here -->
+
+
+
+https://github.com/user-attachments/assets/7323cd59-56a2-4ab7-8788-c44756e27b90
+
+
+
 
 ## Features
 
