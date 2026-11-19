@@ -13,7 +13,8 @@ import (
 
 var _ ipc.LanguagePairHandler = (*Daemon)(nil)
 
-// LanguagePairs reports installed, selectable translation directions.
+// LanguagePairs reports installed, selectable translation directions and the
+// active pair for this daemon session.
 func (d *Daemon) LanguagePairs() ipc.LanguagePairsState {
 	d.mu.RLock()
 	cfg := d.cfg
@@ -22,57 +23,56 @@ func (d *Daemon) LanguagePairs() ipc.LanguagePairsState {
 		available = d.translator.Available()
 	}
 	d.mu.RUnlock()
-	return languagePairsFromConfig(cfg, available)
+
+	d.pairMu.Lock()
+	source, target := d.pairSource, d.pairTarget
+	d.pairMu.Unlock()
+
+	return languagePairsFromConfig(cfg, available, source, target)
 }
 
-// SetLanguagePair validates a requested pair and reports it in the returned
-// state. The pair is not persisted to configuration.
-func (d *Daemon) SetLanguagePair(ctx context.Context, source, target string) (ipc.LanguagePairsState, error) {
+// SetLanguagePair validates a requested pair and activates it for the current
+// daemon session only. The IPC server broadcasts TypeLanguagePairsEvent with
+// the returned state; nothing is written to configuration.
+func (d *Daemon) SetLanguagePair(_ context.Context, source, target string) (ipc.LanguagePairsState, error) {
 	source = translation.CanonicalLanguageCode(source)
 	target = translation.CanonicalLanguageCode(target)
 	if !translation.ValidLanguageCode(source) || !translation.ValidLanguageCode(target) {
 		return ipc.LanguagePairsState{}, fmt.Errorf("invalid language pair %q -> %q", source, target)
 	}
 
-	raw, exists, err := config.Load(d.configPath)
-	if err != nil {
-		return ipc.LanguagePairsState{}, fmt.Errorf("read configuration: %w", err)
-	}
-	if !exists {
-		return ipc.LanguagePairsState{}, fmt.Errorf("config file not found: %s", d.configPath)
-	}
-	effective := config.Effective(raw)
-	state := languagePairsFromConfig(effective, true)
+	cfg := d.snapshotConfig()
+	d.pairMu.Lock()
+	sessionSource, sessionTarget := d.pairSource, d.pairTarget
+	d.pairMu.Unlock()
+	state := languagePairsFromConfig(cfg, true, sessionSource, sessionTarget)
 	if !state.Enabled {
 		return state, errors.New("translation is disabled")
 	}
-	found := false
-	for _, pair := range state.Pairs {
-		if pair.Source == source && pair.Target == target {
-			found = true
-			break
+	if _, err := translation.FindPack(cfg.Translation.ModelDirectory, source, target); err != nil {
+		if errors.Is(err, translation.ErrNoModel) {
+			return state, fmt.Errorf("no installed model pack translates %s -> %s", source, target)
 		}
+		return state, fmt.Errorf("find model pack: %w", err)
 	}
-	if !found {
-		if _, findErr := translation.FindPack(effective.Translation.ModelDirectory, source, target); findErr != nil {
-			if errors.Is(findErr, translation.ErrNoModel) {
-				return state, fmt.Errorf("no installed model pack translates %s -> %s", source, target)
-			}
-			return state, fmt.Errorf("find model pack: %w", findErr)
-		}
-	}
+
+	d.pairMu.Lock()
+	d.pairSource = source
+	d.pairTarget = target
+	d.pairMu.Unlock()
 
 	state.Source = source
 	state.Target = target
 	return state, nil
 }
 
-func languagePairsFromConfig(cfg config.Config, available bool) ipc.LanguagePairsState {
+func languagePairsFromConfig(cfg config.Config, available bool, sessionSource, sessionTarget string) ipc.LanguagePairsState {
 	state := ipc.LanguagePairsState{
 		Enabled:   cfg.Translation.Enabled,
 		Available: available,
 		Pairs:     []ipc.LanguagePair{},
 	}
+	state.Source, state.Target = languagePairsFromSession(sessionSource, sessionTarget)
 	packs, err := translation.InstalledPacks(cfg.Translation.ModelDirectory)
 	if err != nil {
 		return state
@@ -96,5 +96,15 @@ func languagePairsFromConfig(cfg config.Config, available bool) ipc.LanguagePair
 		}
 		return state.Pairs[i].Source < state.Pairs[j].Source
 	})
+
+	if state.Source == "" || state.Target == "" {
+		if len(state.Pairs) > 0 {
+			state.Source, state.Target = state.Pairs[0].Source, state.Pairs[0].Target
+		}
+	}
 	return state
+}
+
+func languagePairsFromSession(source, target string) (string, string) {
+	return translation.CanonicalLanguageCode(source), translation.CanonicalLanguageCode(target)
 }

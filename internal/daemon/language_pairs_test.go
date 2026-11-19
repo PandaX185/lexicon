@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -72,5 +73,51 @@ func TestSetLanguagePairValidatesAndReportsPair(t *testing.T) {
 	offline, err := d.SetLanguagePair(context.Background(), "de", "fr")
 	if err == nil {
 		t.Fatalf("uninstalled pair succeeded: %+v", offline)
+	}
+}
+
+func TestSetLanguagePairKeepsSessionStateWithoutConfigWrite(t *testing.T) {
+	modelDir := t.TempDir()
+	writePairPack(t, modelDir, "de-en", "de", "en")
+	writePairPack(t, modelDir, "en-de", "en", "de")
+	configPath := writePairTestConfig(t, modelDir)
+
+	before, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := New(configPath, newTestLogger(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.closeResources()
+
+	state, err := d.SetLanguagePair(context.Background(), "en", "de")
+	if err != nil {
+		t.Fatalf("SetLanguagePair: %v", err)
+	}
+	if state.Source != "en" || state.Target != "de" {
+		t.Fatalf("SetLanguagePair state = %+v; want en -> de", state)
+	}
+	if active := d.LanguagePairs(); active.Source != "en" || active.Target != "de" {
+		t.Fatalf("session state = %+v; want en -> de", active)
+	}
+
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("SetLanguagePair must not write the config file")
+	}
+
+	restarted, err := New(configPath, newTestLogger(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.closeResources()
+	if active := restarted.LanguagePairs(); active.Source != "de" || active.Target != "en" {
+		t.Fatalf("restarted state = %+v; want first sorted pack de -> en", active)
 	}
 }

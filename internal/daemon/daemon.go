@@ -44,6 +44,12 @@ type Daemon struct {
 	started time.Time
 	server  atomic.Pointer[ipc.Server]
 
+	// The active translation pair lives only in this process; a restart falls
+	// back to the first installed pair.
+	pairMu     sync.Mutex
+	pairSource string
+	pairTarget string
+
 	popupMu      sync.Mutex
 	lastPopupTry time.Time
 }
