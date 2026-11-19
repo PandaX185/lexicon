@@ -72,9 +72,12 @@ type Popup struct {
 	// already waiting on the socket instead of reading PRIMARY again.
 	replay      bool
 	startupDone atomic.Bool
-	// emitResult is a test seam for observing displayed results without a
-	// running Wails application. Production leaves it nil.
+	// emitResult, emitPairs, and showWindow are test seams for observing
+	// frontend events and visibility without a running Wails application.
+	// Production leaves them nil.
 	emitResult func(ipc.LookupResult)
+	emitPairs  func(ipc.LanguagePairsState)
+	showWindow func()
 
 	mu         sync.Mutex
 	last       *ipc.LookupResult
@@ -125,6 +128,10 @@ func (p *Popup) publishPairs(state ipc.LanguagePairsState) {
 	p.pairMu.Lock()
 	p.pairState = &copied
 	p.pairMu.Unlock()
+	if p.emitPairs != nil {
+		p.emitPairs(copied)
+		return
+	}
 	p.app.Event.Emit(eventLanguagePairs, copied)
 }
 
@@ -196,17 +203,12 @@ func (p *Popup) start(ctx context.Context) {
 			p.pairErrorMessage("The Lexicon daemon is not connected.")
 			return
 		}
-		state, relookup, err := p.changeLanguagePair(ctx, client, request)
-		if err != nil {
+		if err := p.applyLanguagePairChange(ctx, client, request); err != nil {
 			if refreshed, refreshErr := client.LanguagePairs(ctx); refreshErr == nil {
 				p.publishPairs(*refreshed)
 			}
 			p.pairErrorMessage(err.Error())
 			return
-		}
-		p.publishPairs(state)
-		if relookup != nil {
-			p.handleResult(*relookup)
 		}
 	})
 	go p.connectLoop(ctx)
@@ -344,7 +346,9 @@ func (p *Popup) consume(ctx context.Context, client *ipc.Client) {
 	}
 }
 
-func (p *Popup) handleResult(result ipc.LookupResult) {
+// updateResult publishes a lookup result to the frontend without changing
+// window visibility. Pair changes use it so the translation updates in place.
+func (p *Popup) updateResult(result ipc.LookupResult) {
 	if !p.showPronunciation && result.Entry != nil {
 		// Copy before stripping so a replayed result keeps its original data.
 		entry := *result.Entry
@@ -362,6 +366,10 @@ func (p *Popup) handleResult(result ipc.LookupResult) {
 		return
 	}
 	p.app.Event.Emit(eventLookup, result)
+}
+
+func (p *Popup) handleResult(result ipc.LookupResult) {
+	p.updateResult(result)
 	p.show()
 }
 
@@ -380,6 +388,10 @@ func (p *Popup) show() {
 	p.mu.Lock()
 	p.shownAt = time.Now()
 	p.mu.Unlock()
+	if p.showWindow != nil {
+		p.showWindow()
+		return
+	}
 	p.window.Show()
 	p.window.Focus()
 }
@@ -413,12 +425,28 @@ func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, requ
 	}
 	var relookup *ipc.LookupResult
 	if query := p.lastQuery(); query != "" {
-		result, lookupErr := client.Lookup(ctx, query)
-		if lookupErr == nil {
-			relookup = result
+		result, lookupErr := client.LookupNoBroadcast(ctx, query)
+		if lookupErr != nil {
+			return ipc.LanguagePairsState{}, nil, fmt.Errorf("language pair changed, but its translation could not be refreshed: %w", lookupErr)
 		}
+		relookup = result
 	}
 	return *state, relookup, nil
+}
+
+// applyLanguagePairChange publishes the new pair and refreshes the visible
+// result in place. It deliberately avoids show(), which is only for a new
+// selection lookup or an idle window.
+func (p *Popup) applyLanguagePairChange(ctx context.Context, client *ipc.Client, request setLanguagePairRequest) error {
+	state, relookup, err := p.changeLanguagePair(ctx, client, request)
+	if err != nil {
+		return err
+	}
+	p.publishPairs(state)
+	if relookup != nil {
+		p.updateResult(*relookup)
+	}
+	return nil
 }
 
 // showWhenIdle makes a manually launched popup visible even when the daemon

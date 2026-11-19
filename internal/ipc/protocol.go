@@ -80,6 +80,10 @@ type Message struct {
 	// HasLastResult is set on welcome so a freshly connected popup can tell
 	// whether the daemon will replay a result or needs a fresh selection read.
 	HasLastResult bool `json:"has_last_result,omitempty"`
+	// NoBroadcast asks the daemon to answer a lookup without pushing a
+	// lookup_event to subscribed popups. Pair-change relookups use it so an
+	// already visible popup updates in place instead of being re-shown.
+	NoBroadcast bool `json:"no_broadcast,omitempty"`
 
 	LanguagePairs  *LanguagePairsState `json:"language_pairs,omitempty"`
 	SourceLanguage string              `json:"source_language,omitempty"`

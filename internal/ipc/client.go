@@ -117,6 +117,20 @@ func (c *Client) Lookup(ctx context.Context, text string) (*LookupResult, error)
 	return reply.Result, nil
 }
 
+// LookupNoBroadcast refreshes the daemon's replay cache and returns the result
+// to this client only. It exists for pair-change relookups: broadcasting that
+// result would make the already visible popup show() again.
+func (c *Client) LookupNoBroadcast(ctx context.Context, text string) (*LookupResult, error) {
+	reply, err := c.request(ctx, Message{Type: TypeLookup, Text: text, NoBroadcast: true})
+	if err != nil {
+		return nil, err
+	}
+	if reply.Result == nil {
+		return nil, errors.New("daemon returned an empty lookup result")
+	}
+	return reply.Result, nil
+}
+
 // Status fetches daemon health.
 func (c *Client) Status(ctx context.Context) (*Status, error) {
 	reply, err := c.request(ctx, Message{Type: TypeStatus})

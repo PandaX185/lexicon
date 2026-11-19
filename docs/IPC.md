@@ -70,6 +70,11 @@ for unsolicited events.
 | `language_pairs_event` | server → popup | Broadcast the state after a pair change |
 | `error` | server → client | Protocol, role, or request failure |
 
+A `lookup` may set `"no_broadcast": true`. The daemon still replaces its cached
+replayable result and returns `lookup_result` to the requester, but skips the
+`lookup_event` broadcast and popup-launch hook. Pair-change relookups use this
+so an already visible popup updates in place instead of being re-shown.
+
 ## Handshake
 
 ```json

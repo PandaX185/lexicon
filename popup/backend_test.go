@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -78,6 +79,7 @@ func TestStartupLookupReadsSelection(t *testing.T) {
 	popup := &Popup{
 		logger:     newTestLogger(t),
 		emitResult: func(ipc.LookupResult) {},
+		showWindow: func() {},
 	}
 	popup.requestStartupLookup(ctx, client)
 
@@ -113,6 +115,7 @@ func TestManualStartupLookupReadsSelectionDespiteReplayAdvertisement(t *testing.
 	popup := &Popup{
 		logger:     newTestLogger(t),
 		emitResult: func(ipc.LookupResult) {},
+		showWindow: func() {},
 	}
 	popup.requestStartupLookup(ctx, client)
 
@@ -219,6 +222,7 @@ func TestManualPopupIgnoresReplayEventBeforeStartupCompletes(t *testing.T) {
 	popup := &Popup{
 		logger:     newTestLogger(t),
 		emitResult: func(result ipc.LookupResult) { shown <- result },
+		showWindow: func() {},
 	}
 
 	startupDone := make(chan struct{})
@@ -284,6 +288,7 @@ func TestManualPopupDropsReplayBufferedBeforeConsumeStarts(t *testing.T) {
 	popup := &Popup{
 		logger:     newTestLogger(t),
 		emitResult: func(result ipc.LookupResult) { shown <- result },
+		showWindow: func() {},
 	}
 
 	// Production ordering: the startup lookup finishes before consume starts,
@@ -322,6 +327,14 @@ func (h *pairIPCHandler) SetLanguagePair(_ context.Context, source, target strin
 	h.state.Source = source
 	h.state.Target = target
 	return h.state, nil
+}
+
+type emptyLookupPairHandler struct {
+	pairIPCHandler
+}
+
+func (h *emptyLookupPairHandler) Lookup(context.Context, string) *ipc.LookupResult {
+	return nil
 }
 
 type channelQuitter struct {
@@ -434,6 +447,108 @@ func TestShouldDismissOnBlurIsRaceFree(t *testing.T) {
 	// loss dismisses the popup.
 	if !popup.shouldDismissOnBlur(time.Now().Add(time.Hour)) {
 		t.Fatal("focus loss after the guard must dismiss")
+	}
+}
+
+func TestApplyLanguagePairChangeUpdatesResultWithoutShowing(t *testing.T) {
+	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
+		Enabled: true,
+		Source:  "en",
+		Target:  "de",
+		Pairs: []ipc.LanguagePair{
+			{Source: "en", Target: "de", PackID: "en-de"},
+			{Source: "en", Target: "fr", PackID: "en-fr"},
+		},
+	}}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	shown := make(chan ipc.LookupResult, 4)
+	var showCalls atomic.Int32
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(result ipc.LookupResult) { shown <- result },
+		emitPairs:  func(ipc.LanguagePairsState) {},
+		showWindow: func() { showCalls.Add(1) },
+	}
+	popup.last = &ipc.LookupResult{Query: "hallo", Found: true}
+	popup.startupDone.Store(true)
+
+	// Run the real consume loop: the daemon broadcasts lookup events to
+	// subscribers, and those events must not re-show an already open popup.
+	consumeDone := make(chan struct{})
+	go func() {
+		popup.consume(ctx, client)
+		close(consumeDone)
+	}()
+
+	if err := popup.applyLanguagePairChange(ctx, client, setLanguagePairRequest{Source: "en", Target: "fr"}); err != nil {
+		t.Fatalf("applyLanguagePairChange: %v", err)
+	}
+
+	select {
+	case result := <-shown:
+		if result.Query != "hallo" {
+			t.Fatalf("relookup query = %q, want hallo", result.Query)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("pair change did not emit the relookup result")
+	}
+	select {
+	case duplicate := <-shown:
+		t.Fatalf("pair change emitted a duplicate lookup result: %+v", duplicate)
+	case <-time.After(250 * time.Millisecond):
+	}
+	if got := showCalls.Load(); got != 0 {
+		t.Fatalf("show called %d times during pair change, want 0", got)
+	}
+	if !popup.shownAt.IsZero() {
+		t.Fatal("pair change re-showed the window instead of updating in place")
+	}
+
+	cancel()
+	select {
+	case <-consumeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consume did not stop")
+	}
+}
+
+func TestApplyLanguagePairChangeReportsRelookupFailure(t *testing.T) {
+	handler := &emptyLookupPairHandler{pairIPCHandler: pairIPCHandler{state: ipc.LanguagePairsState{
+		Enabled: true,
+		Source:  "en",
+		Target:  "de",
+		Pairs: []ipc.LanguagePair{
+			{Source: "en", Target: "de", PackID: "en-de"},
+			{Source: "en", Target: "fr", PackID: "en-fr"},
+		},
+	}}}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	popup := &Popup{
+		logger:    newTestLogger(t),
+		emitPairs: func(ipc.LanguagePairsState) {},
+	}
+	popup.last = &ipc.LookupResult{Query: "hallo", Found: true}
+
+	if err := popup.applyLanguagePairChange(ctx, client, setLanguagePairRequest{Source: "en", Target: "fr"}); err == nil {
+		t.Fatal("relookup failure was swallowed")
 	}
 }
 

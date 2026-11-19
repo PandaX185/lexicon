@@ -8,7 +8,7 @@ import type {
   LookupResult,
   PairErrorMessage,
 } from "./types";
-import TranslationPairCycle from "./components/TranslationPairCycle";
+import TranslationPairSelect from "./components/TranslationPairSelect";
 
 const LOOKUP_EVENT = "lexicon:lookup";
 const CONNECTION_EVENT = "lexicon:connection";
@@ -24,7 +24,6 @@ export default function App() {
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
   const [pairs, setPairs] = useState<LanguagePairsState | null>(null);
   const [pairError, setPairError] = useState("");
-  const [pairEventRevision, setPairEventRevision] = useState(0);
 
   useEffect(() => {
     const stopLookup = Events.On(LOOKUP_EVENT, (event) => {
@@ -41,12 +40,10 @@ export default function App() {
     const stopPairs = Events.On(LANGUAGE_PAIRS_EVENT, (event) => {
       setPairs(event.data as LanguagePairsState);
       setPairError("");
-      setPairEventRevision((revision) => revision + 1);
     });
     const stopPairError = Events.On(PAIR_ERROR_EVENT, (event) => {
       const value = event.data as PairErrorMessage;
       setPairError(value.message || "Failed to change the language pair.");
-      setPairEventRevision((revision) => revision + 1);
     });
 
     void Events.Emit(READY_EVENT, null);
@@ -94,7 +91,6 @@ export default function App() {
               entry={result.entry}
               pairs={pairs}
               pairError={pairError}
-              pairEventRevision={pairEventRevision}
               changePair={changePair}
             />
           ) : (
@@ -124,20 +120,18 @@ function ResultView({
   entry,
   pairs,
   pairError,
-  pairEventRevision,
   changePair,
 }: {
   result: LookupResult;
   entry: Entry;
   pairs: LanguagePairsState | null;
   pairError: string;
-  pairEventRevision: number;
   changePair: (source: string, target: string) => void;
 }) {
   const { respelling, ipa } = entry.pronunciation;
   const metadata = entry.metadata ?? {};
   const hasMetadata = Boolean(metadata.source || metadata.license);
-  const canCycle = Boolean(pairs?.enabled && pairs.available && pairs.pairs.length > 0);
+  const canSelectPair = Boolean(pairs?.enabled && pairs.available && pairs.pairs.length > 0);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -227,15 +221,14 @@ function ResultView({
         </p>
       ) : null}
 
-      {pairs && canCycle ? (
-        <TranslationPairCycle
+      {pairs && canSelectPair ? (
+        <TranslationPairSelect
           state={pairs}
           error={pairError}
-          revision={pairEventRevision}
           onChange={changePair}
         />
       ) : null}
-      {!canCycle && pairError ? (
+      {!canSelectPair && pairError ? (
         <p className="max-w-[28ch] break-words text-[10px] text-red-400">{pairError}</p>
       ) : null}
 

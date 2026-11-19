@@ -257,7 +257,7 @@ func (a *App) languagesUse(_ context.Context, args []string) int {
 		return ExitFailure
 	}
 
-	fmt.Fprintf(a.Stdout, "translation pair %s -> %s is installed; press Next under the popup definition to select it as the active pair for the current session only\n", source, target)
+	fmt.Fprintf(a.Stdout, "translation pair %s -> %s is installed; choose it with the From/To dropdowns under the popup definition for the current session only\n", source, target)
 	if !previous.Translation.Enabled {
 		fmt.Fprintln(a.Stdout, "hint: translation is disabled; enable it with \"lexicon config set translation.enabled true\"")
 	}

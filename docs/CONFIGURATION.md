@@ -47,7 +47,9 @@ Everything else — sockets, paths, timeouts, selection tuning, and binary
 overrides — remains in `lexicon config` and `lexicon config edit`.
 
 The active translation pair is daemon session state, not a config key. Change it
-with the `Next` control under the popup definition. Use
+with the **From** and **To** dropdowns under the popup definition. Changing
+**From** limits **To** to the targets installed for that source and selects the
+first one; the translation updates in place without reopening the popup. Use
 `lexicon languages use SRC-TGT` to validate an installed pair; it points to that
 control and writes no config. The choice resets to the first installed pair when
 the daemon restarts.
@@ -100,10 +102,11 @@ Notes:
   dictionary pair; no language keys are written to the config file.
 - The popup is frameless but resizable. Its result card shows the headword,
   pronunciation, definitions, the translation of the queried word (or its
-  error), the installed source/destination codes with a `Next` cycle, and
-  source metadata. Closing the window, pressing Escape, or losing focus quits
-  the popup process. Focus loss is ignored only for the first 350 ms after the
-  popup appears; later focus loss dismisses it even when a control has focus.
+  error), **From**/**To** dropdowns for the installed translation pairs, and
+  source metadata. Selecting a pair relooks up the last query and updates the
+  translation in place. Closing the window, pressing Escape, or losing focus
+  quits the popup process. Focus loss is ignored only for the first 350 ms after
+  the popup appears; later focus loss dismisses it even when a dropdown is open.
   Only one popup is kept: when a newer popup connects, the daemon asks every
   older popup to quit its whole process, so an earlier window never lingers.
 - The old `popup.hide_on_blur` key is accepted in existing files and ignored;

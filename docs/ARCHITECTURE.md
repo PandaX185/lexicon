@@ -138,8 +138,11 @@ client roles. Details are in [IPC.md](IPC.md).
   the preset to the opaque window base colour to avoid a first-paint flash and
   sends the same values to the frontend over `lexicon:settings`. The result view
   shows the headword, pronunciation, definitions, the translation of the queried
-  word (or its error), and then the installed source/destination codes with a
-  `Next` pair cycle. Window transparency and backdrop blur were deliberately
+  word (or its error), and then From/To dropdowns for the installed translation
+  pairs. Changing a pair relooks up the last query and updates the result in
+  place without re-showing the window. The dropdowns are in-webview popovers; a
+  native `<select>` would open a separate GTK window and trigger focus loss.
+  Window transparency and backdrop blur were deliberately
   omitted: WebKitGTK's `backdrop-filter` cannot reach other X11/Wayland windows,
   so neither has a visible effect.
 

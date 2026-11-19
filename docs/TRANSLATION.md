@@ -203,19 +203,23 @@ lexicon languages use en-de             # validates; pair selection stays in the
 ## Choosing the active pair in the popup
 
 When translation is enabled and at least one pack is installed, the result view
-lists the installed source and destination BCP 47 codes as rows directly below
-the definitions. `Next` cycles through all installed pairs in sorted order and
-wraps around. Only codes are shown; pack metadata is available from
-`lexicon languages list`.
+shows two custom dropdowns directly below the definitions: **From** and **To**.
+Both lists are sorted BCP 47 codes drawn from installed packs; pack metadata is
+available from `lexicon languages list`. **From** lists every installed source
+code. **To** lists only the targets installed for the selected source; changing
+**From** filters **To** and selects its first target. Changing **To** applies
+that target for the current source. The dropdowns are in-webview popovers so
+choosing a language cannot open a separate GTK window and dismiss the popup.
 
 The popup emits `lexicon:set-language-pair`. The daemon validates the pair
 against installed packs, updates the active pair for the current session,
 broadcasts the new state, and relooks up the last query so the translation
-matches the selected pair. No config file is written: closing the popup keeps
-the choice while the daemon lives, but restarting the daemon resets it to the
-first installed pair. `lexicon languages use SRC-TGT` validates an installed
-pair and points to this control; it does not change the active pair or write
-config.
+matches the selected pair. The popup replaces the visible result as soon as the
+new lookup arrives, without re-showing or reopening the window. No config file
+is written: closing the popup keeps the choice while the daemon lives, but
+restarting the daemon resets it to the first installed pair.
+`lexicon languages use SRC-TGT` validates an installed pair and points to this
+control; it does not change the active pair or write config.
 
 ## Runtime behavior
 
