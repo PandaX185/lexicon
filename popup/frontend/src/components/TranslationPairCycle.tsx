@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import type { LanguagePairsState } from "../types";
 
 interface Props {
   state: LanguagePairsState;
   error: string;
+  revision: number;
   onChange: (source: string, target: string) => void;
 }
 
@@ -10,7 +12,21 @@ function compare(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-export default function TranslationPairCycle({ state, error, onChange }: Props) {
+export default function TranslationPairCycle({
+  state,
+  error,
+  revision,
+  onChange,
+}: Props) {
+  const [pending, setPending] = useState(false);
+
+  // A response to the last request either publishes a new pair or emits an
+  // error; both bump revision. Clearing the error at request time does not, so
+  // the guard stays in flight until the daemon answers.
+  useEffect(() => {
+    setPending(false);
+  }, [revision, state.source, state.target]);
+
   if (!state.enabled || state.pairs.length === 0) {
     return null;
   }
@@ -27,15 +43,23 @@ export default function TranslationPairCycle({ state, error, onChange }: Props) 
   const targets = pairs
     .filter((pair) => pair.source === activeSource)
     .map((pair) => pair.target);
+  const activeTarget = targets.includes(state.target)
+    ? state.target
+    : (targets[0] ?? "");
+  const activeIndex = pairs.findIndex(
+    (pair) => pair.source === activeSource && pair.target === activeTarget,
+  );
 
   const cycle = () => {
-    const index = pairs.findIndex(
-      (pair) => pair.source === state.source && pair.target === state.target,
-    );
-    const next = pairs[(index + 1) % pairs.length];
-    if (next) {
-      onChange(next.source, next.target);
+    if (pending) {
+      return;
     }
+    const next = pairs[(activeIndex + 1) % pairs.length];
+    if (!next) {
+      return;
+    }
+    setPending(true);
+    onChange(next.source, next.target);
   };
 
   const list = (label: string, codes: string[], active: string) => (
@@ -69,15 +93,16 @@ export default function TranslationPairCycle({ state, error, onChange }: Props) 
         <button
           type="button"
           aria-label="Next translation pair"
+          disabled={pending}
           onClick={cycle}
-          className="min-h-7 rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/60"
+          className="min-h-7 rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-[10px] font-semibold text-accent hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/60 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Next
         </button>
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {list("From", sources, activeSource)}
-        {list("To", targets, state.target)}
+        {list("To", targets, activeTarget)}
       </div>
       {error ? (
         <p className="max-w-[28ch] break-words text-[10px] text-red-400">{error}</p>
