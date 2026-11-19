@@ -118,8 +118,8 @@ type windowHookRegistrar interface {
 // registerPopupHooks installs the lifecycle hooks. Hooks run synchronously
 // before Wails' built-in listeners. GTK4 reports a window-manager close as
 // WindowDeleteEvent, while Close() emits the common event; both must quit the
-// whole popup process. Focus loss goes through the popup's guard so an early
-// blur or a focused language-pair control does not dismiss it.
+// whole popup process. Focus loss goes through the popup's guard so only an
+// early blur is ignored; any later focus loss quits the popup.
 func registerPopupHooks(window windowHookRegistrar, quitter popupQuitter, popup *Popup) {
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		dismissPopup(quitter, event)
