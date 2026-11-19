@@ -427,7 +427,7 @@ func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, requ
 	if query := p.lastQuery(); query != "" {
 		result, lookupErr := client.LookupNoBroadcast(ctx, query)
 		if lookupErr != nil {
-			return ipc.LanguagePairsState{}, nil, fmt.Errorf("relookup after language-pair change: %w", lookupErr)
+			return ipc.LanguagePairsState{}, nil, fmt.Errorf("language pair changed, but its translation could not be refreshed: %w", lookupErr)
 		}
 		relookup = result
 	}

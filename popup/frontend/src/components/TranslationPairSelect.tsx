@@ -97,6 +97,7 @@ function LanguageDropdown({ label, value, options, onChange }: DropdownProps) {
       case "Escape":
         event.preventDefault();
         // Escape also dismisses the whole popup through the Wails keybinding.
+        buttonRef.current?.focus();
         setOpen(false);
         break;
       default:
@@ -200,15 +201,28 @@ export default function TranslationPairSelect({
     : (derivedTargets[0] ?? "");
 
   // Update immediately for responsiveness, then take daemon state as the
-  // source of truth when it catches up. An error resyncs to the last applied
-  // pair instead of leaving a rejected optimistic choice on screen.
+  // source of truth when it catches up. A rejected choice resyncs to the last
+  // applied pair. Clearing an error at request time (or on success) is NOT a
+  // resync signal: the daemon may not have answered yet, and resetting here
+  // would snap an optimistic From back to the old pair and break last-change-
+  // wins on a quick follow-up To change.
   const [selected, setSelected] = useState({
     source: derivedSource,
     target: derivedTarget,
   });
+  const lastPairRef = useRef({ source: derivedSource, target: derivedTarget });
+  const lastErrorRef = useRef(error);
 
   useEffect(() => {
-    setSelected({ source: derivedSource, target: derivedTarget });
+    const pairChanged =
+      derivedSource !== lastPairRef.current.source ||
+      derivedTarget !== lastPairRef.current.target;
+    const newError = error !== "" && error !== lastErrorRef.current;
+    lastPairRef.current = { source: derivedSource, target: derivedTarget };
+    lastErrorRef.current = error;
+    if (pairChanged || newError) {
+      setSelected({ source: derivedSource, target: derivedTarget });
+    }
   }, [derivedSource, derivedTarget, error]);
 
   if (!state.enabled || !state.available || pairs.length === 0) {
