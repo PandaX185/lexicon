@@ -22,10 +22,16 @@ const (
 	eventLanguagePairs   = "lexicon:language_pairs"
 	eventPairError       = "lexicon:pair_error"
 	eventSetLanguagePair = "lexicon:set-language-pair"
+	eventSelectorOpen    = "lexicon:selector-open"
+	eventSelectorClosed  = "lexicon:selector-closed"
 
 	dialRetryDelay  = 1500 * time.Millisecond
 	maxDialFailures = 12
 	idleShowDelay   = 900 * time.Millisecond
+
+	// blurGuard gives the webview time to settle after Show/Focus before a
+	// focus-loss event can dismiss a freshly opened popup.
+	blurGuard = 350 * time.Millisecond
 )
 
 // connectionState is sent to the frontend so it can distinguish an empty
@@ -58,14 +64,17 @@ type displaySettings struct {
 type Popup struct {
 	app               *application.App
 	window            *application.WebviewWindow
+	quitter           popupQuitter
 	socket            string
 	showPronunciation bool
 	display           displaySettings
 	logger            *slog.Logger
 
-	mu         sync.Mutex
-	last       *ipc.LookupResult
-	connection connectionState
+	mu           sync.Mutex
+	last         *ipc.LookupResult
+	connection   connectionState
+	shownAt      time.Time
+	selectorOpen bool
 
 	clientMu  sync.Mutex
 	client    *ipc.Client
@@ -80,6 +89,7 @@ func newPopup(app *application.App, window *application.WebviewWindow, settings 
 	return &Popup{
 		app:               app,
 		window:            window,
+		quitter:           app,
 		socket:            settings.socket,
 		showPronunciation: settings.showPronunciation,
 		display: displaySettings{
@@ -192,6 +202,14 @@ func (p *Popup) start(ctx context.Context) {
 		if relookup != nil {
 			p.handleResult(*relookup)
 		}
+	})
+	// The language-pair control holds focus while the user is cycling, so a
+	// focus change caused by interacting with it must not quit the popup.
+	p.app.Event.On(eventSelectorOpen, func(*application.CustomEvent) {
+		p.setSelectorOpen(true)
+	})
+	p.app.Event.On(eventSelectorClosed, func(*application.CustomEvent) {
+		p.setSelectorOpen(false)
 	})
 	go p.connectLoop(ctx)
 	go p.showWhenIdle(ctx)
@@ -311,8 +329,38 @@ func (p *Popup) setConnection(connected bool, message string) {
 }
 
 func (p *Popup) show() {
+	p.mu.Lock()
+	p.shownAt = time.Now()
+	p.mu.Unlock()
 	p.window.Show()
 	p.window.Focus()
+}
+
+func (p *Popup) setSelectorOpen(open bool) {
+	p.mu.Lock()
+	p.selectorOpen = open
+	p.mu.Unlock()
+}
+
+// shouldDismissOnBlur is pure so the timing and selector guards can be tested
+// without a window. A zero shownAt means the popup was never displayed.
+func shouldDismissOnBlur(shownAt, now time.Time, selectorOpen bool) bool {
+	return !selectorOpen && !shownAt.IsZero() && now.Sub(shownAt) > blurGuard
+}
+
+func (p *Popup) shouldDismissOnBlur(now time.Time) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return shouldDismissOnBlur(p.shownAt, now, p.selectorOpen)
+}
+
+// dismissOnBlur is called by the WindowLostFocus hook. The guards prevent an
+// immediate blur during show from closing the popup and keep it open while the
+// language-pair control has focus.
+func (p *Popup) dismissOnBlur() {
+	if p.shouldDismissOnBlur(time.Now()) {
+		dismissPopup(p.quitter, nil)
+	}
 }
 
 func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, request setLanguagePairRequest) (ipc.LanguagePairsState, *ipc.LookupResult, error) {

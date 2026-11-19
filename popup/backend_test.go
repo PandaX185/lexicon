@@ -144,6 +144,63 @@ func TestSetLanguagePairEventCarriesRequestedPair(t *testing.T) {
 	}
 }
 
+func TestShouldDismissOnBlurGuard(t *testing.T) {
+	shownAt := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name         string
+		shownAt      time.Time
+		now          time.Time
+		selectorOpen bool
+		want         bool
+	}{
+		{"never shown", time.Time{}, shownAt.Add(time.Hour), false, false},
+		{"inside guard", shownAt, shownAt.Add(blurGuard - time.Millisecond), false, false},
+		{"at guard boundary", shownAt, shownAt.Add(blurGuard), false, false},
+		{"after guard", shownAt, shownAt.Add(blurGuard + time.Millisecond), false, true},
+		{"selector open", shownAt, shownAt.Add(time.Hour), true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldDismissOnBlur(tt.shownAt, tt.now, tt.selectorOpen); got != tt.want {
+				t.Fatalf("shouldDismissOnBlur = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSelectorOpenStateIsGuardedAndRaceFree(t *testing.T) {
+	popup := &Popup{shownAt: time.Now().Add(-time.Hour)}
+
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			popup.setSelectorOpen(true)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = popup.shouldDismissOnBlur(time.Now())
+		}()
+	}
+	wg.Wait()
+
+	popup.setSelectorOpen(true)
+	if popup.shouldDismissOnBlur(time.Now()) {
+		t.Fatal("must not dismiss while the translation selector has focus")
+	}
+	popup.setSelectorOpen(false)
+	if !popup.shouldDismissOnBlur(time.Now()) {
+		t.Fatal("must dismiss once the translation selector loses focus")
+	}
+}
+
+func TestSelectorEventNames(t *testing.T) {
+	if eventSelectorOpen != "lexicon:selector-open" || eventSelectorClosed != "lexicon:selector-closed" {
+		t.Fatalf("selector events = %q / %q, want lexicon:selector-open / lexicon:selector-closed", eventSelectorOpen, eventSelectorClosed)
+	}
+}
+
 func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
 		Enabled: true,

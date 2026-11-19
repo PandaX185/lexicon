@@ -101,10 +101,12 @@ Notes:
 - The popup is frameless but resizable. Its result card shows the headword,
   pronunciation, definitions, the translation of the queried word (or its
   error), the installed source/destination codes with a `Next` cycle, and
-  source metadata. Closing the window or pressing Escape exits the popup
-  process.
+  source metadata. Closing the window, pressing Escape, or losing focus quits
+  the popup process. Focus loss is ignored for the first 350 ms after the popup
+  appears and while the language-pair control has focus.
 - The old `popup.hide_on_blur` key is accepted in existing files and ignored;
-  it is no longer written to new configurations.
+  it is no longer written to new configurations. Focus loss always quits the
+  popup, rather than just hiding its window.
 - `popup.*` display values are read when the popup process starts. A running
   popup does not hot-reload them; the next popup launch uses the new values.
 - Theme presets are compiled into the popup; there are no theme files or

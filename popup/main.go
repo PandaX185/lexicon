@@ -64,15 +64,7 @@ func run() int {
 
 	popup := newPopup(app, window, settings, fallback)
 
-	// Hooks run synchronously before Wails' built-in listeners. GTK4 reports a
-	// window-manager close as WindowDeleteEvent, while Close() emits the common
-	// event; both must quit the whole popup process.
-	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		dismissPopup(app, event)
-	})
-	window.RegisterHook(events.Linux.WindowDeleteEvent, func(event *application.WindowEvent) {
-		dismissPopup(app, event)
-	})
+	registerPopupHooks(window, app, popup)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -114,6 +106,29 @@ func popupWindowOptions(app *application.App, settings settings) application.Web
 
 type popupQuitter interface {
 	Quit()
+}
+
+// windowHookRegistrar is the part of WebviewWindow the popup needs; keeping it
+// an interface lets tests fire the registered hooks without starting Wails.
+type windowHookRegistrar interface {
+	RegisterHook(events.WindowEventType, func(*application.WindowEvent)) func()
+}
+
+// registerPopupHooks installs the lifecycle hooks. Hooks run synchronously
+// before Wails' built-in listeners. GTK4 reports a window-manager close as
+// WindowDeleteEvent, while Close() emits the common event; both must quit the
+// whole popup process. Focus loss goes through the popup's guard so an early
+// blur or a focused language-pair control does not dismiss it.
+func registerPopupHooks(window windowHookRegistrar, quitter popupQuitter, popup *Popup) {
+	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		dismissPopup(quitter, event)
+	})
+	window.RegisterHook(events.Linux.WindowDeleteEvent, func(event *application.WindowEvent) {
+		dismissPopup(quitter, event)
+	})
+	window.RegisterHook(events.Common.WindowLostFocus, func(*application.WindowEvent) {
+		popup.dismissOnBlur()
+	})
 }
 
 // dismissPopup cancels the native window close so Wails does not tear down the

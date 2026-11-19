@@ -119,8 +119,12 @@ client roles. Details are in [IPC.md](IPC.md).
   current Wayland primary selection immediately. This makes a manually launched
   popup show the highlighted word without a separate `lexicon lookup`; the
   auto-launch path keeps its replay and does not look up or translate twice.
-  Closing the window or pressing Escape quits the popup process, so no popup
-  stays resident after dismissal.
+  Closing the window, pressing Escape, or losing focus quits the popup process,
+  so no popup stays resident after dismissal. Focus loss is guarded: it is
+  ignored for 350 ms after the popup is shown and while the language-pair
+  selector has focus. The legacy `popup.hide_on_blur` key remains ignored; Wails
+  `HideOnFocusLost` is not used because it only hides the window and is
+  unreliable on Hyprland, Sway, and i3.
 - The window is frameless, solid, and resizable by dragging its edges. Appearance
   is read from `[popup]` at startup: one of 20 built-in colour presets (10 dark,
   10 light; `system` follows the desktop light/dark preference) plus optional

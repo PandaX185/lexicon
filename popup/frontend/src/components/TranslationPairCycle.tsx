@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FocusEvent } from "react";
+import { Events } from "@wailsio/runtime";
 import type { LanguagePairsState } from "../types";
+
+const SELECTOR_OPEN_EVENT = "lexicon:selector-open";
+const SELECTOR_CLOSED_EVENT = "lexicon:selector-closed";
 
 interface Props {
   state: LanguagePairsState;
@@ -26,6 +30,27 @@ export default function TranslationPairCycle({
   useEffect(() => {
     setPending(false);
   }, [revision, state.source, state.target]);
+
+  // Release the backend's focus-loss guard if the control disappears while
+  // focused (for example when a new lookup has no language pairs).
+  useEffect(() => {
+    return () => {
+      void Events.Emit(SELECTOR_CLOSED_EVENT, null);
+    };
+  }, []);
+
+  // Capture handlers count focus anywhere in the control, including the Next
+  // button. Moving focus within the control must not release the guard.
+  const handleFocusCapture = () => {
+    void Events.Emit(SELECTOR_OPEN_EVENT, null);
+  };
+
+  const handleBlurCapture = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+    void Events.Emit(SELECTOR_CLOSED_EVENT, null);
+  };
 
   if (!state.enabled || state.pairs.length === 0) {
     return null;
@@ -85,7 +110,11 @@ export default function TranslationPairCycle({
   );
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface-soft/40 px-3 py-2.5">
+    <div
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface-soft/40 px-3 py-2.5"
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
           Translation pair
