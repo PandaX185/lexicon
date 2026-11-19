@@ -113,7 +113,7 @@ bergamot-test pack:
     LEXICON_BERGAMOT_TEST_PACK="$pack" {{ go }} test -tags bergamot -run TestBergamot -v ./internal/translation
 
 # Assemble a checksummed release tarball from a prepared Bergamot build.
-# Run `just bergamot-build` first; then `just release 0.1.3`.
+# Run `just bergamot-build` first; then `just release 0.1.4`.
 release app_version:
     #!/usr/bin/env bash
     set -euo pipefail
