@@ -72,10 +72,12 @@ type Popup struct {
 	// already waiting on the socket instead of reading PRIMARY again.
 	replay      bool
 	startupDone atomic.Bool
-	// emitResult and emitPairs are test seams for observing frontend events
-	// without a running Wails application. Production leaves them nil.
+	// emitResult, emitPairs, and showWindow are test seams for observing
+	// frontend events and visibility without a running Wails application.
+	// Production leaves them nil.
 	emitResult func(ipc.LookupResult)
 	emitPairs  func(ipc.LanguagePairsState)
+	showWindow func()
 
 	mu         sync.Mutex
 	last       *ipc.LookupResult
@@ -368,9 +370,6 @@ func (p *Popup) updateResult(result ipc.LookupResult) {
 
 func (p *Popup) handleResult(result ipc.LookupResult) {
 	p.updateResult(result)
-	if p.emitResult != nil {
-		return
-	}
 	p.show()
 }
 
@@ -389,6 +388,10 @@ func (p *Popup) show() {
 	p.mu.Lock()
 	p.shownAt = time.Now()
 	p.mu.Unlock()
+	if p.showWindow != nil {
+		p.showWindow()
+		return
+	}
 	p.window.Show()
 	p.window.Focus()
 }
@@ -422,10 +425,11 @@ func (p *Popup) changeLanguagePair(ctx context.Context, client *ipc.Client, requ
 	}
 	var relookup *ipc.LookupResult
 	if query := p.lastQuery(); query != "" {
-		result, lookupErr := client.Lookup(ctx, query)
-		if lookupErr == nil {
-			relookup = result
+		result, lookupErr := client.LookupNoBroadcast(ctx, query)
+		if lookupErr != nil {
+			return ipc.LanguagePairsState{}, nil, fmt.Errorf("relookup after language-pair change: %w", lookupErr)
 		}
+		relookup = result
 	}
 	return *state, relookup, nil
 }

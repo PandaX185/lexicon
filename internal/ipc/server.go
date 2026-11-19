@@ -329,6 +329,9 @@ func (s *Server) handle(ctx context.Context, raw net.Conn) {
 			if err := s.send(connection, Message{Type: TypeLookupResult, ID: message.ID, Result: result}); err != nil {
 				return
 			}
+			if message.NoBroadcast {
+				continue
+			}
 			s.broadcast(result)
 			if post, ok := s.handler.(PostLookupHandler); ok {
 				post.AfterLookup(s.SubscriberCount())

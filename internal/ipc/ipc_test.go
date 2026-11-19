@@ -174,6 +174,55 @@ func TestLookupBroadcastAndStatus(t *testing.T) {
 	}
 }
 
+func TestLookupWithoutBroadcastStillUpdatesReplay(t *testing.T) {
+	handler := &fakeHandler{}
+	_, path := startServer(t, handler)
+	ctx := context.Background()
+
+	popup, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial popup: %v", err)
+	}
+	defer func() { _ = popup.Close() }()
+
+	cli, err := Dial(ctx, path, RoleCLI)
+	if err != nil {
+		t.Fatalf("dial cli: %v", err)
+	}
+	defer func() { _ = cli.Close() }()
+
+	result, err := cli.LookupNoBroadcast(ctx, "hello")
+	if err != nil {
+		t.Fatalf("lookup without broadcast: %v", err)
+	}
+	if result.Query != "hello" {
+		t.Fatalf("query = %q, want hello", result.Query)
+	}
+	select {
+	case event := <-popup.Events():
+		t.Fatalf("popup received broadcast for silent lookup: %+v", event)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	// The silent lookup must still replace the daemon's replayable result.
+	if err := popup.Close(); err != nil {
+		t.Fatalf("close first popup: %v", err)
+	}
+	replayPopup, err := Dial(ctx, path, RolePopup)
+	if err != nil {
+		t.Fatalf("dial replay popup: %v", err)
+	}
+	defer func() { _ = replayPopup.Close() }()
+	select {
+	case event := <-replayPopup.Events():
+		if event.Query != "hello" {
+			t.Fatalf("replay query = %q, want hello", event.Query)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("silent lookup was not replayed to a new popup")
+	}
+}
+
 func TestPopupReceivesReplay(t *testing.T) {
 	_, path := startServer(t, &fakeHandler{})
 	ctx := context.Background()
