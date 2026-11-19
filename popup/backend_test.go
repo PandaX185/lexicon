@@ -437,6 +437,53 @@ func TestShouldDismissOnBlurIsRaceFree(t *testing.T) {
 	}
 }
 
+func TestApplyLanguagePairChangeUpdatesResultWithoutShowing(t *testing.T) {
+	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
+		Enabled: true,
+		Source:  "en",
+		Target:  "de",
+		Pairs: []ipc.LanguagePair{
+			{Source: "en", Target: "de", PackID: "en-de"},
+			{Source: "en", Target: "fr", PackID: "en-fr"},
+		},
+	}}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	shown := make(chan ipc.LookupResult, 4)
+	popup := &Popup{
+		logger:     newTestLogger(t),
+		emitResult: func(result ipc.LookupResult) { shown <- result },
+		emitPairs:  func(ipc.LanguagePairsState) {},
+	}
+	popup.last = &ipc.LookupResult{Query: "hallo", Found: true}
+
+	// shownAt stays zero until show() is called. A pair change happens while
+	// the popup is already visible, so it must update the card in place.
+	if err := popup.applyLanguagePairChange(ctx, client, setLanguagePairRequest{Source: "en", Target: "fr"}); err != nil {
+		t.Fatalf("applyLanguagePairChange: %v", err)
+	}
+
+	select {
+	case result := <-shown:
+		if result.Query != "hallo" {
+			t.Fatalf("relookup query = %q, want hallo", result.Query)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("pair change did not emit the relookup result")
+	}
+	if !popup.shownAt.IsZero() {
+		t.Fatal("pair change re-showed the window instead of updating in place")
+	}
+}
+
 func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
 		Enabled: true,
