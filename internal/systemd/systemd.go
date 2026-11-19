@@ -51,6 +51,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
+RuntimeDirectory=lexicon
 ReadWritePaths=%%t/lexicon
 Environment=LEXICON_CONFIG=%s
 

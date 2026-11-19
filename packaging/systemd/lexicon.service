@@ -13,6 +13,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
+RuntimeDirectory=lexicon
 ReadWritePaths=%t/lexicon
 
 # The daemon reads the Wayland primary selection through wl-paste and launches
