@@ -123,11 +123,11 @@ client roles. Details are in [IPC.md](IPC.md).
   the fresh reply. This makes a manually launched popup show the current
   highlighted word without a separate `lexicon lookup`.
   Closing the window, pressing Escape, or losing focus quits the popup process,
-  so no popup stays resident after dismissal. Focus loss is guarded: it is
-  ignored for 350 ms after the popup is shown and while the language-pair
-  selector has focus. The legacy `popup.hide_on_blur` key remains ignored; Wails
-  `HideOnFocusLost` is not used because it only hides the window and is
-  unreliable on Hyprland, Sway, and i3.
+  so no popup stays resident after dismissal. Focus loss is ignored only for
+  350 ms after the popup is shown; later focus loss quits even when an
+  in-webview control has focus. The legacy `popup.hide_on_blur` key remains
+  ignored; Wails `HideOnFocusLost` is not used because it only hides the window
+  and is unreliable on Hyprland, Sway, and i3.
 - The window is frameless, solid, and resizable by dragging its edges. Appearance
   is read from `[popup]` at startup: one of 20 built-in colour presets (10 dark,
   10 light; `system` follows the desktop light/dark preference) plus optional

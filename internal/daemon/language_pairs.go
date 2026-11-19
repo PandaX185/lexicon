@@ -42,10 +42,11 @@ func (d *Daemon) SetLanguagePair(_ context.Context, source, target string) (ipc.
 	}
 
 	cfg := d.snapshotConfig()
+	available := d.LanguagePairs().Available
 	d.pairMu.Lock()
 	sessionSource, sessionTarget := d.pairSource, d.pairTarget
 	d.pairMu.Unlock()
-	state := languagePairsFromConfig(cfg, true, sessionSource, sessionTarget)
+	state := languagePairsFromConfig(cfg, available, sessionSource, sessionTarget)
 	if !state.Enabled {
 		return state, errors.New("translation is disabled")
 	}

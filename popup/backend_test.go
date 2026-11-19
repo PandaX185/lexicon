@@ -346,28 +346,27 @@ func TestSetLanguagePairEventCarriesRequestedPair(t *testing.T) {
 func TestShouldDismissOnBlurGuard(t *testing.T) {
 	shownAt := time.Date(2026, time.November, 19, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
-		name         string
-		shownAt      time.Time
-		now          time.Time
-		selectorOpen bool
-		want         bool
+		name    string
+		shownAt time.Time
+		now     time.Time
+		want    bool
 	}{
-		{"never shown", time.Time{}, shownAt.Add(time.Hour), false, false},
-		{"inside guard", shownAt, shownAt.Add(blurGuard - time.Millisecond), false, false},
-		{"at guard boundary", shownAt, shownAt.Add(blurGuard), false, false},
-		{"after guard", shownAt, shownAt.Add(blurGuard + time.Millisecond), false, true},
-		{"selector open", shownAt, shownAt.Add(time.Hour), true, false},
+		{"never shown", time.Time{}, shownAt.Add(time.Hour), false},
+		{"inside guard", shownAt, shownAt.Add(blurGuard - time.Millisecond), false},
+		{"at guard boundary", shownAt, shownAt.Add(blurGuard), false},
+		{"after guard", shownAt, shownAt.Add(blurGuard + time.Millisecond), true},
+		{"later focus loss", shownAt, shownAt.Add(time.Hour), true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldDismissOnBlur(tt.shownAt, tt.now, tt.selectorOpen); got != tt.want {
+			if got := shouldDismissOnBlur(tt.shownAt, tt.now); got != tt.want {
 				t.Fatalf("shouldDismissOnBlur = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSelectorOpenStateIsGuardedAndRaceFree(t *testing.T) {
+func TestShouldDismissOnBlurIsRaceFree(t *testing.T) {
 	popup := &Popup{shownAt: time.Now().Add(-time.Hour)}
 
 	var wg sync.WaitGroup
@@ -375,7 +374,9 @@ func TestSelectorOpenStateIsGuardedAndRaceFree(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			popup.setSelectorOpen(true)
+			popup.mu.Lock()
+			popup.shownAt = time.Now()
+			popup.mu.Unlock()
 		}()
 		go func() {
 			defer wg.Done()
@@ -384,19 +385,10 @@ func TestSelectorOpenStateIsGuardedAndRaceFree(t *testing.T) {
 	}
 	wg.Wait()
 
-	popup.setSelectorOpen(true)
-	if popup.shouldDismissOnBlur(time.Now()) {
-		t.Fatal("must not dismiss while the translation selector has focus")
-	}
-	popup.setSelectorOpen(false)
-	if !popup.shouldDismissOnBlur(time.Now()) {
-		t.Fatal("must dismiss once the translation selector loses focus")
-	}
-}
-
-func TestSelectorEventNames(t *testing.T) {
-	if eventSelectorOpen != "lexicon:selector-open" || eventSelectorClosed != "lexicon:selector-closed" {
-		t.Fatalf("selector events = %q / %q, want lexicon:selector-open / lexicon:selector-closed", eventSelectorOpen, eventSelectorClosed)
+	// A focused in-webview control is not tracked: after the guard, any focus
+	// loss dismisses the popup.
+	if !popup.shouldDismissOnBlur(time.Now().Add(time.Hour)) {
+		t.Fatal("focus loss after the guard must dismiss")
 	}
 }
 

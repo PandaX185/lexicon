@@ -124,6 +124,23 @@ func TestRegisterPopupHooksDismissOnFocusLoss(t *testing.T) {
 	}
 }
 
+func TestWindowLostFocusRespectsEarlyBlurGuard(t *testing.T) {
+	window := &fakeWindow{}
+	quitter := &recordingQuitter{}
+	popup := &Popup{quitter: quitter, shownAt: time.Now()}
+
+	registerPopupHooks(window, quitter, popup)
+
+	focusLost := window.hook(events.Common.WindowLostFocus)
+	if focusLost == nil {
+		t.Fatalf("no WindowLostFocus hook registered; got %d hooks", len(window.hooks))
+	}
+	focusLost(nil)
+	if quitter.quits != 0 {
+		t.Fatalf("quits = %d inside the early-blur guard, want 0", quitter.quits)
+	}
+}
+
 func TestNewPopupUsesAppAsQuitter(t *testing.T) {
 	var app *application.App
 	popup := newPopup(app, nil, settings{}, newTestLogger(t), false)

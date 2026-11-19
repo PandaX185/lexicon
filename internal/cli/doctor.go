@@ -140,6 +140,7 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 		add("warn", "translation", engineName)
 	}
 	_ = translator.Close()
+	reportMissingPacks(effective, available, add)
 
 	if binary, ok := findPopupBinary(effective); ok {
 		add("ok", "popup", binary)
@@ -158,6 +159,20 @@ func (a *App) runDoctor(ctx context.Context, args []string) int {
 		return ExitFailure
 	}
 	return ExitOK
+}
+
+// reportMissingPacks warns when translation can run but there is no pack to
+// select. An unreadable model directory is already reported by the models
+// diagnostic, so a scan failure is not repeated here.
+func reportMissingPacks(cfg config.Config, available bool, add func(status, name, detail string)) {
+	if !cfg.Translation.Enabled || !available {
+		return
+	}
+	packs, err := translation.InstalledPacks(cfg.Translation.ModelDirectory)
+	if err != nil || len(packs) > 0 {
+		return
+	}
+	add("warn", "language packs", "no model packs installed; install one with `lexicon languages install`, then choose a pair in the popup")
 }
 
 func checkSocketPermissions(path string) (status, detail string) {

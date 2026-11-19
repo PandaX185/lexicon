@@ -3,6 +3,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -346,9 +347,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.syncFocus()
 		case "enter":
 			m.err = nil
-			configPath := strings.TrimSpace(m.configInput.Value())
-			if configPath == "" {
-				configPath = m.options.ConfigPath
+			configPath, err := validateConfigPath(m.configInput.Value(), m.options.ConfigPath)
+			if err != nil {
+				m.err = err
+				return m, nil
 			}
 			dictPath, err := validateDictionaryValue(m.ctx, m.dictionaryInput.Value())
 			if err != nil {
@@ -498,10 +500,14 @@ func (m *model) syncFocus() tea.Cmd {
 }
 
 func (m *model) showSummary() {
-	m.settings.ConfigPath = strings.TrimSpace(m.configInput.Value())
-	if m.settings.ConfigPath == "" {
-		m.settings.ConfigPath = m.options.ConfigPath
+	configPath, err := validateConfigPath(m.configInput.Value(), m.options.ConfigPath)
+	if err != nil {
+		m.planErr = err
+		m.applyErr = nil
+		m.screen = screenError
+		return
 	}
+	m.settings.ConfigPath = configPath
 	m.settings.SourceLang = languageOrEnglish(m.sourceInput.Value())
 	m.settings.TargetLang = languageOrEnglish(m.targetInput.Value())
 
@@ -564,6 +570,26 @@ func (m model) serviceAvailable() bool {
 		}
 	}
 	return true
+}
+
+// validateConfigPath expands a leading ~/ and rejects a directory. A missing
+// parent directory is allowed: the installer creates it with MkdirAll.
+func validateConfigPath(raw, fallback string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		value = strings.TrimSpace(fallback)
+	}
+	if value == "" {
+		return "", errors.New("configuration path cannot be empty")
+	}
+	expanded, err := paths.ExpandHome(value)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+		return "", fmt.Errorf("configuration path is a directory: %s", expanded)
+	}
+	return expanded, nil
 }
 
 // validateDictionaryValue expands a leading ~/ and checks that a supplied

@@ -76,6 +76,30 @@ func TestSetLanguagePairValidatesAndReportsPair(t *testing.T) {
 	}
 }
 
+func TestSetLanguagePairReportsActualAvailability(t *testing.T) {
+	modelDir := t.TempDir()
+	writePairPack(t, modelDir, "en-de", "en", "de")
+	configPath := writePairTestConfig(t, modelDir)
+
+	d, err := New(configPath, newTestLogger(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.closeResources()
+
+	initial := d.LanguagePairs()
+	state, err := d.SetLanguagePair(context.Background(), "en", "de")
+	if err != nil {
+		t.Fatalf("SetLanguagePair: %v", err)
+	}
+	if state.Available != initial.Available {
+		t.Fatalf("state.Available = %v, want the daemon's availability %v", state.Available, initial.Available)
+	}
+	if after := d.LanguagePairs(); after.Available != state.Available {
+		t.Fatalf("published availability = %v, want %v", after.Available, state.Available)
+	}
+}
+
 func TestSetLanguagePairKeepsSessionStateWithoutConfigWrite(t *testing.T) {
 	modelDir := t.TempDir()
 	writePairPack(t, modelDir, "de-en", "de", "en")

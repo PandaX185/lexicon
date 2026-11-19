@@ -129,16 +129,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 	started := time.Now()
 
-	// Resolve the pair before taking the read lock: LanguagePairs takes its own
-	// lock and a writer waiting in between would deadlock a nested RLock.
-	source, target := "", ""
-	if d.translator != nil && d.translator.Available() {
-		pair := d.LanguagePairs()
-		source, target = pair.Source, pair.Target
-	}
+	// LanguagePairs takes its own RLock. It completes before d.mu.RLock() below,
+	// so a writer waiting in between cannot deadlock a nested RLock.
+	pair := d.LanguagePairs()
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+	translator := d.translator
 
 	result := &ipc.LookupResult{
 		Query: strings.TrimSpace(raw),
@@ -191,8 +188,8 @@ func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 
 	result.Found = true
 	result.Entry = entry
-	if d.translator.Available() && source != "" && target != "" && source != target {
-		translated, translateErr := d.translator.Translate(ctx, normalized, source, target)
+	if pair.Available && translator != nil && translator.Available() && pair.Source != "" && pair.Target != "" && pair.Source != pair.Target {
+		translated, translateErr := translator.Translate(ctx, normalized, pair.Source, pair.Target)
 		if translateErr != nil {
 			result.TranslationError = translateErr.Error()
 		} else {

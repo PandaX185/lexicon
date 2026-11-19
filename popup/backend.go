@@ -23,8 +23,6 @@ const (
 	eventLanguagePairs   = "lexicon:language_pairs"
 	eventPairError       = "lexicon:pair_error"
 	eventSetLanguagePair = "lexicon:set-language-pair"
-	eventSelectorOpen    = "lexicon:selector-open"
-	eventSelectorClosed  = "lexicon:selector-closed"
 
 	dialRetryDelay  = 1500 * time.Millisecond
 	maxDialFailures = 12
@@ -78,11 +76,10 @@ type Popup struct {
 	// running Wails application. Production leaves it nil.
 	emitResult func(ipc.LookupResult)
 
-	mu           sync.Mutex
-	last         *ipc.LookupResult
-	connection   connectionState
-	shownAt      time.Time
-	selectorOpen bool
+	mu         sync.Mutex
+	last       *ipc.LookupResult
+	connection connectionState
+	shownAt    time.Time
 
 	clientMu  sync.Mutex
 	client    *ipc.Client
@@ -211,14 +208,6 @@ func (p *Popup) start(ctx context.Context) {
 		if relookup != nil {
 			p.handleResult(*relookup)
 		}
-	})
-	// The language-pair control holds focus while the user is cycling, so a
-	// focus change caused by interacting with it must not quit the popup.
-	p.app.Event.On(eventSelectorOpen, func(*application.CustomEvent) {
-		p.setSelectorOpen(true)
-	})
-	p.app.Event.On(eventSelectorClosed, func(*application.CustomEvent) {
-		p.setSelectorOpen(false)
 	})
 	go p.connectLoop(ctx)
 	go p.showWhenIdle(ctx)
@@ -385,27 +374,22 @@ func (p *Popup) show() {
 	p.window.Focus()
 }
 
-func (p *Popup) setSelectorOpen(open bool) {
-	p.mu.Lock()
-	p.selectorOpen = open
-	p.mu.Unlock()
-}
-
-// shouldDismissOnBlur is pure so the timing and selector guards can be tested
-// without a window. A zero shownAt means the popup was never displayed.
-func shouldDismissOnBlur(shownAt, now time.Time, selectorOpen bool) bool {
-	return !selectorOpen && !shownAt.IsZero() && now.Sub(shownAt) > blurGuard
+// shouldDismissOnBlur is pure so the early-blur guard can be tested without a
+// window. A zero shownAt means the popup was never displayed. The language-pair
+// control lives in the webview, so losing the whole window's focus is always a
+// dismissal after the guard, regardless of DOM focus.
+func shouldDismissOnBlur(shownAt, now time.Time) bool {
+	return !shownAt.IsZero() && now.Sub(shownAt) > blurGuard
 }
 
 func (p *Popup) shouldDismissOnBlur(now time.Time) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return shouldDismissOnBlur(p.shownAt, now, p.selectorOpen)
+	return shouldDismissOnBlur(p.shownAt, now)
 }
 
-// dismissOnBlur is called by the WindowLostFocus hook. The guards prevent an
-// immediate blur during show from closing the popup and keep it open while the
-// language-pair control has focus.
+// dismissOnBlur is called by the WindowLostFocus hook. The guard prevents an
+// immediate blur during show from closing the popup.
 func (p *Popup) dismissOnBlur() {
 	if p.shouldDismissOnBlur(time.Now()) {
 		dismissPopup(p.quitter, nil)

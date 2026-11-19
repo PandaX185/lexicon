@@ -137,7 +137,7 @@ function ResultView({
   const { respelling, ipa } = entry.pronunciation;
   const metadata = entry.metadata ?? {};
   const hasMetadata = Boolean(metadata.source || metadata.license);
-  const canCycle = Boolean(pairs?.enabled && pairs.pairs.length > 0);
+  const canCycle = Boolean(pairs?.enabled && pairs.available && pairs.pairs.length > 0);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">

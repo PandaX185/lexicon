@@ -591,6 +591,76 @@ func TestQuitKeys(t *testing.T) {
 	}
 }
 
+func TestValidateConfigPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	expanded, err := validateConfigPath(" ~/config.toml ", "/fallback/config.toml")
+	if err != nil {
+		t.Fatalf("expand home: %v", err)
+	}
+	if want := filepath.Join(home, "config.toml"); expanded != want {
+		t.Fatalf("config path = %q, want %s", expanded, want)
+	}
+
+	fallback, err := validateConfigPath("  ", filepath.Join(home, "default.toml"))
+	if err != nil || fallback != filepath.Join(home, "default.toml") {
+		t.Fatalf("fallback path = %q, %v", fallback, err)
+	}
+	if _, err := validateConfigPath("", ""); err == nil {
+		t.Fatal("empty config path must be rejected")
+	}
+
+	if _, err := validateConfigPath(t.TempDir(), ""); err == nil || !strings.Contains(err.Error(), "directory") {
+		t.Fatalf("directory path error = %v, want a directory rejection", err)
+	}
+
+	// The installer creates parent directories when it writes the config.
+	missing := filepath.Join(t.TempDir(), "not-created", "config.toml")
+	got, err := validateConfigPath(missing, "")
+	if err != nil || got != missing {
+		t.Fatalf("path with missing parent = %q, %v", got, err)
+	}
+}
+
+func TestPathsEnterRejectsConfigDirectory(t *testing.T) {
+	options := testOptions(t)
+	m := newModel(context.Background(), options)
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m.configInput.SetValue(t.TempDir())
+
+	m = press(t, m, keyEnter())
+
+	if m.screen != screenPaths {
+		t.Fatalf("screen = %d, want paths (err %v)", m.screen, m.err)
+	}
+	if m.err == nil || !strings.Contains(m.err.Error(), "directory") {
+		t.Fatalf("error = %v, want a directory rejection", m.err)
+	}
+	if m.settings.ConfigPath != options.ConfigPath {
+		t.Fatalf("config path = %q, want unchanged default %s", m.settings.ConfigPath, options.ConfigPath)
+	}
+}
+
+func TestExpandedConfigPathSurvivesSummary(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	m := newModel(context.Background(), testOptions(t))
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m.configInput.SetValue("~/config.toml")
+	m = press(t, m, keyEnter())
+	if m.screen != screenLanguages {
+		t.Fatalf("screen = %d, want languages (err %v)", m.screen, m.err)
+	}
+
+	m.showSummary()
+	if want := filepath.Join(home, "config.toml"); m.settings.ConfigPath != want {
+		t.Fatalf("summary config path = %q, want %s", m.settings.ConfigPath, want)
+	}
+}
+
 func TestConfigPathIsKeptWhenInputIsEmpty(t *testing.T) {
 	options := testOptions(t)
 	m := newModel(context.Background(), options)
