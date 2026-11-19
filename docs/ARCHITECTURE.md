@@ -55,10 +55,9 @@ module so the core build never needs WebKitGTK.
    `general.max_query_words` and `general.max_query_chars`.
 3. The dictionary store tries the headword, transliteration, and inflected form
    in that order. Definitions are read in `sense_order, id` order.
-4. If translation is enabled, available, and `translation.source_language`
-   differs from `translation.target_language`, the daemon attempts a best-effort
-   translation. A translation failure is reported separately and never discards
-   the definition.
+4. If translation is enabled, available, and the active session pair's source
+   differs from its target, the daemon attempts a best-effort translation. A
+   translation failure is reported separately and never discards the definition.
 5. The daemon replies to the requester, remembers found results for replay, and
    broadcasts a lookup event to subscribed popups.
 6. If no popup is subscribed and `popup.auto_launch` is enabled, the daemon may
@@ -85,6 +84,11 @@ swaps them under the write lock and closes the old ones.
 - The IPC server serializes writes per connection and multiplexes request IDs on
   the client side. A popup's event channel keeps the newest result if the
   frontend is slow.
+- The active translation pair is separate from the config-backed resources: the
+  daemon guards it with its own mutex, validates `set_language_pair` against
+  installed packs, and broadcasts `language_pairs_event`. It is session-only;
+  a restart selects the first installed pair. On a change the popup relooks up
+  its last query, so the displayed translation follows the selected pair.
 
 ## IPC and security
 
@@ -117,17 +121,17 @@ client roles. Details are in [IPC.md](IPC.md).
   auto-launch path keeps its replay and does not look up or translate twice.
   Closing the window or pressing Escape quits the popup process, so no popup
   stays resident after dismissal.
-- The window is frameless, solid, and resizable by dragging its edges. The
-  language chip stays visible above the result and its dropdown is no longer
-  tied to window focus. Appearance is read from `[popup]` at
-  startup: one of 20 built-in colour presets (10 dark, 10 light; `system`
-  follows the desktop light/dark preference) plus optional brand/status/footer
-  chrome. No theme files or downloads are involved. Go maps the preset to the
-  opaque window base colour to avoid a first-paint flash and sends the same
-  values to the frontend over `lexicon:settings`; the result view puts the
-  translation above the headword. Window transparency and backdrop blur were
-  deliberately omitted: WebKitGTK's `backdrop-filter` cannot reach other
-  X11/Wayland windows, so neither has a visible effect.
+- The window is frameless, solid, and resizable by dragging its edges. Appearance
+  is read from `[popup]` at startup: one of 20 built-in colour presets (10 dark,
+  10 light; `system` follows the desktop light/dark preference) plus optional
+  brand/status/footer chrome. No theme files or downloads are involved. Go maps
+  the preset to the opaque window base colour to avoid a first-paint flash and
+  sends the same values to the frontend over `lexicon:settings`. The result view
+  shows the headword, pronunciation, definitions, the translation of the queried
+  word (or its error), and then the installed source/destination codes with a
+  `Next` pair cycle. Window transparency and backdrop blur were deliberately
+  omitted: WebKitGTK's `backdrop-filter` cannot reach other X11/Wayland windows,
+  so neither has a visible effect.
 
 ## Build split
 

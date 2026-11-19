@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/PandaX185/lexicon/internal/ipc"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type recordingHandler struct {
@@ -110,15 +112,36 @@ func TestStartupLookupSkippedWhenDaemonHasReplay(t *testing.T) {
 
 type pairIPCHandler struct {
 	recordingHandler
-	state ipc.LanguagePairsState
+	state        ipc.LanguagePairsState
+	pairRequests [][2]string
 }
 
 func (h *pairIPCHandler) LanguagePairs() ipc.LanguagePairsState { return h.state }
 
 func (h *pairIPCHandler) SetLanguagePair(_ context.Context, source, target string) (ipc.LanguagePairsState, error) {
+	h.pairRequests = append(h.pairRequests, [2]string{source, target})
 	h.state.Source = source
 	h.state.Target = target
 	return h.state, nil
+}
+
+func TestSetLanguagePairEventCarriesRequestedPair(t *testing.T) {
+	if eventSetLanguagePair != "lexicon:set-language-pair" {
+		t.Fatalf("eventSetLanguagePair = %q, want lexicon:set-language-pair", eventSetLanguagePair)
+	}
+	events := []*application.CustomEvent{
+		{Name: eventSetLanguagePair, Data: json.RawMessage(`{"source":"en","target":"fr"}`)},
+		{Name: eventSetLanguagePair, Data: map[string]any{"source": "en", "target": "fr"}},
+	}
+	for _, event := range events {
+		var request setLanguagePairRequest
+		if err := decodeEventData(event, &request); err != nil {
+			t.Fatalf("decodeEventData(%T): %v", event.Data, err)
+		}
+		if request.Source != "en" || request.Target != "fr" {
+			t.Fatalf("request = %+v, want en/fr", request)
+		}
+	}
 }
 
 func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
@@ -126,7 +149,10 @@ func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 		Enabled: true,
 		Source:  "en",
 		Target:  "de",
-		Pairs:   []ipc.LanguagePair{{Source: "en", Target: "de", PackID: "en-de"}},
+		Pairs: []ipc.LanguagePair{
+			{Source: "en", Target: "de", PackID: "en-de"},
+			{Source: "en", Target: "fr", PackID: "en-fr"},
+		},
 	}}
 	path := startIPCServer(t, handler)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -141,12 +167,15 @@ func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 	popup := &Popup{logger: newTestLogger(t)}
 	popup.last = &ipc.LookupResult{Query: "hallo", Found: true}
 
-	state, result, err := popup.changeLanguagePair(ctx, client, setLanguagePairRequest{Source: "en", Target: "de"})
+	state, result, err := popup.changeLanguagePair(ctx, client, setLanguagePairRequest{Source: "en", Target: "fr"})
 	if err != nil {
 		t.Fatalf("changeLanguagePair: %v", err)
 	}
-	if state.Source != "en" || state.Target != "de" {
+	if state.Source != "en" || state.Target != "fr" {
 		t.Fatalf("state = %+v", state)
+	}
+	if got := handler.pairRequests; len(got) != 1 || got[0] != [2]string{"en", "fr"} {
+		t.Fatalf("pair requests = %q, want en/fr", got)
 	}
 	if result == nil || result.Query != "hallo" {
 		t.Fatalf("relookup result = %+v", result)

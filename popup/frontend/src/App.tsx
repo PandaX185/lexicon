@@ -8,7 +8,7 @@ import type {
   LookupResult,
   PairErrorMessage,
 } from "./types";
-import LanguagePairSelector from "./components/LanguagePairSelector";
+import TranslationPairCycle from "./components/TranslationPairCycle";
 
 const LOOKUP_EVENT = "lexicon:lookup";
 const CONNECTION_EVENT = "lexicon:connection";
@@ -66,20 +66,8 @@ export default function App() {
   const showStatus = settings?.show_status === true;
   const showFooter = settings?.show_footer === true;
 
-  const translationControl = pairs ? (
-    <LanguagePairSelector state={pairs} error={pairError} onChange={changePair} />
-  ) : pairError ? (
-    <p className="max-w-[28ch] break-words text-[10px] text-red-400">{pairError}</p>
-  ) : null;
-
   return (
     <main className="popup-card relative flex h-full flex-col text-ink">
-      {translationControl && !showHeader ? (
-        <div className="flex shrink-0 items-center justify-end border-b border-line px-5 py-2">
-          {translationControl}
-        </div>
-      ) : null}
-
       {showHeader ? (
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-5 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
@@ -88,10 +76,7 @@ export default function App() {
               Lexicon
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            {showStatus ? <ConnectionBadge connection={connection} /> : null}
-            {translationControl}
-          </div>
+          {showStatus ? <ConnectionBadge connection={connection} /> : null}
         </header>
       ) : null}
 
@@ -101,7 +86,13 @@ export default function App() {
       >
         {result ? (
           result.found && result.entry ? (
-            <ResultView result={result} entry={result.entry} />
+            <ResultView
+              result={result}
+              entry={result.entry}
+              pairs={pairs}
+              pairError={pairError}
+              changePair={changePair}
+            />
           ) : (
             <EmptyResult result={result} />
           )
@@ -124,36 +115,25 @@ export default function App() {
   );
 }
 
-function ResultView({ result, entry }: { result: LookupResult; entry: Entry }) {
+function ResultView({
+  result,
+  entry,
+  pairs,
+  pairError,
+  changePair,
+}: {
+  result: LookupResult;
+  entry: Entry;
+  pairs: LanguagePairsState | null;
+  pairError: string;
+  changePair: (source: string, target: string) => void;
+}) {
   const { respelling, ipa } = entry.pronunciation;
   const metadata = entry.metadata ?? {};
   const hasMetadata = Boolean(metadata.source || metadata.license);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      {result.translation ? (
-        <div
-          aria-label="Translation"
-          className="min-w-0 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3"
-        >
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
-            Translation
-          </div>
-          <p
-            className="text-[17px] leading-snug font-medium text-ink break-words"
-            dir="auto"
-          >
-            {result.translation}
-          </p>
-        </div>
-      ) : null}
-
-      {result.translation_error ? (
-        <p className="text-[11px] leading-relaxed text-faint break-words">
-          Translation unavailable: {result.translation_error}
-        </p>
-      ) : null}
-
       <div>
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <h1
@@ -216,6 +196,39 @@ function ResultView({ result, entry }: { result: LookupResult; entry: Entry }) {
       ) : (
         <p className="text-xs text-faint">No definitions are available.</p>
       )}
+
+      {result.translation ? (
+        <div
+          aria-label="Translation"
+          className="min-w-0 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3"
+        >
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+            Translation
+          </div>
+          <p
+            className="text-[17px] leading-snug font-medium text-ink break-words"
+            dir="auto"
+          >
+            {result.translation}
+          </p>
+        </div>
+      ) : null}
+
+      {result.translation_error ? (
+        <p className="text-[11px] leading-relaxed text-faint break-words">
+          Translation unavailable: {result.translation_error}
+        </p>
+      ) : null}
+
+      {pairs ? (
+        <TranslationPairCycle
+          state={pairs}
+          error={pairError}
+          onChange={changePair}
+        />
+      ) : pairError ? (
+        <p className="max-w-[28ch] break-words text-[10px] text-red-400">{pairError}</p>
+      ) : null}
 
       {hasMetadata ? (
         <p className="text-[10px] text-faint">

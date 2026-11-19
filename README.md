@@ -96,7 +96,7 @@ lexicon lookup --json hello
 | `lexicon config edit` | Edit configuration directly |
 | `lexicon languages list` | List translation packs |
 | `lexicon languages install ID` | Install a translation pack |
-| `lexicon languages use SRC-TGT` | Select a translation pair |
+| `lexicon languages use SRC-TGT` | Validate an installed translation pair |
 | `lexicon languages remove ID` | Remove a translation pack |
 | `lexicon version` | Show the installed version |
 

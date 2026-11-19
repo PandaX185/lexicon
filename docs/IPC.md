@@ -64,7 +64,11 @@ for unsolicited events.
 | `reload` | client → server | Re-read config and swap resources |
 | `ack` | server → client | Reload succeeded |
 | `ping` / `pong` | both | Liveness check |
-| `error` | server → client | Protocol or reload failure |
+| `language_pairs` | client → server | Query installed packs and the active session pair |
+| `language_pairs_result` | server → client | Reply with the `language_pairs` state |
+| `set_language_pair` | popup → server | Validate and activate a pair for the daemon session |
+| `language_pairs_event` | server → popup | Broadcast the state after a pair change |
+| `error` | server → client | Protocol, role, or request failure |
 
 ## Handshake
 
@@ -181,6 +185,42 @@ Translation is best-effort. A successful result may also contain
 ```
 
 Status never includes selected text or query contents.
+
+## Language pairs
+
+Daemons that support translation answer a `language_pairs` request with the
+installed pairs sorted by source and target code:
+
+```json
+{
+  "v": 1,
+  "type": "language_pairs_result",
+  "id": 5,
+  "language_pairs": {
+    "enabled": true,
+    "available": true,
+    "source": "en",
+    "target": "de",
+    "pairs": [
+      {"source": "en", "target": "de", "pack_id": "bergamot-en-de-tiny11"},
+      {"source": "en", "target": "es", "pack_id": "bergamot-en-es-tiny11"}
+    ]
+  }
+}
+```
+
+Only `popup` clients may send `set_language_pair`; other roles receive an
+`error` with code `role`. A valid request names an installed pair:
+
+```json
+{"v":1,"type":"set_language_pair","id":6,"source_language":"en","target_language":"es"}
+```
+
+The daemon replies with `language_pairs_result` and broadcasts the same state as
+a `language_pairs_event` (id `0`) to subscribed popups. The active pair is held
+in daemon memory for the current session: it is never written to configuration,
+and a restart falls back to the first installed pair. After a change, the popup
+relooks up its last query so the displayed translation uses the new pair.
 
 ## Reload
 

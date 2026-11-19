@@ -229,7 +229,7 @@ func (p *Popup) connectLoop(ctx context.Context) {
 		} else {
 			var protocolErr *ipc.ProtocolError
 			if errors.As(err, &protocolErr) && (protocolErr.Code == "unknown_type" || protocolErr.Code == "unsupported") {
-				p.pairErrorMessage("This popup needs a newer Lexicon daemon. Update Lexicon to use the language selector.")
+				p.pairErrorMessage("This popup needs a newer Lexicon daemon. Update Lexicon to use the language pair controls.")
 			}
 		}
 		requestStartupLookup(ctx, client, p.logger)

@@ -145,7 +145,8 @@ func (c *Client) LanguagePairs(ctx context.Context) (*LanguagePairsState, error)
 	return reply.LanguagePairs, nil
 }
 
-// SetLanguagePair persists a new active pair and returns the resulting state.
+// SetLanguagePair activates a new pair for the daemon session and returns the
+// resulting state. Nothing is written to configuration.
 func (c *Client) SetLanguagePair(ctx context.Context, source, target string) (*LanguagePairsState, error) {
 	reply, err := c.request(ctx, Message{
 		Type:           TypeSetLanguagePair,
