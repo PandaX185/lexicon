@@ -98,30 +98,6 @@ func dictionaryLocation(m model) string {
 	return "~/.local/share/lexicon/dictionary.sqlite"
 }
 
-func (m model) viewDictionary() (string, string) {
-	var b strings.Builder
-	b.WriteString("Dictionary\n\n")
-	if m.packagedPath != "" {
-		version := ""
-		if m.packagedVersion != "" {
-			version = " version " + m.packagedVersion
-		}
-		b.WriteString(okStyle.Render("Found packaged dictionary"))
-		b.WriteString(": ")
-		b.WriteString(m.packagedPath)
-		b.WriteString(version)
-		b.WriteString("\n\n")
-	} else {
-		b.WriteString(warnStyle.Render("No packaged dictionary found.") + " Download one from the releases page,\n")
-		b.WriteString("or leave this empty and configure it later.\n\n")
-	}
-	b.WriteString(m.dictionaryInput.View() + "\n")
-	if m.dictionaryErr != "" {
-		b.WriteString("\n" + failStyle.Render(m.dictionaryErr) + "\n")
-	}
-	return b.String(), "enter/tab  continue    esc  back"
-}
-
 func (m model) viewLanguages() (string, string) {
 	body := "Languages\n\n" +
 		labelStyle.Render("Headword language") + "\n" +

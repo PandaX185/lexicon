@@ -238,39 +238,52 @@ func TestExistingConfigCancelQuits(t *testing.T) {
 	}
 }
 
-func TestDictionaryScreenRejectsInvalidPath(t *testing.T) {
+func TestPathsScreenRejectsInvalidDictionaryPath(t *testing.T) {
 	m := newModel(context.Background(), testOptions(t))
-	m.screen = screenDictionary
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	m.dictionaryInput.SetValue(filepath.Join(t.TempDir(), "missing.sqlite"))
 	m = press(t, m, keyEnter())
-	if m.screen != screenDictionary {
-		t.Fatalf("screen = %d, want to stay on the dictionary screen", m.screen)
+	if m.screen != screenPaths {
+		t.Fatalf("screen = %d, want to stay on the paths screen", m.screen)
 	}
-	if m.dictionaryErr == "" {
+	if m.err == nil {
 		t.Fatal("expected a validation error")
+	}
+	if !strings.Contains(m.View(), m.err.Error()) {
+		t.Fatal("validation error must be visible on the paths screen")
+	}
+
+	m = press(t, m, keyEsc())
+	updated, _ = m.startPaths()
+	m = updated.(model)
+	if m.err != nil {
+		t.Fatalf("stale validation error after returning to paths: %v", m.err)
 	}
 }
 
-func TestDictionaryScreenAcceptsValidPath(t *testing.T) {
+func TestPathsScreenAcceptsValidDictionaryPath(t *testing.T) {
 	options := testOptions(t)
 	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
 	createDictionary(t, path)
 
 	m := newModel(context.Background(), options)
-	m.screen = screenDictionary
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	m.dictionaryInput.SetValue(path)
 	m = press(t, m, keyEnter())
 	if m.screen != screenLanguages {
-		t.Fatalf("screen = %d, want languages (err %q)", m.screen, m.dictionaryErr)
+		t.Fatalf("screen = %d, want languages (err %v)", m.screen, m.err)
 	}
 	if m.settings.Dictionary != path {
 		t.Fatalf("dictionary = %q, want %s", m.settings.Dictionary, path)
 	}
 }
 
-func TestDictionaryScreenAllowsEmpty(t *testing.T) {
+func TestPathsScreenAllowsEmptyDictionaryPath(t *testing.T) {
 	m := newModel(context.Background(), testOptions(t))
-	m.screen = screenDictionary
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	m.dictionaryInput.SetValue("")
 	m = press(t, m, keyEnter())
 	if m.screen != screenLanguages {
@@ -278,23 +291,6 @@ func TestDictionaryScreenAllowsEmpty(t *testing.T) {
 	}
 	if m.settings.Dictionary != "" {
 		t.Fatalf("dictionary = %q, want empty", m.settings.Dictionary)
-	}
-}
-
-func TestDictionaryScreenTabContinues(t *testing.T) {
-	options := testOptions(t)
-	path := filepath.Join(t.TempDir(), "dictionary.sqlite")
-	createDictionary(t, path)
-
-	m := newModel(context.Background(), options)
-	m.screen = screenDictionary
-	m.dictionaryInput.SetValue(path)
-	m = press(t, m, keyTab())
-	if m.screen != screenLanguages {
-		t.Fatalf("screen = %d, want languages (err %q)", m.screen, m.dictionaryErr)
-	}
-	if m.settings.Dictionary != path {
-		t.Fatalf("dictionary = %q, want %s", m.settings.Dictionary, path)
 	}
 }
 
@@ -491,7 +487,7 @@ func TestViewsRenderEveryScreen(t *testing.T) {
 		Checks:     []installer.Check{{Name: "dictionary", Status: installer.StatusFail, Detail: "broken"}},
 	}
 	for _, screen := range []screen{
-		screenWelcome, screenPreflight, screenExisting, screenPaths, screenDictionary,
+		screenWelcome, screenPreflight, screenExisting, screenPaths,
 		screenLanguages, screenAppearance, screenPacks, screenService, screenSummary,
 		screenProgress, screenDone, screenError,
 	} {
@@ -509,12 +505,6 @@ func TestEscapeNavigation(t *testing.T) {
 	m = press(t, m, keyEsc())
 	if m.screen != screenWelcome {
 		t.Fatalf("screen = %d, want welcome", m.screen)
-	}
-
-	m.screen = screenDictionary
-	m = press(t, m, keyEsc())
-	if m.screen != screenPaths {
-		t.Fatalf("screen = %d, want paths", m.screen)
 	}
 
 	m.screen = screenSummary
@@ -551,11 +541,12 @@ func TestDictionaryPathExpandsHome(t *testing.T) {
 	createDictionary(t, path)
 
 	m := newModel(context.Background(), testOptions(t))
-	m.screen = screenDictionary
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	m.dictionaryInput.SetValue("~/dictionary.sqlite")
 	m = press(t, m, keyEnter())
 	if m.screen != screenLanguages {
-		t.Fatalf("screen = %d, want languages (err %q)", m.screen, m.dictionaryErr)
+		t.Fatalf("screen = %d, want languages (err %v)", m.screen, m.err)
 	}
 	if m.settings.Dictionary != path {
 		t.Fatalf("dictionary = %q, want %s", m.settings.Dictionary, path)
@@ -653,8 +644,8 @@ func TestPathsEnterCommitsBothPathsAndSkipsDictionaryScreen(t *testing.T) {
 	if m.settings.Dictionary == "" || strings.HasPrefix(m.settings.Dictionary, "~") {
 		t.Fatalf("dictionary path must be expanded and committed: %q", m.settings.Dictionary)
 	}
-	if m.screen == screenDictionary {
-		t.Fatal("separate dictionary screen must be skipped")
+	if m.screen != screenLanguages {
+		t.Fatalf("screen = %d, want languages (no separate dictionary screen)", m.screen)
 	}
 }
 
@@ -714,7 +705,32 @@ func TestPathsViewShowsTabHint(t *testing.T) {
 	}
 }
 
-func TestDownloadURLSkipsDictionaryScreen(t *testing.T) {
+func TestPathsEnterAndEscapeWithoutURLReturnsToPaths(t *testing.T) {
+	options := testOptions(t) // no DictionaryURL: this is the default flow
+	m := newModel(context.Background(), options)
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m = press(t, m, keyEnter())
+	if m.screen != screenLanguages {
+		t.Fatalf("screen = %d, want languages", m.screen)
+	}
+	m = press(t, m, keyEsc())
+	if m.screen != screenPaths {
+		t.Fatalf("Esc from languages must return to paths, got %d", m.screen)
+	}
+}
+
+func TestAppearanceEscapeReturnsToPaths(t *testing.T) {
+	m := newModel(context.Background(), testOptions(t))
+	updated, _ := m.startAppearance()
+	m = updated.(model)
+	m = press(t, m, keyEsc())
+	if m.screen != screenPaths {
+		t.Fatalf("Esc from appearance must return to paths, got %d", m.screen)
+	}
+}
+
+func TestDownloadURLBackNavigationReturnsToPaths(t *testing.T) {
 	options := testOptions(t)
 	options.DictionaryURL = "https://example.invalid/en.sqlite"
 	options.DictionarySHA256 = strings.Repeat("0", 64)

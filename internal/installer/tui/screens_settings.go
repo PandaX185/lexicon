@@ -32,7 +32,7 @@ func (m model) updateAppearance(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
 	case "esc":
-		return m.startDictionary()
+		return m.startPaths()
 	case "up", "k":
 		m.appearanceField = (m.appearanceField + fieldCount - 1) % fieldCount
 		return m, m.syncFocus()

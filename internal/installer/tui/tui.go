@@ -25,7 +25,6 @@ const (
 	screenPreflight
 	screenExisting
 	screenPaths
-	screenDictionary
 	screenLanguages
 	screenAppearance
 	screenPacks
@@ -60,7 +59,6 @@ type model struct {
 
 	existingChoice int
 	replaceConfig  bool
-	dictionaryErr  string
 
 	appearance      installer.AppearanceSettings
 	appearanceField int
@@ -352,7 +350,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if configPath == "" {
 				configPath = m.options.ConfigPath
 			}
-			dictPath, err := validateDictionaryValue(m.dictionaryInput.Value())
+			dictPath, err := validateDictionaryValue(m.ctx, m.dictionaryInput.Value())
 			if err != nil {
 				m.err = err
 				return m, nil
@@ -370,32 +368,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
-	case screenDictionary:
-		switch key {
-		case "esc":
-			return m.startPaths()
-		case "enter", "tab":
-			expanded, err := validateDictionaryValue(m.dictionaryInput.Value())
-			if err != nil {
-				m.dictionaryErr = err.Error()
-				return m, nil
-			}
-			m.settings.Dictionary = expanded
-			m.dictionaryInput.SetValue(expanded)
-			m.dictionaryErr = ""
-			return m.startLanguages()
-		}
-		var cmd tea.Cmd
-		m.dictionaryInput, cmd = m.dictionaryInput.Update(msg)
-		return m, cmd
-
 	case screenLanguages:
 		switch key {
 		case "esc":
-			if m.options.DictionaryURL != "" {
-				return m.startPaths()
-			}
-			return m.startDictionary()
+			return m.startPaths()
 		case "tab", "shift+tab":
 			m.focus = 1 - m.focus
 			return m, m.syncFocus()
@@ -482,14 +458,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) startPaths() (tea.Model, tea.Cmd) {
 	m.screen = screenPaths
 	m.pathsField = pathFieldConfig
-	return m, m.syncFocus()
-}
-
-func (m model) startDictionary() (tea.Model, tea.Cmd) {
-	if m.options.DictionaryURL != "" {
-		return m.startLanguages()
-	}
-	m.screen = screenDictionary
+	m.err = nil
 	return m, m.syncFocus()
 }
 
@@ -510,8 +479,6 @@ func (m *model) syncFocus() tea.Cmd {
 			return m.dictionaryInput.Focus()
 		}
 		return m.configInput.Focus()
-	case screenDictionary:
-		return m.dictionaryInput.Focus()
 	case screenLanguages:
 		if m.focus == 0 {
 			return m.sourceInput.Focus()
@@ -602,7 +569,7 @@ func (m model) serviceAvailable() bool {
 // validateDictionaryValue expands a leading ~/ and checks that a supplied
 // dictionary path points at a usable SQLite dictionary. An empty value means
 // the dictionary will be configured later.
-func validateDictionaryValue(raw string) (string, error) {
+func validateDictionaryValue(ctx context.Context, raw string) (string, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
 		return "", nil
@@ -611,7 +578,7 @@ func validateDictionaryValue(raw string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := installer.ValidateDictionary(context.Background(), expanded); err != nil {
+	if err := installer.ValidateDictionary(ctx, expanded); err != nil {
 		return "", err
 	}
 	return expanded, nil
@@ -637,8 +604,6 @@ func (m model) View() string {
 		body, help = m.viewExisting()
 	case screenPaths:
 		body, help = m.viewPaths()
-	case screenDictionary:
-		body, help = m.viewDictionary()
 	case screenLanguages:
 		body, help = m.viewLanguages()
 	case screenAppearance:
@@ -673,8 +638,6 @@ func screenName(value screen) string {
 		return "existing"
 	case screenPaths:
 		return "paths"
-	case screenDictionary:
-		return "dictionary"
 	case screenLanguages:
 		return "languages"
 	case screenAppearance:
