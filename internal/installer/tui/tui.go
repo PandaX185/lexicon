@@ -79,6 +79,7 @@ type model struct {
 	plan     installer.Plan
 	planErr  error
 	applyErr error
+	err      error
 
 	progress   installer.Progress
 	progressCh chan installer.Progress
@@ -343,14 +344,22 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenPreflight
 			return m, nil
 		case "tab", "shift+tab":
-			if msg.String() == "tab" {
-				m.pathsField = (m.pathsField + 1) % 2
-			} else {
-				m.pathsField = (m.pathsField + 1) % 2
-			}
+			m.pathsField = (m.pathsField + 1) % 2
 			return m, m.syncFocus()
 		case "enter":
-			return m.startDictionary() // unchanged until Task 2
+			m.err = nil
+			configPath := strings.TrimSpace(m.configInput.Value())
+			if configPath == "" {
+				configPath = m.options.ConfigPath
+			}
+			dictPath, err := validateDictionaryValue(m.dictionaryInput.Value())
+			if err != nil {
+				m.err = err
+				return m, nil
+			}
+			m.settings.ConfigPath = configPath
+			m.settings.Dictionary = dictPath
+			return m.startLanguages()
 		default:
 			input := &m.configInput
 			if m.pathsField == pathFieldDictionary {
@@ -366,18 +375,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m.startPaths()
 		case "enter", "tab":
-			value := strings.TrimSpace(m.dictionaryInput.Value())
-			if value == "" {
-				m.settings.Dictionary = ""
-				m.dictionaryErr = ""
-				return m.startLanguages()
-			}
-			expanded, err := paths.ExpandHome(value)
+			expanded, err := validateDictionaryValue(m.dictionaryInput.Value())
 			if err != nil {
-				m.dictionaryErr = err.Error()
-				return m, nil
-			}
-			if err := installer.ValidateDictionary(m.ctx, expanded); err != nil {
 				m.dictionaryErr = err.Error()
 				return m, nil
 			}
@@ -598,6 +597,24 @@ func (m model) serviceAvailable() bool {
 		}
 	}
 	return true
+}
+
+// validateDictionaryValue expands a leading ~/ and checks that a supplied
+// dictionary path points at a usable SQLite dictionary. An empty value means
+// the dictionary will be configured later.
+func validateDictionaryValue(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", nil
+	}
+	expanded, err := paths.ExpandHome(value)
+	if err != nil {
+		return "", err
+	}
+	if err := installer.ValidateDictionary(context.Background(), expanded); err != nil {
+		return "", err
+	}
+	return expanded, nil
 }
 
 func languageOrEnglish(value string) string {

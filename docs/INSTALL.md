@@ -156,14 +156,14 @@ In a terminal, `lexicon-installer` opens a keyboard-driven wizard:
 2. **Preflight** — Wayland session, `wl-paste`, `systemctl`, writable config and
    data directories, the daemon and popup binaries, and a readable dictionary.
    Failures block installation; warnings do not.
-3. **Install paths** — the configuration file to write; `tab` also advances to
-   the dictionary path screen.
-4. **Dictionary** — a packaged dictionary is used in place; a local `.sqlite`
-   file is validated and copied to `$XDG_DATA_HOME/lexicon/dictionary.sqlite`.
-5. **Languages** — headword and definition tags, with optional translation.
-6. **Service** — install and start the systemd user service when it is available.
-7. **Summary** — every resolved action, including warnings and notes.
-8. **Progress and completion** — each step is reported, and failures roll back
+3. **Install paths** — edit the configuration file and dictionary path on one
+   screen; `tab` switches fields, and `enter` validates both paths and
+   continues. A packaged dictionary is used in place; a local `.sqlite` file is
+   validated and copied to `$XDG_DATA_HOME/lexicon/dictionary.sqlite`.
+4. **Languages** — headword and definition tags, with optional translation.
+5. **Service** — install and start the systemd user service when it is available.
+6. **Summary** — every resolved action, including warnings and notes.
+7. **Progress and completion** — each step is reported, and failures roll back
    the configuration, dictionary, and unit file before showing the error.
 
 Keys are shown at the bottom of each screen: `enter` advances, `esc` goes back,

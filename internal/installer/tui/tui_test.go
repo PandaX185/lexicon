@@ -633,27 +633,83 @@ func TestPathsTabCyclesFieldsWithoutAdvancingScreen(t *testing.T) {
 	}
 }
 
+func TestPathsEnterCommitsBothPathsAndSkipsDictionaryScreen(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	createDictionary(t, filepath.Join(home, "dict.sqlite"))
+
+	m := newModel(context.Background(), installer.Options{ConfigPath: "/tmp/c.toml"})
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m.configInput.SetValue("/custom/config.toml")
+	m.dictionaryInput.SetValue("~/dict.sqlite")
+
+	m, _ = pressReturnModel(t, m, keyTab())
+	m, _ = pressReturnModel(t, m, keyEnter())
+
+	if m.settings.ConfigPath != "/custom/config.toml" {
+		t.Fatalf("config path not committed: %q", m.settings.ConfigPath)
+	}
+	if m.settings.Dictionary == "" || strings.HasPrefix(m.settings.Dictionary, "~") {
+		t.Fatalf("dictionary path must be expanded and committed: %q", m.settings.Dictionary)
+	}
+	if m.screen == screenDictionary {
+		t.Fatal("separate dictionary screen must be skipped")
+	}
+}
+
 func TestPathsScreenTabAdvancesToDictionary(t *testing.T) {
 	options := testOptions(t)
 	m := newModel(context.Background(), options)
-	m.screen = screenPaths
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	custom := filepath.Join(t.TempDir(), "config.toml")
 	m.configInput.SetValue(custom)
 
 	m = press(t, m, keyTab())
 
-	if m.screen != screenDictionary {
-		t.Fatalf("screen = %d, want dictionary", m.screen)
+	if m.screen != screenPaths {
+		t.Fatalf("screen = %d, want paths", m.screen)
 	}
-	if m.settings.ConfigPath != custom {
-		t.Fatalf("config = %q, want %s", m.settings.ConfigPath, custom)
+	if m.pathsField != pathFieldDictionary || !m.dictionaryInput.Focused() {
+		t.Fatal("Tab must focus the dictionary field on the paths screen")
+	}
+	if m.configInput.Value() != custom {
+		t.Fatalf("config input = %q, want %s", m.configInput.Value(), custom)
+	}
+}
+
+func TestTypingAfterTabEditsDictionaryInput(t *testing.T) {
+	m := newModel(context.Background(), installer.Options{ConfigPath: "/tmp/c.toml"})
+	updated, _ := m.startPaths()
+	m = updated.(model)
+	m.configInput.SetValue("/custom/config.toml")
+
+	m, _ = pressReturnModel(t, m, keyTab())
+	for _, r := range "dict" {
+		m, _ = pressReturnModel(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	if m.dictionaryInput.Value() != "dict" {
+		t.Fatalf("dictionary input = %q, want keys routed after Tab", m.dictionaryInput.Value())
+	}
+	if m.configInput.Value() != "/custom/config.toml" {
+		t.Fatalf("config input changed while typing in the dictionary field: %q", m.configInput.Value())
+	}
+
+	m, _ = pressReturnModel(t, m, keyTab())
+	if m.pathsField != pathFieldConfig || !m.configInput.Focused() {
+		t.Fatal("second Tab must return focus to the config field")
+	}
+	if m.configInput.Value() != "/custom/config.toml" {
+		t.Fatalf("config value did not survive cycling: %q", m.configInput.Value())
 	}
 }
 
 func TestPathsViewShowsTabHint(t *testing.T) {
 	m := newModel(context.Background(), testOptions(t))
 	m.screen = screenPaths
-	if view := m.View(); !strings.Contains(view, "enter/tab") {
+	view := m.View()
+	if !strings.Contains(view, "tab  next field    enter  continue    esc  back") {
 		t.Fatalf("paths view does not show the tab hint:\n%s", view)
 	}
 }
@@ -663,7 +719,8 @@ func TestDownloadURLSkipsDictionaryScreen(t *testing.T) {
 	options.DictionaryURL = "https://example.invalid/en.sqlite"
 	options.DictionarySHA256 = strings.Repeat("0", 64)
 	m := newModel(context.Background(), options)
-	m.screen = screenPaths
+	updated, _ := m.startPaths()
+	m = updated.(model)
 	m = press(t, m, keyEnter())
 	if m.screen != screenLanguages {
 		t.Fatalf("screen = %d, want languages", m.screen)

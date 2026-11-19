@@ -67,13 +67,25 @@ func (m model) viewExisting() (string, string) {
 }
 
 func (m model) viewPaths() (string, string) {
+	configMarker, dictionaryMarker := "  ", "  "
+	if m.pathsField == pathFieldDictionary {
+		dictionaryMarker = "> "
+	} else {
+		configMarker = "> "
+	}
+	dictionaryInput := m.dictionaryInput
+	dictionaryInput.Placeholder = dictionaryLocation(m)
+
 	body := "Install paths\n\n" +
-		labelStyle.Render("Configuration file") + "\n" +
+		configMarker + labelStyle.Render("Configuration file") + "\n" +
 		m.configInput.View() + "\n\n" +
-		labelStyle.Render("Dictionary location") + "\n" +
-		valueStyle.Render(dictionaryLocation(m)) + "\n\n" +
+		dictionaryMarker + labelStyle.Render("Dictionary location") + "\n" +
+		dictionaryInput.View() + "\n\n" +
 		subtitleStyle.Render("A packaged dictionary is used in place; a local file is copied.")
-	return body, "enter/tab  continue    esc  back"
+	if m.err != nil {
+		body += "\n" + failStyle.Render(m.err.Error()) + "\n"
+	}
+	return body, "tab  next field    enter  continue    esc  back"
 }
 
 func dictionaryLocation(m model) string {
