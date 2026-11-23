@@ -29,7 +29,7 @@ source=("lexicon-$pkgver-linux-$_goarch.tar.gz::$url/releases/download/v$pkgver/
         "manifest.json::$url/releases/download/dictionary-3.0/manifest.json"
         "WORDNET.txt::$url/releases/download/dictionary-3.0/WORDNET.txt"
         "CMUDICT.txt::$url/releases/download/dictionary-3.0/CMUDICT.txt")
-sha256sums=('1816f230336bff487d3c228fa49d59853146be7e8958dcdf30a6cc85cfdcba82'
+sha256sums=('e1e9175b9530240940b2c69a53eacda9d44f748563c7010f0b8288df001abb81'
             '556973a4033d85d7ba7a778430064638129eed9f9e998ff7894b0eaf22778780'
             '7f962840a2aea9d4e03258207441ab4110face5392ef6ac6bfb7ba37fc3f37a0'
             '09ea11eb6c7cf946318d184fd4988da3d6ed1023dc5a3a67c91b9f9a6d588bb7'
