@@ -95,14 +95,31 @@ mapper.
 
 Input is first normalized, then resolved case-insensitively in this order:
 
-1. `entries.word = ?`
-2. `entries.transliteration = ?` (only when the column exists)
-3. `word_forms.form = ?` joined to `entries`, lowest `entries.id` first
+1. `entry_metadata.key = 'preferred_form:<query>'` joined to `entries`
+2. `entries.word = ?`
+3. `entries.transliteration = ?` (only when the column exists)
+4. `word_forms.form = ?` joined to `entries`, lowest `entries.id` first
+5. Separator variants of the query, each retried through steps 2–4
+
+The reference dictionary stores `preferred_form:*` metadata for a small set of
+collisions where an unrelated exact headword would otherwise win, so `ate`
+resolves to `eat`, `are` to `be`, and `flies` to `fly`. Separator variants
+replace `-` with a space, spaces with `-`, and remove both, so `ice-cream`,
+`high-school`, and `black board` resolve to their headwords. Variants are only
+tried after all direct lookups fail, and only when they match a real entry or
+form.
 
 Definitions are returned in `sense_order, id` order. Recognized parts of speech
 (`noun`, `verb`, `adjective`, `adverb`, `pronoun`, `preposition`,
 `conjunction`, `determiner`, `interjection`) are lowercased; anything else is
 reported as `other`.
+
+`word_forms` is generated at build time. Single-word entries get regular
+plurals, third-person forms, past tenses, gerunds, and adjective comparisons.
+Phrases and hyphenated entries get a plural for each inflectable segment, so
+`school bus`, `attorney general`, and `well-being` resolve their plurals too.
+A surface form that belongs to more than one headword keeps every mapping;
+lookup picks the headword with the lowest `entries.id`.
 
 ## Normalization
 
@@ -163,13 +180,19 @@ just dict-build WordNet-3.0/dict cmudict.dict
 `dict-build` writes `build/dictionaries/en.sqlite` by default; pass a third
 argument to choose another output path. The generated file is git-ignored.
 
+The importer embeds `tools/dictgen/irregular_supplement.txt` for common
+irregular pairs missing from WordNet's `*.exc` files (`women → woman`,
+`does/doing → do`, `going → go`) and a small `preferredForms` table for surface
+forms whose exact headword has unrelated senses. Both are build-time data, so
+changing them requires rebuilding and republishing the dictionary asset.
+
 Expected output for the inputs above:
 
 ```text
 entries         147806
 definitions     206918
-word_forms      113116   (313 ambiguous forms skipped)
-irregular forms   4967
+word_forms      258894   (322 forms shared by multiple headwords)
+irregular forms   4971
 ```
 
 The build is deterministic: the same inputs, importer, and SQLite version

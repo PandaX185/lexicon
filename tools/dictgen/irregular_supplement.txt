@@ -1,0 +1,5 @@
+# Common irregular forms missing from the WordNet 3.0 exception files.
+does do
+doing do
+going go
+women woman

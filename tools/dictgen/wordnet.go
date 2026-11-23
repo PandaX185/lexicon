@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -134,8 +135,13 @@ func parseExceptionFile(path string, emit func(inflected, base string) error) er
 		return err
 	}
 	defer func() { _ = file.Close() }()
+	return parseExceptionLines(file, emit)
+}
 
-	scanner := bufio.NewScanner(file)
+// parseExceptionLines parses the same "inflected base1 base2..." format from
+// any reader, including the embedded supplement.
+func parseExceptionLines(reader io.Reader, emit func(inflected, base string) error) error {
+	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

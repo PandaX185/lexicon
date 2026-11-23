@@ -30,8 +30,8 @@ source=("lexicon-$pkgver-linux-$_goarch.tar.gz::$url/releases/download/v$pkgver/
         "WORDNET.txt::$url/releases/download/dictionary-3.0/WORDNET.txt"
         "CMUDICT.txt::$url/releases/download/dictionary-3.0/CMUDICT.txt")
 sha256sums=('1816f230336bff487d3c228fa49d59853146be7e8958dcdf30a6cc85cfdcba82'
-            '4abacd0b88267af00bff88a731644bb3cc6a3c8f579729c2b69a405fdc03b458'
-            '7cf561d001f109101305d475f5d5b71bc48310c1668babd935aabeb4f3e2ef83'
+            '556973a4033d85d7ba7a778430064638129eed9f9e998ff7894b0eaf22778780'
+            '7f962840a2aea9d4e03258207441ab4110face5392ef6ac6bfb7ba37fc3f37a0'
             '09ea11eb6c7cf946318d184fd4988da3d6ed1023dc5a3a67c91b9f9a6d588bb7'
             'c47ab1d5adbb8927b1aabe805efd6b9e6699f31e8343cf7fe2b4479c92642c00')
 

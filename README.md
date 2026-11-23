@@ -6,13 +6,11 @@ Lexicon is a lightweight, offline dictionary for Linux Wayland desktops. Select 
 
 No browser tabs. No accounts. No cloud services. Just your dictionary, right where you need it.
 
+## Demo
 
-
+The finished 40-second showcase, with voice-over, is at `~/Lexicon Showcase.mp4` (4K, 40.7 s). It walks through the popup, language pairs, themes, CLI, and background service.
 
 https://github.com/user-attachments/assets/7323cd59-56a2-4ab7-8788-c44756e27b90
-
-
-
 
 ## Features
 

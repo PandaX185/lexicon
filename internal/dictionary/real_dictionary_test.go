@@ -20,8 +20,10 @@ func realDictionaryPath(t *testing.T) string {
 	}
 	candidates = append(candidates,
 		filepath.Join("testdata", "en.sqlite"),
-		// Local development convenience: the archived C++ tree keeps the
-		// generated WordNet asset beside the rewrite.
+		// Local development convenience: prefer the freshly generated asset.
+		filepath.Join("..", "..", "build", "dictionaries", "en.sqlite"),
+		// The archived C++ tree keeps an older generated asset beside the
+		// rewrite, so it is only a fallback.
 		filepath.Join("..", "..", "..", "lexicon-qt-archive", "data", "dictionaries", "en.sqlite"),
 	)
 	if dataHome := os.Getenv("XDG_DATA_HOME"); dataHome != "" {
@@ -103,6 +105,9 @@ func TestRealDictionary(t *testing.T) {
 		}{
 			{form: "went", word: "go"},
 			{form: "children", word: "child"},
+			{form: "leaves", word: "leave"},
+			{form: "ice creams", word: "ice cream"},
+			{form: "school buses", word: "school bus"},
 		}
 		for _, test := range tests {
 			entry, err := store.Lookup(ctx, test.form)
@@ -114,6 +119,30 @@ func TestRealDictionary(t *testing.T) {
 			}
 			if entry.MatchedForm != test.form {
 				t.Fatalf("matched form = %q, want %q", entry.MatchedForm, test.form)
+			}
+		}
+	})
+
+	t.Run("supplemented forms and lookup overrides", func(t *testing.T) {
+		tests := map[string]string{
+			"women":       "woman",
+			"does":        "DO",
+			"doing":       "DO",
+			"going":       "go",
+			"ate":         "eat",
+			"are":         "Be",
+			"flies":       "fly",
+			"ice-cream":   "ice cream",
+			"black board": "blackboard",
+			"high-school": "high school",
+		}
+		for query, want := range tests {
+			entry, err := store.Lookup(ctx, query)
+			if err != nil {
+				t.Fatalf("lookup %q: %v", query, err)
+			}
+			if entry.Word != want {
+				t.Fatalf("%q resolved to %q, want %q", query, entry.Word, want)
 			}
 		}
 	})
@@ -133,8 +162,8 @@ func TestRealDictionary(t *testing.T) {
 		if err != nil {
 			t.Fatalf("count rows: %v", err)
 		}
-		if entries != 147806 || definitions != 206918 || forms != 113116 {
-			t.Fatalf("row counts = %d entries, %d definitions, %d forms; want 147806, 206918, 113116",
+		if entries != 147806 || definitions != 206918 || forms != 258894 {
+			t.Fatalf("row counts = %d entries, %d definitions, %d forms; want 147806, 206918, 258894",
 				entries, definitions, forms)
 		}
 	})

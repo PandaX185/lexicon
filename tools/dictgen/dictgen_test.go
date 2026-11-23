@@ -89,8 +89,36 @@ func TestGeneratedForms(t *testing.T) {
 		},
 		{word: "go", parts: []string{"verb"}, want: nil},
 		{word: "a", parts: []string{"noun"}, want: nil},
-		{word: "domestic dog", parts: []string{"noun"}, want: nil},
-		{word: "café", parts: []string{"noun"}, want: nil},
+		{
+			word:  "domestic dog",
+			parts: []string{"noun"},
+			want: []generatedForm{
+				{form: "domestics dog", kind: "plural"},
+				{form: "domestic dogs", kind: "plural"},
+			},
+		},
+		{
+			word:  "attorney general",
+			parts: []string{"noun"},
+			want: []generatedForm{
+				{form: "attorneys general", kind: "plural"},
+				{form: "attorney generals", kind: "plural"},
+			},
+		},
+		{
+			word:  "T-shirt",
+			parts: []string{"noun"},
+			want: []generatedForm{
+				{form: "T-shirts", kind: "plural"},
+			},
+		},
+		{
+			word:  "café",
+			parts: []string{"noun"},
+			want: []generatedForm{
+				{form: "cafés", kind: "plural"},
+			},
+		},
 	}
 	for _, test := range tests {
 		parts := map[string]struct{}{}
@@ -105,6 +133,38 @@ func TestGeneratedForms(t *testing.T) {
 			if got[index] != test.want[index] {
 				t.Fatalf("generatedForms(%q)[%d] = %v, want %v", test.word, index, got[index], test.want[index])
 			}
+		}
+	}
+}
+
+func TestCollectFormRowsKeepsAmbiguousForms(t *testing.T) {
+	forms := newFormIndex()
+	forms.add("leaves", "leaf", "plural")
+	forms.add("leaves", "leave", "plural")
+	forms.add("bases", "base", "plural")
+	forms.add("bases", "basis", "irregular")
+
+	rows, ambiguous := collectFormRows(forms, map[string]int64{
+		"base":  1,
+		"basis": 2,
+		"leaf":  3,
+		"leave": 4,
+	})
+	want := []formRow{
+		{form: "leaves", entryID: 3, kind: "plural"},
+		{form: "leaves", entryID: 4, kind: "plural"},
+		{form: "bases", entryID: 1, kind: "plural"},
+		{form: "bases", entryID: 2, kind: "irregular"},
+	}
+	if ambiguous != 2 {
+		t.Fatalf("ambiguous = %d, want 2", ambiguous)
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("rows = %v, want %v", rows, want)
+	}
+	for index := range want {
+		if rows[index] != want[index] {
+			t.Fatalf("rows[%d] = %v, want %v", index, rows[index], want[index])
 		}
 	}
 }
@@ -156,7 +216,7 @@ func TestBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	want := Stats{Entries: 7, Definitions: 8, Forms: 9, AmbiguousForms: 0, ExceptionForms: 2}
+	want := Stats{Entries: 7, Definitions: 8, Forms: 12, AmbiguousForms: 0, ExceptionForms: 3}
 	if stats != want {
 		t.Fatalf("stats = %+v, want %+v", stats, want)
 	}
@@ -269,15 +329,18 @@ func TestBuild(t *testing.T) {
 	}
 	_ = rows.Close()
 	wantForms := map[string]string{
-		"children": "irregular:child",
-		"childs":   "plural:child",
-		"dogs":     "plural:dog",
-		"happier":  "comparative:happy",
-		"happiest": "superlative:happy",
-		"runned":   "past:run",
-		"running":  "gerund:run",
-		"runs":     "third_person:run",
-		"went":     "irregular:go",
+		"children":      "irregular:child",
+		"childs":        "plural:child",
+		"dogs":          "plural:dog",
+		"domestics dog": "plural:domestic dog",
+		"domestic dogs": "plural:domestic dog",
+		"going":         "irregular:go",
+		"happier":       "comparative:happy",
+		"happiest":      "superlative:happy",
+		"runned":        "past:run",
+		"running":       "gerund:run",
+		"runs":          "third_person:run",
+		"went":          "irregular:go",
 	}
 	if len(forms) != len(wantForms) {
 		t.Fatalf("forms = %v, want %d entries", forms, len(wantForms))
@@ -405,7 +468,7 @@ func TestBuildFullCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	want := Stats{Entries: 147806, Definitions: 206918, Forms: 113116, AmbiguousForms: 313, ExceptionForms: 4967}
+	want := Stats{Entries: 147806, Definitions: 206918, Forms: 258894, AmbiguousForms: 322, ExceptionForms: 4971}
 	if stats != want {
 		t.Fatalf("stats = %+v, want %+v", stats, want)
 	}
@@ -436,5 +499,30 @@ func TestBuildFullCorpus(t *testing.T) {
 	}
 	if entry.Word != "child" {
 		t.Fatalf("children resolved to %q", entry.Word)
+	}
+
+	phraseTests := map[string]string{
+		"leaves":            "leave",
+		"bases":             "base",
+		"ice creams":        "ice cream",
+		"school buses":      "school bus",
+		"attorneys general": "Attorney General",
+		"well-beings":       "well-being",
+		"women":             "woman",
+		"does":              "DO",
+		"doing":             "DO",
+		"going":             "go",
+		"ate":               "eat",
+		"are":               "Be",
+		"flies":             "fly",
+	}
+	for query, expected := range phraseTests {
+		entry, err = store.Lookup(context.Background(), query)
+		if err != nil {
+			t.Fatalf("lookup %q: %v", query, err)
+		}
+		if entry.Word != expected {
+			t.Fatalf("%q resolved to %q, want %q", query, entry.Word, expected)
+		}
 	}
 }

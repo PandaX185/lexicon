@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	_ "modernc.org/sqlite" // registers the pure-Go SQLite driver
@@ -16,6 +17,20 @@ import (
 
 //go:embed schema.sql
 var schemaSQL string
+
+//go:embed irregular_supplement.txt
+var irregularSupplement string
+
+// preferredForms maps a surface form to the headword whose sense should win
+// over an unrelated exact headword (for example "ate" over the goddess "Ate").
+var preferredForms = map[string]string{
+	"ate":   "eat",
+	"are":   "be",
+	"flies": "fly",
+	"does":  "do",
+	"doing": "do",
+	"going": "go",
+}
 
 const (
 	dictionaryName    = "WordNet English Dictionary"
@@ -87,11 +102,15 @@ func (index *entryIndex) getOrCreate(word string, cmudict map[string]string) *en
 
 type formIndex struct {
 	candidates map[string]map[string]string
+	baseOrder  map[string][]string
 	order      []string
 }
 
 func newFormIndex() *formIndex {
-	return &formIndex{candidates: map[string]map[string]string{}}
+	return &formIndex{
+		candidates: map[string]map[string]string{},
+		baseOrder:  map[string][]string{},
+	}
 }
 
 func (index *formIndex) add(form, key, kind string) {
@@ -104,6 +123,9 @@ func (index *formIndex) add(form, key, kind string) {
 		bases = map[string]string{}
 		index.candidates[canonical] = bases
 		index.order = append(index.order, canonical)
+	}
+	if _, exists := bases[key]; !exists {
+		index.baseOrder[canonical] = append(index.baseOrder[canonical], key)
 	}
 	bases[key] = kind
 }
@@ -199,6 +221,15 @@ func Build(ctx context.Context, options Options) (Stats, error) {
 
 	forms := newFormIndex()
 	stats := Stats{}
+	addIrregular := func(inflected, base string) error {
+		key := strings.ToLower(base)
+		if _, exists := entries.byKey[key]; !exists {
+			return nil
+		}
+		forms.add(inflected, key, "irregular")
+		stats.ExceptionForms++
+		return nil
+	}
 	for _, exception := range exceptionFiles {
 		path := filepath.Join(options.WordNetDir, exception.name)
 		info, statErr := os.Stat(path)
@@ -210,18 +241,12 @@ func Build(ctx context.Context, options Options) (Stats, error) {
 		case statErr != nil:
 			return Stats{}, fmt.Errorf("inspect %s: %w", path, statErr)
 		}
-		err := parseExceptionFile(path, func(inflected, base string) error {
-			key := strings.ToLower(base)
-			if _, exists := entries.byKey[key]; !exists {
-				return nil
-			}
-			forms.add(inflected, key, "irregular")
-			stats.ExceptionForms++
-			return nil
-		})
-		if err != nil {
+		if err := parseExceptionFile(path, addIrregular); err != nil {
 			return Stats{}, fmt.Errorf("read %s: %w", path, err)
 		}
+	}
+	if err := parseExceptionLines(strings.NewReader(irregularSupplement), addIrregular); err != nil {
+		return Stats{}, fmt.Errorf("read irregular supplement: %w", err)
 	}
 
 	for _, key := range entries.order {
@@ -231,8 +256,8 @@ func Build(ctx context.Context, options Options) (Stats, error) {
 		}
 	}
 
-	fmt.Fprintf(progress, "  %d irregular forms from WordNet exception files\n", stats.ExceptionForms)
-	fmt.Fprintf(progress, "  %d distinct inflected forms before ambiguity filtering\n", len(forms.order))
+	fmt.Fprintf(progress, "  %d irregular forms from exception files and supplement\n", stats.ExceptionForms)
+	fmt.Fprintf(progress, "  %d distinct inflected forms before writing\n", len(forms.order))
 
 	entryRows, definitionRows, metadataRows, entryIDs := collectEntryRows(entries)
 	formRows, ambiguous := collectFormRows(forms, entryIDs)
@@ -248,8 +273,19 @@ func Build(ctx context.Context, options Options) (Stats, error) {
 	}
 
 	fmt.Fprintf(progress, "Wrote %d entries and %d definitions to %s\n", stats.Entries, stats.Definitions, options.OutputPath)
-	fmt.Fprintf(progress, "Wrote %d inflected forms (%d ambiguous forms skipped)\n", stats.Forms, stats.AmbiguousForms)
+	fmt.Fprintf(progress, "Wrote %d inflected forms (%d forms with multiple headwords kept)\n", stats.Forms, stats.AmbiguousForms)
 	return stats, nil
+}
+
+func preferredFormsByBase() map[string][]string {
+	byBase := map[string][]string{}
+	for form, base := range preferredForms {
+		byBase[base] = append(byBase[base], form)
+	}
+	for _, forms := range byBase {
+		sort.Strings(forms)
+	}
+	return byBase
 }
 
 func collectEntryRows(entries *entryIndex) ([]entryRow, []definitionRow, []metadataRow, map[string]int64) {
@@ -259,6 +295,7 @@ func collectEntryRows(entries *entryIndex) ([]entryRow, []definitionRow, []metad
 	entryIDs := make(map[string]int64, len(entries.order))
 
 	var entryID, definitionID int64
+	preferred := preferredFormsByBase()
 	for _, key := range entries.order {
 		current := entries.byKey[key]
 
@@ -295,6 +332,13 @@ func collectEntryRows(entries *entryIndex) ([]entryRow, []definitionRow, []metad
 				value:   strings.Join(current.synonyms, ", "),
 			})
 		}
+		for _, form := range preferred[key] {
+			metadataRows = append(metadataRows, metadataRow{
+				entryID: entryID,
+				key:     "preferred_form:" + form,
+				value:   "",
+			})
+		}
 	}
 	return entryRows, definitionRows, metadataRows, entryIDs
 }
@@ -303,20 +347,21 @@ func collectFormRows(forms *formIndex, entryIDs map[string]int64) ([]formRow, in
 	formRows := make([]formRow, 0, len(forms.order))
 	ambiguous := 0
 	for _, form := range forms.order {
-		bases := forms.candidates[form]
-		if len(bases) != 1 {
+		baseKeys := forms.baseOrder[form]
+		if len(baseKeys) > 1 {
 			ambiguous++
-			continue
 		}
-		var baseKey, kind string
-		for key, candidateKind := range bases {
-			baseKey, kind = key, candidateKind
+		for _, baseKey := range baseKeys {
+			entryID, exists := entryIDs[baseKey]
+			if !exists {
+				continue
+			}
+			formRows = append(formRows, formRow{
+				form:    form,
+				entryID: entryID,
+				kind:    forms.candidates[form][baseKey],
+			})
 		}
-		entryID, exists := entryIDs[baseKey]
-		if !exists {
-			continue
-		}
-		formRows = append(formRows, formRow{form: form, entryID: entryID, kind: kind})
 	}
 	return formRows, ambiguous
 }

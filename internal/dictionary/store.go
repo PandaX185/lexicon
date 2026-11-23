@@ -164,13 +164,50 @@ func (s *Store) entryColumns(alias string) []string {
 	return columns
 }
 
-// Lookup resolves word in the same order as the C++ repository: exact
-// headword, Latin transliteration, then an inflected surface form.
+// Lookup resolves word in this order: a curated preferred-form override, an
+// exact headword, Latin transliteration, an inflected surface form, then
+// separator variants such as "ice-cream" and "black board".
 func (s *Store) Lookup(ctx context.Context, word string) (*Entry, error) {
 	if strings.TrimSpace(word) == "" {
 		return nil, ErrNotFound
 	}
 
+	if entry, err := s.lookupPreferred(ctx, word); err == nil {
+		return entry, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	if entry, err := s.lookupDirect(ctx, word); err == nil {
+		return entry, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	for _, variant := range separatorVariants(word) {
+		entry, err := s.lookupDirect(ctx, variant)
+		if err == nil {
+			return entry, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *Store) lookupPreferred(ctx context.Context, word string) (*Entry, error) {
+	if !s.schema.hasEntryMetadata {
+		return nil, ErrNotFound
+	}
+	columns := s.entryColumns("e")
+	query := `SELECT ` + strings.Join(columns, ", ") +
+		` FROM entry_metadata m JOIN entries e ON e.id = m.entry_id` +
+		` WHERE m.key = ? COLLATE NOCASE LIMIT 1`
+	return s.readEntry(ctx, columns, query, []any{preferredFormKey(word)}, "")
+}
+
+func (s *Store) lookupDirect(ctx context.Context, word string) (*Entry, error) {
 	columns := s.entryColumns("")
 	query := `SELECT ` + strings.Join(columns, ", ") + ` FROM entries WHERE word = ? COLLATE NOCASE LIMIT 1`
 	entry, err := s.readEntry(ctx, columns, query, []any{word}, "")
@@ -211,6 +248,36 @@ func (s *Store) Lookup(ctx context.Context, word string) (*Entry, error) {
 		return nil, err
 	}
 	return nil, ErrNotFound
+}
+
+func preferredFormKey(word string) string {
+	return "preferred_form:" + strings.ToLower(word)
+}
+
+func separatorVariants(word string) []string {
+	if !strings.ContainsAny(word, "- ") {
+		return nil
+	}
+	candidates := []string{
+		strings.ReplaceAll(word, "-", " "),
+		strings.ReplaceAll(word, " ", "-"),
+		strings.NewReplacer("-", "", " ", "").Replace(word),
+	}
+	variants := make([]string, 0, len(candidates))
+	seen := map[string]struct{}{strings.ToLower(word): {}}
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		key := strings.ToLower(candidate)
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		variants = append(variants, candidate)
+	}
+	return variants
 }
 
 func (s *Store) readEntry(ctx context.Context, columns []string, query string, args []any, matchedForm string) (*Entry, error) {
