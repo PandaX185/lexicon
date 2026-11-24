@@ -593,3 +593,37 @@ func TestChangeLanguagePairRelooksUpLastQuery(t *testing.T) {
 		t.Fatalf("lookups = %q, want last query relookup", got)
 	}
 }
+
+func TestPairChangeRelooksUpWhenQueryIsEmpty(t *testing.T) {
+	handler := &pairIPCHandler{state: ipc.LanguagePairsState{
+		Enabled: true,
+		Source:  "en",
+		Target:  "de",
+		Pairs: []ipc.LanguagePair{
+			{Source: "en", Target: "de", PackID: "en-de"},
+			{Source: "en", Target: "fr", PackID: "en-fr"},
+		},
+	}}
+	path := startIPCServer(t, handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := ipc.Dial(ctx, path, ipc.RolePopup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	popup := &Popup{logger: newTestLogger(t)}
+	// This is what a real daemon-launched popup receives: the selection was
+	// read by the daemon, so Query is empty and Normalized holds the word.
+	popup.last = &ipc.LookupResult{Query: "", Normalized: "hallo", Found: true}
+
+	if _, _, err := popup.changeLanguagePair(ctx, client, setLanguagePairRequest{Source: "en", Target: "fr"}); err != nil {
+		t.Fatalf("changeLanguagePair: %v", err)
+	}
+	got := handler.recorded()
+	if len(got) != 1 || got[0] != "hallo" {
+		t.Fatalf("lookups = %q, want exactly one relookup of %q", got, "hallo")
+	}
+}

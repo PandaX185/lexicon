@@ -152,6 +152,7 @@ func (d *Daemon) Lookup(ctx context.Context, raw string) *ipc.LookupResult {
 			return result
 		}
 		text = selected
+		result.Query = strings.TrimSpace(text)
 	}
 
 	normalized, err := dictionary.Prepare(text, d.cfg.General.MaxQueryWords, d.cfg.General.MaxQueryChars)

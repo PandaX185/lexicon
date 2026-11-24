@@ -18,6 +18,7 @@ import (
 	"github.com/PandaX185/lexicon/internal/config"
 	"github.com/PandaX185/lexicon/internal/dictionary"
 	"github.com/PandaX185/lexicon/internal/ipc"
+	"github.com/PandaX185/lexicon/internal/selection"
 	_ "modernc.org/sqlite"
 )
 
@@ -190,6 +191,36 @@ func TestLookupAndReloadAreRaceFree(t *testing.T) {
 		}
 	}
 	<-done
+}
+
+type fixedSelection struct{ text string }
+
+var _ selection.Provider = fixedSelection{}
+
+func (s fixedSelection) Name() string                            { return "test" }
+func (s fixedSelection) Primary(context.Context) (string, error) { return s.text, nil }
+
+func TestLookupRecordsPrimarySelectionAsQuery(t *testing.T) {
+	store, err := dictionary.Open(lookupTestDictionary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = store.Close() }()
+
+	d := &Daemon{
+		logger:    newTestLogger(t),
+		cfg:       config.Effective(config.Default()),
+		store:     store,
+		selection: fixedSelection{text: "go"},
+	}
+
+	result := d.Lookup(context.Background(), "")
+	if result.Query != "go" {
+		t.Fatalf("query = %q, want the PRIMARY selection %q", result.Query, "go")
+	}
+	if !result.Found {
+		t.Fatalf("result = %+v, want a found entry", result)
+	}
 }
 
 func TestLookupAttributesNeverIncludeText(t *testing.T) {

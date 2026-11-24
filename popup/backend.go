@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -163,6 +164,9 @@ func (p *Popup) lastQuery() string {
 	defer p.mu.Unlock()
 	if p.last == nil {
 		return ""
+	}
+	if strings.TrimSpace(p.last.Normalized) != "" {
+		return p.last.Normalized
 	}
 	return p.last.Query
 }
