@@ -24,6 +24,22 @@ compositor-specific shortcut guidance. Pack download failures are warnings with
 an exact `lexicon languages install ID` retry command; they do not roll back a
 working base install.
 
+## Updating
+
+Installed users can update without re-running the bootstrap:
+
+~~~sh
+lexicon update --check
+lexicon update
+~~~
+
+`lexicon update` downloads the latest stable release and the pinned
+`dictionary-3.0` assets, verifies every SHA-256 checksum, prompts before
+changing anything, swaps the four binaries and dictionary atomically, and
+restarts `lexicon.service`. It preserves your config, installed language packs,
+and systemd unit. Use `--version X.Y.Z` to install a specific release, `--yes`
+for scripts, and `--no-restart` if you will restart the service yourself.
+
 ## Prerequisites
 
 - Linux with a Wayland session (`WAYLAND_DISPLAY` set)

@@ -16,6 +16,13 @@ import (
 // UnitName is the per-user daemon unit.
 const UnitName = "lexicon.service"
 
+// Available reports whether systemctl is present. The per-user service is
+// optional, so a missing systemctl must not fail an otherwise valid update.
+func Available() bool {
+	_, err := exec.LookPath("systemctl")
+	return err == nil
+}
+
 // UnitPath returns $XDG_CONFIG_HOME/systemd/user/lexicon.service.
 func UnitPath() (string, error) {
 	base := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
@@ -96,6 +103,11 @@ func Install(ctx context.Context, unitPath, content string) error {
 // Enable starts the unit now and on future logins.
 func Enable(ctx context.Context) error {
 	return run(ctx, "enable", "--now", UnitName)
+}
+
+// Restart restarts the per-user daemon so a swapped binary takes effect.
+func Restart(ctx context.Context) error {
+	return run(ctx, "restart", UnitName)
 }
 
 // Reload asks the user manager to re-read unit files.

@@ -24,10 +24,11 @@ const (
 
 // App holds process streams and the resolved config path.
 type App struct {
-	Stdin      io.Reader
-	Stdout     io.Writer
-	Stderr     io.Writer
-	ConfigPath string
+	Stdin        io.Reader
+	Stdout       io.Writer
+	Stderr       io.Writer
+	ConfigPath   string
+	updateRunner updateRunnerInterface
 }
 
 // New returns an App bound to the process streams.
@@ -83,6 +84,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return a.runConfig(ctx, args[1:])
 	case "languages":
 		return a.runLanguages(ctx, args[1:])
+	case "update":
+		return a.runUpdate(ctx, args[1:])
 	case "doctor":
 		return a.runDoctor(ctx, args[1:])
 	default:
@@ -125,6 +128,7 @@ Usage:
   lexicon lookup [--json] [text...]
   lexicon config show|get|set|reset|edit|path
   lexicon languages list|install|remove|use
+  lexicon update [--check] [--version X.Y.Z] [--yes] [--no-restart] [--bin-dir PATH]
   lexicon doctor
   lexicon version
 
