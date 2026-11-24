@@ -29,7 +29,7 @@ Lexicon only reads the Wayland primary selection. Your clipboard is never read o
 On a Wayland desktop, install Lexicon using the bootstrap installer:
 
 ```sh
-bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.2.0/install.sh)
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.3.0/install.sh)
 ```
 
 The bootstrap verifies the release tarball, checksums, and pinned dictionary, installs the binaries into `~/.local/bin` (or `$XDG_BIN_HOME`), then launches the terminal installer. No root access is required. Run it in an interactive terminal so the installer can prompt you (piping through `sh` will exit early); if `~/.local/bin` is not on your `PATH`, the script tells you how to add it.
@@ -42,7 +42,15 @@ Check your installation:
 lexicon doctor
 ```
 
-See the [installation guide](docs/INSTALL.md) for package installation, manual installation, and distribution-specific instructions.
+Update an existing installation to the latest stable release with:
+
+```sh
+lexicon update
+```
+
+Use `lexicon update --check` to preview the available version without changing anything.
+
+See the [installation guide](docs/INSTALL.md) for package installation, manual installation, updating, and distribution-specific instructions.
 
 ## Using Lexicon
 
@@ -114,7 +122,7 @@ See [Offline translation](docs/TRANSLATION.md) for supported languages, model in
 The recommended option for most users:
 
 ```sh
-bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.2.0/install.sh)
+bash <(curl -fsSL https://github.com/PandaX185/lexicon/releases/download/v0.3.0/install.sh)
 ```
 
 ### Release tarball
@@ -129,8 +137,8 @@ checksums.sha256
 Verify the archive before extracting it:
 
 ```sh
-grep "lexicon-0.2.0-linux-amd64.tar.gz" checksums.sha256 | sha256sum -c -
-tar -xzf lexicon-0.2.0-linux-amd64.tar.gz
+grep "lexicon-0.3.0-linux-amd64.tar.gz" checksums.sha256 | sha256sum -c -
+tar -xzf lexicon-0.3.0-linux-amd64.tar.gz
 ```
 
 The English dictionary is distributed as a separate pinned asset. Follow the [installation guide](docs/INSTALL.md#install-from-a-release) for the complete procedure.
